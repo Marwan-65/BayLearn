@@ -31,3 +31,9 @@
 ```bash
    $ cp .env.example into .env
 ```
+
+- To run the app
+
+```bash
+   $ uvicorn main:app --reload --host 0.0.0.0 --port 3000
+```
