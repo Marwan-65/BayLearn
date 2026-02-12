@@ -10,4 +10,4 @@ base_router = APIRouter(
 def Welcome():
     app_name = os.getenv("APP_NAME")
     app_version = os.getenv("APP_VERSION")
-    return f"Welcome to FastAPI{app_name},{app_version}!"
+    return f"Welcome to FastAPI {app_name},{app_version}!"
