@@ -22,7 +22,7 @@ async def upload_file(project_id: str, file: UploadFile , app_settings: Settings
         )
     project_dir=ProjectController().make_project_dir(project_id=project_id)
     print(f"Project directory: {project_dir}")
-    normalized_filename = DataController().generate_random_filename(filename=file.filename,project_id=project_id)
+    normalized_filename,file_id= DataController().generate_random_filename(filename=file.filename,project_id=project_id)
     project_dir_path = os.path.join(project_dir, normalized_filename)
     # in case an error occurs during file writing, we catch it and return an appropriate response
     # but real causes will be in logs
@@ -39,6 +39,7 @@ async def upload_file(project_id: str, file: UploadFile , app_settings: Settings
     
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"message": Response_Signal.FILE_UPLOAD_SUCCESS.value}
+        content={"message": Response_Signal.FILE_UPLOAD_SUCCESS.value
+                ,"file_id": file_id}
     )
         
