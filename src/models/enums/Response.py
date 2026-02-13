@@ -1,4 +1,5 @@
 from enum import Enum
+
 class Response_Signal(Enum):
     
     FILE_EXTENSION_ERROR = "File not supported"
