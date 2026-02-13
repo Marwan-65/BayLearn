@@ -6,7 +6,8 @@ this should be done before importing any other modules that might use those envi
 from dotenv import load_dotenv
 load_dotenv(".env")
 """
-from routes import base
+from routes import base,data
 app = FastAPI()
 # this for telling the app to use the routes defined in base.py
 app.include_router(base.base_router)
+app.include_router(data.data_router)
