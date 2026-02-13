@@ -14,17 +14,25 @@ async def upload_file(project_id: str, file: UploadFile , app_settings: Settings
 # validate the file properties but as it is logic will be in controllers directory
     is_valid,result_signal = DataController().validate_file(file=file)
     if not is_valid:
-        
         return JSONResponse(
             status_code= status.HTTP_400_BAD_REQUEST,
             content={"message": result_signal}
         )
     project_dir=ProjectController().make_project_dir(project_id=project_id)
     print(f"Project directory: {project_dir}")
-    project_dir_path = os.path.join(project_dir, file.filename)
-    async with aiofiles.open(project_dir_path,"wb") as f :
-        while chunk := await file.read(app_settings.FILE_CHUNK_SIZE):
-            await f.write(chunk)
+    normalized_filename = DataController().generate_random_filename(filename=file.filename,project_id=project_id)
+    project_dir_path = os.path.join(project_dir, normalized_filename)
+    # in case an error occurs during file writing, we catch it and return an appropriate response
+    # but real causes will be in logs
+    try:
+        async with aiofiles.open(project_dir_path,"wb") as f :
+            while chunk := await file.read(app_settings.FILE_CHUNK_SIZE):
+                await f.write(chunk)
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": Response_Signal.FILE_UPLOAD_FAILED.value}
+        )
     
     return JSONResponse(
         status_code=status.HTTP_200_OK,
