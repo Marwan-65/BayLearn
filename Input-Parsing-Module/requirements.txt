@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+python-multipart
+PyMuPDF
+pytesseract
+Pillow
+openai-whisper
+opencv-python
+ffmpeg-python
