@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict 
-# define data specs to some validation on it
+
+# define data specs to some validation on it as you will not make it manually 
 class Settings(BaseSettings):
     APP_NAME:str
     APP_VERSION:str
