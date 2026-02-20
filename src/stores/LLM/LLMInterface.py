@@ -13,12 +13,12 @@ class LLMInterface(ABC):
     def set_generation_model(self,model_id:str):
         pass
     @abstractmethod
-    def set_embedding_model(self,model_id:str):
+    def set_embedding_model(self,model_id:str,embedding_size:int):
         pass
     @abstractmethod
     # the generate_text method is used to generate a response based on the input prompt, the maximum number of tokens to generate, and an optional temperature parameter that controls the randomness of the generated text.
     # after this function prompt will be sent to construct prompt to be formatted in a way that is suitable for the specific LLM being used and then the formatted prompt will be sent to the generate function of the LLM to generate the response based on the input prompt and the specified parameters.
-    def generate_text(self,prompt:str,max_tokens:int,temperature:float = None):
+    def generate_text(self,prompt:str,chat_history:list=[],max_output_tokens:int=None,temperature:float = None):
         pass
     @abstractmethod
     # the embed_text method is used to convert text into a vector representation that can be stored in a vector database and used for similarity search and other operations.
@@ -28,3 +28,4 @@ class LLMInterface(ABC):
     # the construct_prompt method is used to construct a prompt for generating a response based on the input prompt and the role of the user (e.g., system, user, assistant). This method can be used to format the prompt in a way that is suitable for the specific LLM being used.
     def construct_prompt(self,prompt: str, role: str):
         pass
+   
