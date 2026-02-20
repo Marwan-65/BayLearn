@@ -15,3 +15,7 @@
 # i need to know 
 # 1- how to connect to the db 2- how to get the chunks from the db 
 # when i have multiple types of thing and they use same thing we use factory design pattern 
+
+
+
+
