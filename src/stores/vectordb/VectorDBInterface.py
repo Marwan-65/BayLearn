@@ -30,7 +30,7 @@ class VectorDBInterface(ABC):
     def insert_many(self, collection_name: str, texts: List[str], vectors: List[list], metadatas: List[dict] = None, record_ids: List[str] = None,batch_size: int = 50):
         pass
     @abstractmethod
-    def search_by_vector(self, collection_name: str, query_vector: list, top_k: int = 5, metadata_filter: dict = None) -> List[dict]:
+    def search_by_vector(self, collection_name: str, query_vector: list, top_k: int = 5) -> List[dict]:
         pass
     
     
