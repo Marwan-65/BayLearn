@@ -1,31 +1,31 @@
 from fastapi import FastAPI
-from routes import base, data
+from mock.seed_data import seed_project
+from repositories.in_memory_chunk_repository import InMemoryChunkRepository
+from routes import base, data, nlp
 # from motor.motor_asyncio import AsyncIOMotorClient   # Commented out for local mock
 from helpers.config import get_settings
-from stores.llm.LLMProviderFactory import LLMProviderFactory
-from stores.llm.LLMEnums import LLMEnum, LLMBackendEnum, ChatRoleEnum
+from stores.LLM.LLMProviderFactory import LLMProviderFactory
+from stores.LLM.LLMEnum import LLMEnum, LLMBackendEnum
+from stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
 
 app = FastAPI()
 
-
 @app.on_event("startup")
-async def startup_db_client():
+async def startup_span():
     settings = get_settings()
 
     # ================= MOCK MongoDB =================
-    class MockDB:
-        def __getitem__(self, item):
-            return self
-    app.db_client = MockDB()
-    app.mongo_conn = MockDB()
+    chunk_repository = InMemoryChunkRepository()
+
+    await seed_project(chunk_repository)
     # ===============================================
 
     # Initialize LLM factory
     llm_factory = LLMProviderFactory(config=settings)
-
-    # 🔹 Generation client
+    vectorDBProviderFactory = VectorDBProviderFactory(config=settings)  
+    
+    # Generation client
     app.generation_client = llm_factory.create(LLMBackendEnum.LOCAL.value)
-
     generation_model_name = settings.GENERATION_MODEL_ID.lower()
     if generation_model_name not in [LLMEnum.LLAMA_2.value, LLMEnum.MISTRAL.value]:
         raise ValueError(
@@ -33,20 +33,23 @@ async def startup_db_client():
         )
     app.generation_client.set_generation_model(model_id=generation_model_name)
 
-    # 🔹 Embedding client
+    # Embedding client
     app.embedding_client = llm_factory.create(LLMBackendEnum.LOCAL.value)
     app.embedding_client.set_embedding_model(
         model_id=settings.EMBEDDING_MODEL_ID,
         embedding_size=settings.EMBEDDING_MODEL_SIZE,
     )
-
-
+    
+    # vector db client
+    app.vector_db_client = vectorDBProviderFactory.create(provider=settings.VECTOR_DB_BACKEND)
+    app.vector_db_client.connect() 
+    
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown_span():
     # No real MongoDB, skip closing
-    pass
-
+    app.vector_db_client.disconnect()  # Disconnect vector DB client if needed
 
 # Routers
 app.include_router(base.base_router)
 app.include_router(data.data_router)
+app.include_router(nlp.nlp_router)
