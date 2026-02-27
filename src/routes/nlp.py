@@ -156,3 +156,48 @@ async def get_nlp_index_info(
             "collection_info": collection_info
         }
     )
+@nlp_router.post("/ask/{project_id}")
+async def ask_question(
+        project_id: str,
+        request: Request,
+        search_request: searchRequest
+    ):
+
+        controller = NLPController(
+            vectordb_client=request.app.vectordb_client,
+            generation_client=request.app.generation_client,
+            embedding_client=request.app.embedding_client,
+            chunk_repository=request.app.chunk_repository
+        )
+
+        project = await controller.validate_project(project_id)
+
+        if not project:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value
+                }
+            )
+
+        response = await controller.generate_augmented_answer(
+            project_id=project_id,
+            question=search_request.text,
+            top_k=search_request.limit
+        )
+
+        if not response:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "signal": Response_Signal.AUGMENTED_ANSWER_FAILURE.value
+                }
+            )
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "signal": Response_Signal.AUGMENTED_ANSWER_SUCCESS.value,
+                "data": response
+            }
+        )
