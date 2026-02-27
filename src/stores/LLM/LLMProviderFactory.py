@@ -7,7 +7,6 @@ class LLMProviderFactory:
         self.config = config
 
     def create(self, provider: str):
-
         if provider == "LOCAL":
             return LocalProvider(
                 default_input_max_characters=self.config.INPUT_DEFAULT_MAX_CHARACTERS,

@@ -81,6 +81,7 @@ class QdrantDB(VectorDBInterface):
             collection_name=collection_name,
             records=[
                 models.Record(
+                    id = [record_id] if record_id else None,
                     vector=vector,
                     payload={
                         "text": text,
@@ -106,7 +107,7 @@ class QdrantDB(VectorDBInterface):
             return True
 
         if record_ids is None:
-            record_ids = [None] * len(texts)
+            record_ids = list(range(0,len(texts))) 
 
         if metadata is None:
             metadata = [None] * len(texts)
@@ -114,19 +115,21 @@ class QdrantDB(VectorDBInterface):
         if not (len(texts) == len(vectors) == len(metadata) == len(record_ids)):
             self.logger.error("Length mismatch among texts, vectors, metadata, and record_ids.")
             return False
-
+        
         try:
             for i in range(0, len(texts), batch_size):
                 batch_end = min(i + batch_size, len(texts))
                 batch_texts = texts[i:batch_end]
                 batch_vectors = vectors[i:batch_end]
                 batch_metadatas = metadata[i:batch_end]
+                batch_record_ids = record_ids[i:batch_end]
                 batch_records = [
                     models.Record(
                         vector=batch_vectors[x],
                         payload={
                             "text": batch_texts[x],
-                            "metadata": batch_metadatas[x]
+                            "metadata": batch_metadatas[x],
+                            "record_id": batch_record_ids[x]
                         }
                     )
                     for x in range(len(batch_texts))
