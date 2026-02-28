@@ -20,7 +20,4 @@ class ParsedContent(BaseModel):
     source_type: str
     title: Optional[str]
     sections: List[Section]
-    keywords: List[str]
-    difficulty_level: Optional[str]
-    estimated_duration: Optional[int]
     total_chunks: int = 0  # Total number of chunks across all sections
