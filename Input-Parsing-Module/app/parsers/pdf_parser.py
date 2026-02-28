@@ -1,8 +1,9 @@
 import fitz
-import pdfplumber
 import uuid
 import os
 import re
+import csv
+from img2table.document import PDF as Img2TablePDF
 from app.parsers.base_parser import BaseParser
 from app.models.unified_content_schema import ParsedContent
 
@@ -63,27 +64,27 @@ class PDFParser(BaseParser):
             return {"max_chunk_size": 1200, "overlap": 120, "min_chunk_size": 220}
         return {"max_chunk_size": 2200, "overlap": 250, "min_chunk_size": 500}
 
-    def detect_footer_texts(self, all_sections, footer_threshold=0.15):
-        """Detect repeated footer texts at bottom of pages."""
-        footer_candidates = {}
-        for section in all_sections:
-            text_blocks = [block for block in section.get("blocks", []) if block.get("type") == "text" and block.get("bbox")]
-            if not text_blocks:
-                continue
-            page_height = next((block.get("bbox")[3] for block in text_blocks if block.get("bbox")), None)
-            if not page_height:
-                continue
-            footer_region_threshold = page_height * (1 - footer_threshold)
-            for block in text_blocks:
-                bbox = block.get("bbox")
-                if bbox:
-                    y0, y1 = bbox[1], bbox[3]
-                    if y0 >= footer_region_threshold:
-                        text = block.get("content", "").strip()
-                        if text and len(text) < 100:
-                            normalized = text.lower()
-                            footer_candidates[normalized] = footer_candidates.get(normalized, 0) + 1
-        return {text for text, count in footer_candidates.items() if count >= 2}
+    # def detect_footer_texts(self, all_sections, footer_threshold=0.15):
+    #     """Detect repeated footer texts at bottom of pages."""
+    #     footer_candidates = {}
+    #     for section in all_sections:
+    #         text_blocks = [block for block in section.get("blocks", []) if block.get("type") == "text" and block.get("bbox")]
+    #         if not text_blocks:
+    #             continue
+    #         page_height = next((block.get("bbox")[3] for block in text_blocks if block.get("bbox")), None)
+    #         if not page_height:
+    #             continue
+    #         footer_region_threshold = page_height * (1 - footer_threshold)
+    #         for block in text_blocks:
+    #             bbox = block.get("bbox")
+    #             if bbox:
+    #                 y0, y1 = bbox[1], bbox[3]
+    #                 if y0 >= footer_region_threshold:
+    #                     text = block.get("content", "").strip()
+    #                     if text and len(text) < 100:
+    #                         normalized = text.lower()
+    #                         footer_candidates[normalized] = footer_candidates.get(normalized, 0) + 1
+        # return {text for text, count in footer_candidates.items() if count >= 2}
 
     def bbox_overlap(self, bbox1, bbox2, threshold=0.5):
         """Check if two bounding boxes overlap significantly."""
@@ -103,6 +104,53 @@ class PDFParser(BaseParser):
     def preprocess(self, file_path):
         return file_path
 
+    def _normalize_table_rows(self, rows):
+        normalized_rows = []
+        for row in rows or []:
+            normalized_rows.append([
+                "" if cell is None else str(cell)
+                for cell in row
+            ])
+        return normalized_rows
+
+    def _extract_img2table_bbox(self, table):
+        bbox = getattr(table, "bbox", None)
+        if not bbox:
+            return None
+        if isinstance(bbox, (tuple, list)) and len(bbox) == 4:
+            return tuple(bbox)
+
+        x1 = getattr(bbox, "x1", None)
+        y1 = getattr(bbox, "y1", None)
+        x2 = getattr(bbox, "x2", None)
+        y2 = getattr(bbox, "y2", None)
+        if None in (x1, y1, x2, y2):
+            return None
+        return (x1, y1, x2, y2)
+
+    def _group_tables_by_page(self, extracted_tables):
+        grouped_tables = {}
+        if isinstance(extracted_tables, dict):
+            for key, tables in extracted_tables.items():
+                try:
+                    page_number = int(key)
+                except (TypeError, ValueError):
+                    continue
+                if page_number == 0:
+                    page_number = 1
+                grouped_tables[page_number] = tables or []
+            return grouped_tables
+
+        for table in extracted_tables or []:
+            page_number = getattr(table, "page", None)
+            if page_number is None:
+                continue
+            if page_number == 0:
+                page_number = 1
+            grouped_tables.setdefault(page_number, []).append(table)
+
+        return grouped_tables
+
     def extract(self, file_path):
         doc = fitz.open(file_path)
         sections = []
@@ -110,98 +158,109 @@ class PDFParser(BaseParser):
         extracted_xrefs = set()  # Track unique images across all pages
         os.makedirs("extracted_tables", exist_ok=True)  # Folder for CSVs
 
-        with pdfplumber.open(file_path) as plumber_pdf:
-            for page_number, page in enumerate(doc, start=1):
-                blocks = []
-                text_dict = page.get_text("dict")
+        img2table_pdf = Img2TablePDF(src=file_path)
+        extracted_tables = img2table_pdf.extract_tables(
+            ocr=None,
+            implicit_rows=True,
+            implicit_columns=True,
+            borderless_tables=True
+        )
+        page_tables = self._group_tables_by_page(extracted_tables)
 
-                # ----------------- TABLES -----------------
-                table_bboxes = []
-                plumber_page = plumber_pdf.pages[page_number - 1]
-                pdfplumber_tables = plumber_page.find_tables()
+        for page_number, page in enumerate(doc, start=1):
+            blocks = []
+            text_dict = page.get_text("dict")
 
-                for idx, table in enumerate(pdfplumber_tables):
-                    table_data = table.extract()
-                    if table_data:
-                        csv_path = f"extracted_tables/page{page_number}_table{idx}.csv"
-                        import csv
-                        with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                            writer = csv.writer(f)
-                            for row in table_data:
-                                writer.writerow(row)
+            # ----------------- TABLES -----------------
+            table_bboxes = []
+            img2table_tables = page_tables.get(page_number, [])
 
-                        markdown_table = self.convert_table_to_markdown(table_data)
-                        table_bbox = tuple(table.bbox) if getattr(table, "bbox", None) else None
-                        if table_bbox:
-                            table_bboxes.append(table_bbox)
+            for idx, table in enumerate(img2table_tables):
+                df = getattr(table, "df", None)
+                if df is not None:
+                    table_data = self._normalize_table_rows(df.values.tolist())
+                else:
+                    table_data = self._normalize_table_rows(getattr(table, "content", []))
 
-                        blocks.append({
-                            "id": str(uuid.uuid4()),
-                            "type": "table",
-                            "content": table_data,
-                            "embedding_ready_text": markdown_table,
-                            "bbox": table_bbox,
-                            "csv_path": csv_path  # Save path for reference
-                        })
+                if table_data:
+                    csv_path = f"extracted_tables/page{page_number}_table{idx}.csv"
+                    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                        writer = csv.writer(f)
+                        for row in table_data:
+                            writer.writerow(row)
 
-                # TEXT BLOCKS
-                for block in text_dict.get("blocks", []):
-                    if block["type"] == 0:
-                        block_bbox = block.get("bbox")
-                        is_table_content = any(self.bbox_overlap(block_bbox, tb) for tb in table_bboxes)
-                        if not is_table_content:
-                            text = " ".join(span["text"] for line in block["lines"] for span in line["spans"])
-                            cleaned = self.clean_text(text)
-                            if cleaned:
-                                blocks.append({
-                                    "id": str(uuid.uuid4()),
-                                    "type": "text",
-                                    "content": cleaned,
-                                    "embedding_ready_text": cleaned,
-                                    "bbox": block_bbox
-                                })
+                    markdown_table = self.convert_table_to_markdown(table_data)
+                    table_bbox = self._extract_img2table_bbox(table)
+                    if table_bbox:
+                        table_bboxes.append(table_bbox)
 
-                # IMAGES
-                img_counter = 0
-                for img in page.get_images(full=True):
-                    xref = img[0]
-                    # Skip if we've already extracted this image
-                    if xref in extracted_xrefs:
-                        continue
-                    extracted_xrefs.add(xref)
-                
-                    pix = fitz.Pixmap(doc, xref)
-                    
-                    # Handle CMYK images by converting to RGB
-                    if pix.colorspace and pix.colorspace.n == 4:  # CMYK
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
-                    
-                    image_path = f"extracted_images/page{page_number}_{img_counter}.png"
-                    pix.save(image_path)
-                    img_counter += 1
-                    
                     blocks.append({
                         "id": str(uuid.uuid4()),
-                        "type": "image",
-                        "content": image_path,
-                        "embedding_ready_text": f"Image located on page {page_number}",
-                        "bbox": None
+                        "type": "table",
+                        "content": table_data,
+                        "embedding_ready_text": markdown_table,
+                        "bbox": table_bbox,
+                        "csv_path": csv_path  # Save path for reference
                     })
 
-                sections.append({
+            # TEXT BLOCKS
+            for block in text_dict.get("blocks", []):
+                if block["type"] == 0:
+                    block_bbox = block.get("bbox")
+                    is_table_content = any(self.bbox_overlap(block_bbox, tb) for tb in table_bboxes)
+                    if not is_table_content:
+                        text = " ".join(span["text"] for line in block["lines"] for span in line["spans"])
+                        cleaned = self.clean_text(text)
+                        if cleaned:
+                            blocks.append({
+                                "id": str(uuid.uuid4()),
+                                "type": "text",
+                                "content": cleaned,
+                                "embedding_ready_text": cleaned,
+                                "bbox": block_bbox
+                            })
+
+            # IMAGES
+            img_counter = 0
+            for img in page.get_images(full=True):
+                xref = img[0]
+                # Skip if we've already extracted this image
+                if xref in extracted_xrefs:
+                    continue
+                extracted_xrefs.add(xref)
+
+                pix = fitz.Pixmap(doc, xref)
+
+                # Handle CMYK images by converting to RGB
+                if pix.colorspace and pix.colorspace.n == 4:  # CMYK
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+
+                image_path = f"extracted_images/page{page_number}_{img_counter}.png"
+                pix.save(image_path)
+                img_counter += 1
+
+                blocks.append({
                     "id": str(uuid.uuid4()),
-                    "heading": f"Page {page_number}",
-                    "page": page_number,
-                    "blocks": blocks
+                    "type": "image",
+                    "content": image_path,
+                    "embedding_ready_text": f"Image located on page {page_number}",
+                    "bbox": None
                 })
 
-        # Remove footers
-        detected_footers = self.detect_footer_texts(sections)
-        for section in sections:
-            section["blocks"] = [
-                block for block in section["blocks"]
-                if not (block.get("type") == "text" and block.get("content", "").lower() in detected_footers)
-            ]
+            sections.append({
+                "id": str(uuid.uuid4()),
+                "heading": f"Page {page_number}",
+                "page": page_number,
+                "blocks": blocks
+            })
+
+        # # Remove footers
+        # detected_footers = self.detect_footer_texts(sections)
+        # for section in sections:
+        #     section["blocks"] = [
+        #         block for block in section["blocks"]
+        #         if not (block.get("type") == "text" and block.get("content", "").lower() in detected_footers)
+        #    ]
 
         return {"sections": sections, "metadata": doc.metadata}
 
@@ -296,8 +355,5 @@ class PDFParser(BaseParser):
             source_type="pdf",
             title=raw_data["metadata"].get("title", "PDF Document"),
             sections=structured_sections,
-            keywords=[],
-            difficulty_level="Intermediate",
-            estimated_duration=None,
             total_chunks=total_chunks
         )

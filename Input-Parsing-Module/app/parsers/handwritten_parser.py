@@ -19,8 +19,5 @@ class HandwrittenParser(BaseParser):
                 "heading": "Extracted Text",
                 "content": raw_text,
                 "page": 1
-            }],
-            keywords=[],
-            difficulty_level=None,
-            estimated_duration=None
+            }]
         )

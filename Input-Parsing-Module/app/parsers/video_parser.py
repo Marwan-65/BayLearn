@@ -27,8 +27,5 @@ class VideoParser(BaseParser):
                 "heading": "Transcript",
                 "content": raw_text,
                 "page": None
-            }],
-            "keywords": [],
-            "difficulty_level": None,
-            "estimated_duration": None
+            }]
         }

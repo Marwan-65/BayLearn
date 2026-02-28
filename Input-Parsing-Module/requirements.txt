@@ -8,3 +8,4 @@ Pillow
 openai-whisper
 opencv-python
 ffmpeg-python
+img2table
