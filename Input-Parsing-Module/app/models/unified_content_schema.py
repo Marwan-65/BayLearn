@@ -5,7 +5,6 @@ class Chunk(BaseModel):
     """Individual chunk of content suitable for RAG/LLM processing"""
     id: str
     content: str  # Clean, prepared text for LLM
-    embedding_text: str  # Text optimized for embeddings
     chunk_index: int
     metadata: Dict[str, Any] = {}  # Page number, section heading, position, etc.
 

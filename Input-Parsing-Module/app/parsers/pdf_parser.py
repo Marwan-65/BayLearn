@@ -1,10 +1,8 @@
 import fitz
-import camelot
 import pdfplumber
 import uuid
 import os
 import re
-import warnings
 from app.parsers.base_parser import BaseParser
 from app.models.unified_content_schema import ParsedContent
 
@@ -109,49 +107,41 @@ class PDFParser(BaseParser):
         doc = fitz.open(file_path)
         sections = []
         os.makedirs("extracted_images", exist_ok=True)
+        extracted_xrefs = set()  # Track unique images across all pages
+        os.makedirs("extracted_tables", exist_ok=True)  # Folder for CSVs
 
         with pdfplumber.open(file_path) as plumber_pdf:
             for page_number, page in enumerate(doc, start=1):
                 blocks = []
                 text_dict = page.get_text("dict")
+
+                # ----------------- TABLES -----------------
                 table_bboxes = []
-                tables_found = []
+                plumber_page = plumber_pdf.pages[page_number - 1]
+                pdfplumber_tables = plumber_page.find_tables()
 
-                # Try Camelot first, fallback to pdfplumber
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", message=".*is image-based.*")
-                    try:
-                        camelot_tables = camelot.read_pdf(file_path, pages=str(page_number), flavor='stream')
-                        tables_found = list(camelot_tables)
-                    except Exception:
-                        tables_found = []
+                for idx, table in enumerate(pdfplumber_tables):
+                    table_data = table.extract()
+                    if table_data:
+                        csv_path = f"extracted_tables/page{page_number}_table{idx}.csv"
+                        import csv
+                        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+                            writer = csv.writer(f)
+                            for row in table_data:
+                                writer.writerow(row)
 
-                if not tables_found:
-                    pdfplumber_page = plumber_pdf.pages[page_number - 1]
-                    pdfplumber_tables = pdfplumber_page.extract_tables()
-                    for table in pdfplumber_tables:
-                        if table:
-                            markdown_table = self.convert_table_to_markdown(table)
-                            blocks.append({
-                                "id": str(uuid.uuid4()),
-                                "type": "table",
-                                "content": table,
-                                "embedding_ready_text": markdown_table,
-                                "bbox": None
-                            })
-                else:
-                    for table in tables_found:
-                        df = table.df
-                        markdown_table = self.convert_table_to_markdown(df.values.tolist())
-                        table_bbox = getattr(table, "_bbox", None)
+                        markdown_table = self.convert_table_to_markdown(table_data)
+                        table_bbox = tuple(table.bbox) if getattr(table, "bbox", None) else None
                         if table_bbox:
                             table_bboxes.append(table_bbox)
+
                         blocks.append({
                             "id": str(uuid.uuid4()),
                             "type": "table",
-                            "content": df.values.tolist(),
+                            "content": table_data,
                             "embedding_ready_text": markdown_table,
-                            "bbox": table_bbox
+                            "bbox": table_bbox,
+                            "csv_path": csv_path  # Save path for reference
                         })
 
                 # TEXT BLOCKS
@@ -172,11 +162,24 @@ class PDFParser(BaseParser):
                                 })
 
                 # IMAGES
-                for img_index, img in enumerate(page.get_images(full=True)):
+                img_counter = 0
+                for img in page.get_images(full=True):
                     xref = img[0]
+                    # Skip if we've already extracted this image
+                    if xref in extracted_xrefs:
+                        continue
+                    extracted_xrefs.add(xref)
+                
                     pix = fitz.Pixmap(doc, xref)
-                    image_path = f"extracted_images/page{page_number}_{img_index}.png"
+                    
+                    # Handle CMYK images by converting to RGB
+                    if pix.colorspace and pix.colorspace.n == 4:  # CMYK
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    
+                    image_path = f"extracted_images/page{page_number}_{img_counter}.png"
                     pix.save(image_path)
+                    img_counter += 1
+                    
                     blocks.append({
                         "id": str(uuid.uuid4()),
                         "type": "image",
@@ -256,7 +259,6 @@ class PDFParser(BaseParser):
                     chunks.append(Chunk(
                         id=str(uuid.uuid4()),
                         content=chunk_text,
-                        embedding_text=chunk_text,
                         chunk_index=chunk_counter,
                         metadata=metadata
                     ))
@@ -268,7 +270,6 @@ class PDFParser(BaseParser):
                     chunks.append(Chunk(
                         id=str(uuid.uuid4()),
                         content=block["embedding_ready_text"],
-                        embedding_text=block["embedding_ready_text"],
                         chunk_index=chunk_counter,
                         metadata={"page": page_num, "chunk_type": "table"}
                     ))
@@ -277,7 +278,6 @@ class PDFParser(BaseParser):
                     chunks.append(Chunk(
                         id=str(uuid.uuid4()),
                         content=block["embedding_ready_text"],
-                        embedding_text=block["embedding_ready_text"],
                         chunk_index=chunk_counter,
                         metadata={"page": page_num, "chunk_type": "image", "image_path": block["content"]}
                     ))
