@@ -1,0 +1,28 @@
+[tool.poetry]
+package-mode = false
+name = "miniragapp"
+version = "1.0.0"
+description = "application for RAG"
+authors = ["Your Name <you@example.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+numpy = ">=1.26.0,<2.0.0"
+fastapi = ">=0.128.8,<0.136.0"
+uvicorn = {extras = ["standard"], version = ">=0.40.0,<0.42.0"}
+python-multipart = "^0.0.22"
+python-dotenv = "^1.2.1"
+pydantic-settings = "^2.12.0"
+aiofiles = "^25.1.0"
+llama-cpp-python = "0.3.16"
+langchain = "^0.2.16"
+huggingface-hub = "^0.23.4"
+sentence-transformers = ">=5.2.3,<6.0.0"
+faiss-cpu = "^1.13.2"
+qdrant-client = ">=1.17.0,<2.0.0"
+packaging = ">=23.2,<25.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

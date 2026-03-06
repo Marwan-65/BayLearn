@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from routes.schemes.nlp import pushRequest, searchRequest
 from models import Response_Signal
-from controllers.project import NLPController
+from controllers import NLPController
 import logging
 
 logger = logging.getLogger("uvicorn.error")
@@ -26,9 +26,7 @@ async def index_project(
         vectordb_client=request.app.vectordb_client,
         generation_client=request.app.generation_client,
         embedding_client=request.app.embedding_client,
-        chunk_repository=request.app.chunk_repository,
-        project_repository=request.app.project_repository 
-    )
+        chunk_repository=request.app.chunk_repository    )
 
     # Validate project existence
     project = await controller.validate_project(project_id)
@@ -180,7 +178,7 @@ async def ask_question(
                 }
             )
 
-        response = await controller.generate_augmented_answer(
+        response =  controller.generate_augmented_answer(
             project_id=project_id,
             question=search_request.text,
             top_k=search_request.limit

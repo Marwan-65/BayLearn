@@ -1,6 +1,6 @@
 from qdrant_client import models, QdrantClient
 from ..VectorDBInterface import VectorDBInterface
-from VectorDBEnum import DistanceMethodEnum
+from  ..DistanceMethodEnum import DistanceMethodEnum
 import logging
 from typing import List
 
@@ -25,7 +25,7 @@ class QdrantDB(VectorDBInterface):
     def disconnect(self):
         self.client = None
 
-    def is_collection_existed(self, collection_name: str) -> bool:
+    def is_collection_exists(self, collection_name: str) -> bool:
         if self.client is None:
             self.logger.error("Qdrant client is not connected.")
             return False
@@ -150,3 +150,11 @@ class QdrantDB(VectorDBInterface):
             query_vector=query_vector,
             limit=top_k,
         )
+    def get_collection_info(self, collection_name: str) -> dict:
+        """Get information about a collection."""
+        if self.client is None:
+            self.logger.error("Qdrant client is not connected.")
+            return {}
+        if not self.is_collection_existed(collection_name):
+            return {}
+        return self.client.get_collection(collection_name=collection_name)

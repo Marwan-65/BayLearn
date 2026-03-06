@@ -47,7 +47,7 @@
 - To run the app
 
 ```bash
-   $ uvicorn main:app --reload --host 0.0.0.0 --port 3000
+   $ poetry run uvicorn main:app --reload
 ```
 
 - Local LLM Setup (Required)

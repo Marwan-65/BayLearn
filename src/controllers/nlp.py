@@ -59,10 +59,13 @@ class NLPController(BaseController):
 
         texts = [c.text for c in chunks]
 
-        embeddings = self.embedding_client.embed_text(
-            text=texts,
-            document_type=DocumentTypeEnum.DOCUMENT.value
-        )
+        embeddings = [
+            self.embedding_client.embed_text(
+                text=t,
+                document_type=DocumentTypeEnum.DOCUMENT.value
+            )
+            for t in texts
+        ]
 
         payloads = [
             {"text": c.text, **c.metadata}
@@ -73,8 +76,9 @@ class NLPController(BaseController):
 
         self.vectordb_client.insert_many(
             collection_name=collection_name,
+            texts=texts,
             vectors=embeddings,
-            payloads=payloads,
+            metadata=[c.metadata for c in chunks],
             record_ids=record_ids
         )
 
