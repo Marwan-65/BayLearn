@@ -16,8 +16,8 @@ async def startup_span():
 
     # ================= MOCK MongoDB =================
     chunk_repository = InMemoryChunkRepository()
-
     await seed_project(chunk_repository)
+    app.chunk_repository = chunk_repository
     # ===============================================
 
     # Initialize LLM factory
@@ -41,13 +41,13 @@ async def startup_span():
     )
     
     # vector db client
-    app.vector_db_client = vectorDBProviderFactory.create(provider=settings.VECTOR_DB_BACKEND)
-    app.vector_db_client.connect() 
+    app.vectordb_client = vectorDBProviderFactory.create(provider=settings.VECTOR_DB_BACKEND)
+    app.vectordb_client.connect() 
     
 @app.on_event("shutdown")
 async def shutdown_span():
     # No real MongoDB, skip closing
-    app.vector_db_client.disconnect()  # Disconnect vector DB client if needed
+    app.vectordb_client.disconnect()  # Disconnect vector DB client if needed
 
 # Routers
 app.include_router(base.base_router)

@@ -2,3 +2,4 @@
 from .data import DataController
 from .project import ProjectController
 from .base import BaseController
+from .nlp import NLPController
