@@ -5,7 +5,7 @@ from routes import base, data, nlp
 # from motor.motor_asyncio import AsyncIOMotorClient   # Commented out for local mock
 from helpers.config import get_settings
 from stores.LLM.LLMProviderFactory import LLMProviderFactory
-from stores.LLM.LLMEnum import LLMEnum, LLMBackendEnum
+from stores.LLM.LLMEnums import LLMEnum, LLMBackendEnum
 from stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
 
 app = FastAPI()
@@ -25,13 +25,16 @@ async def startup_span():
     vectorDBProviderFactory = VectorDBProviderFactory(config=settings)  
     
     # Generation client
-    app.generation_client = llm_factory.create(LLMBackendEnum.LOCAL.value)
-    generation_model_name = settings.GENERATION_MODEL_ID.lower()
-    if generation_model_name not in [LLMEnum.LLAMA_2.value, LLMEnum.MISTRAL.value]:
-        raise ValueError(
-            f"Unsupported generation model: {generation_model_name}. Must be 'llama2' or 'mistral'."
-        )
-    app.generation_client.set_generation_model(model_id=generation_model_name)
+    app.generation_client = llm_factory.create(LLMBackendEnum.GROQ.value)
+    if settings.GENERATION_BACKEND == LLMBackendEnum.LOCAL.value:
+        generation_model_name = settings.GENERATION_MODEL_ID.lower()
+        if generation_model_name not in [LLMEnum.LLAMA_2.value, LLMEnum.MISTRAL.value]:
+            raise ValueError(
+                f"Unsupported generation model: {generation_model_name}. Must be 'llama2' or 'mistral'."
+            )
+        app.generation_client.set_generation_model(model_id=generation_model_name)
+    elif settings.GENERATION_BACKEND == LLMBackendEnum.GROQ.value:
+        app.generation_client.set_generation_model(model_id=settings.GENERATION_MODEL_ID)
 
     # Embedding client
     app.embedding_client = llm_factory.create(LLMBackendEnum.LOCAL.value)

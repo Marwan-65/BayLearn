@@ -54,7 +54,7 @@ class LocalProvider(LLMInterface):
         temperature = temperature or self.default_generation_temperature
 
         messages = chat_history + [
-            {"role": "user", "content": self.process_text(prompt)}
+            {"role": "user", "content": prompt}
         ]
 
         response = self.llm.create_chat_completion(
