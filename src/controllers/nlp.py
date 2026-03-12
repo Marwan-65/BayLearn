@@ -1,7 +1,8 @@
 import json
 from typing import List
-from stores.LLM.LLMEnum import DocumentTypeEnum
+from stores.LLM.LLMEnums import DocumentTypeEnum
 from .base import BaseController
+import logging
 
 
 class NLPController(BaseController):
@@ -18,6 +19,7 @@ class NLPController(BaseController):
         self.generation_client = generation_client
         self.embedding_client = embedding_client
         self.chunk_repository = chunk_repository
+        self.logger = logging.getLogger(__name__)
 
     # ---------------------------------------------------------
     # Helpers
@@ -31,9 +33,6 @@ class NLPController(BaseController):
     # ---------------------------------------------------------
 
     async def validate_project(self, project_id: str):
-        """
-        If project has chunks in repository, it exists.
-        """
         chunks = await self.chunk_repository.get_chunks(project_id)
         if not chunks:
             return None
@@ -46,16 +45,16 @@ class NLPController(BaseController):
     async def index_project(self, project_id: str, do_reset: bool = False):
 
         collection_name = self.create_collection_name(project_id)
-
         chunks = await self.chunk_repository.get_chunks(project_id)
 
         if not chunks:
             return 0
 
-        if do_reset:
-            self.vectordb_client.delete_collection(
-                collection_name=collection_name
-            )
+        self.vectordb_client.create_collection(
+            collection_name=collection_name,
+            embedding_size=self.embedding_client.embedding_size,
+            do_reset=do_reset
+        )
 
         texts = [c.text for c in chunks]
 
@@ -67,14 +66,9 @@ class NLPController(BaseController):
             for t in texts
         ]
 
-        payloads = [
-            {"text": c.text, **c.metadata}
-            for c in chunks
-        ]
-
         record_ids = [c.chunk_id for c in chunks]
 
-        self.vectordb_client.insert_many(
+        success = self.vectordb_client.insert_many(
             collection_name=collection_name,
             texts=texts,
             vectors=embeddings,
@@ -82,13 +76,16 @@ class NLPController(BaseController):
             record_ids=record_ids
         )
 
+        if not success:
+            return 0
+
         return len(chunks)
 
     # ---------------------------------------------------------
     # Search
     # ---------------------------------------------------------
 
-    def search(self, project_id: str, query: str, top_k: int = 5):
+    def search(self, project_id: str, query: str, limit: int = 5):
 
         collection_name = self.create_collection_name(project_id)
 
@@ -103,17 +100,14 @@ class NLPController(BaseController):
         search_results = self.vectordb_client.search_by_vector(
             collection_name=collection_name,
             query_vector=query_vector,
-            limit=top_k
+            limit=limit
         )
 
         if not search_results:
             return []
 
         return json.loads(
-            json.dumps(
-                search_results,
-                default=lambda x: x.__dict__
-            )
+            json.dumps(search_results, default=lambda x: x.__dict__)
         )
 
     # ---------------------------------------------------------
@@ -121,74 +115,93 @@ class NLPController(BaseController):
     # ---------------------------------------------------------
 
     def get_vector_db_collection_info(self, project_id: str):
-
         collection_name = self.create_collection_name(project_id)
-
         collection_info = self.vectordb_client.get_collection_info(
             collection_name=collection_name
         )
-
         return json.loads(
-            json.dumps(
-                collection_info,
-                default=lambda x: x.__dict__
-            )
+            json.dumps(collection_info, default=lambda x: x.__dict__)
         )
-        
 
-    def generate_augmented_answer(self, project_id: str, question: str, top_k: int = 5):
+    # ---------------------------------------------------------
+    # RAG - Generate Augmented Answer
+    # ---------------------------------------------------------
+
+    def generate_augmented_answer(self, project_id: str, question: str,
+                                   limit: int = 5, score_threshold: float = 0.4):
+
         collection_name = self.create_collection_name(project_id)
 
-        # 1️⃣ Embed query
+        # Step 1: Embed the query
         query_vector = self.embedding_client.embed_text(
             text=question,
             document_type=DocumentTypeEnum.QUERY.value
         )
-
         if not query_vector:
             return {"error": "Query embedding failed"}
 
-        # 2️⃣ Search vector DB
+        # Step 2: Search vector DB
         search_results = self.vectordb_client.search_by_vector(
             collection_name=collection_name,
             query_vector=query_vector,
-            limit=top_k
+            limit=limit
         )
-
         if not search_results:
             return {"error": "No relevant documents found"}
 
-        # 3️⃣ Extract retrieved texts
-        retrieved_chunks = [
-            result.payload.get("text", "")
-            for result in search_results
-        ]
+        # Step 3: Filter by similarity score threshold
+        # WHY: chunks below threshold are nearly irrelevant and cause hallucination
+        filtered_results = [r for r in search_results if r["score"] >= score_threshold]
 
-        # 4️⃣ Construct RAG context
-        context = "\n\n".join(retrieved_chunks)
+        if not filtered_results:
+            return {
+                "query": question,
+                "answer": "I could not find relevant information in the uploaded materials to answer this question.",
+                "sources": [],
+                "scores": [],
+                "num_sources": 0
+            }
 
-        augmented_prompt = f"""
-    You are a helpful AI assistant.
+        # Step 4: Build numbered context so LLM can cite sources
+        context_parts = []
+        for i, result in enumerate(filtered_results, 1):
+            text = result["payload"].get("text", "")
+            score = result["score"]
+            context_parts.append(f"[Source {i}] (relevance: {score:.2f})\n{text}")
 
-    Use ONLY the following context to answer the question.
-    If the answer is not in the context, say you don't know.
+        context = "\n\n".join(context_parts)
 
-    Context:
-    {context}
+        # Step 5: System prompt - the "contract" for the LLM
+        system_prompt = """You are an expert engineering tutor helping university students.
+Your answers must be based STRICTLY on the context provided below.
+Rules you must follow:
+1. If the answer is clearly in the context, answer it step by step.
+2. If the context is partially relevant, use what is available and say what is missing.
+3. If the context does not contain the answer, say exactly: "This topic is not covered in the uploaded materials."
+4. Never invent facts, formulas, or explanations not present in the context.
+5. When possible, refer to which source your answer comes from (e.g. "According to Source 1...")."""
 
-    Question:
-    {question}
+        # Step 6: User message with context and question
+        user_prompt = f"""Context from uploaded study materials:
 
-    Answer:
-    """
+{context}
 
-        # Generate answer
+Student question: {question}
+
+Answer:"""
+
+        # Step 7: Generate answer
         answer = self.generation_client.generate_text(
-            prompt=augmented_prompt
+            prompt=user_prompt,
+            chat_history=[
+                {"role": "system", "content": system_prompt}
+            ]
         )
 
         return {
             "query": question,
             "answer": answer,
-            "sources": retrieved_chunks
+            "sources": [r["payload"].get("text", "") for r in filtered_results],
+            "scores": [r["score"] for r in filtered_results],
+            "num_sources": len(filtered_results)
         }

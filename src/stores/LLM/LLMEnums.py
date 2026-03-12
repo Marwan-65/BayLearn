@@ -8,6 +8,7 @@ class LLMEnum(str, Enum):
 
 class LLMBackendEnum(str, Enum):
     LOCAL = "LOCAL"
+    GROQ = "GROQ"
 
 
 class ChatRoleEnum(str, Enum):

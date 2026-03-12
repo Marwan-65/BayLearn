@@ -4,7 +4,7 @@ from  ..DistanceMethodEnum import DistanceMethodEnum
 import logging
 from typing import List
 
-class QdrantDB(VectorDBInterface):
+class QdrantDBProvider(VectorDBInterface):
     def __init__(self, db_path: str, distance_method: str):
         self.client = None
         self.db_path = db_path
@@ -144,12 +144,36 @@ class QdrantDB(VectorDBInterface):
         except Exception as e:
             self.logger.error(f"Error while inserting batch: {e}")
             return False
-    def search_by_vector(self, collection_name: str, query_vector: list, top_k: int = 5) -> List[dict]:
-        return self.client.search(
-            collection_name=collection_name,
-            query_vector=query_vector,
-            limit=top_k,
-        )
+    def search_by_vector(self, collection_name: str, query_vector: list, limit: int = 5) -> list:
+            """Search for similar vectors using Qdrant's query API."""
+            if self.client is None:
+                self.logger.error("Qdrant client is not connected.")
+                return []
+
+            if not self.is_collection_exists(collection_name):
+                self.logger.error(f"Collection {collection_name} does not exist.")
+                return []
+
+            try:
+                search_results = self.client.query_points(
+                    collection_name=collection_name,
+                    query=query_vector,
+                    limit=limit,
+                )
+
+                results = []
+                for scored_point in search_results.points:
+                    results.append({
+                        "id": scored_point.id,
+                        "score": scored_point.score,
+                        "payload": scored_point.payload
+                    })
+
+                return results
+
+            except Exception as e:
+                self.logger.error(f"Error during search: {e}")
+                return []
     def get_collection_info(self, collection_name: str) -> dict:
         """Get information about a collection."""
         if self.client is None:

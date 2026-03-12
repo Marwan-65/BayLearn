@@ -77,7 +77,6 @@ async def search(
         generation_client=request.app.generation_client,
         embedding_client=request.app.embedding_client,
         chunk_repository=request.app.chunk_repository,
-        project_repository=request.app.project_repository
     )
 
     # Validate project existence
@@ -94,7 +93,7 @@ async def search(
     top_results = controller.search(
         project_id=project_id,
         query=search_request.text,
-        top_k=search_request.limit
+        limit=search_request.limit
     )
 
     if not top_results:
@@ -129,7 +128,6 @@ async def get_nlp_index_info(
         generation_client=request.app.generation_client,
         embedding_client=request.app.embedding_client,
         chunk_repository=request.app.chunk_repository,
-        project_repository=request.app.project_repository
     )
 
     # Validate project existence
@@ -181,7 +179,7 @@ async def ask_question(
         response =  controller.generate_augmented_answer(
             project_id=project_id,
             question=search_request.text,
-            top_k=search_request.limit
+            limit=search_request.limit
         )
 
         if not response:
