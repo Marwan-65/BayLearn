@@ -2,4 +2,4 @@ __pycache__/
 *.pyc
 vector_db/
 .DS_Store
-.src/models/llama-2-7b-chat.Q4_K_M.gguf
+src/models/llama-2-7b-chat.Q4_K_M.gguf
