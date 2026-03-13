@@ -23,6 +23,8 @@ faiss-cpu = "^1.13.2"
 qdrant-client = ">=1.17.0,<2.0.0"
 packaging = ">=23.2,<25.0"
 groq = "^1.1.1"
+pymupdf = "^1.27.2"
+img2table = "^1.4.2"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

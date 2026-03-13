@@ -6,11 +6,13 @@ import aiofiles
 import os
 from models import Response_Signal
 import logging
+from services.processing_service import ProcessingService
 
 logger = logging.getLogger("uvicorn.error")
 data_router = APIRouter(
     prefix="/api/v1",
 )
+
 @data_router.post("/upload/{project_id}")
 async def upload_file(project_id: str, file: UploadFile , app_settings: Settings = Depends(get_settings)):
 # validate the file properties but as it is logic will be in controllers directory
@@ -42,4 +44,48 @@ async def upload_file(project_id: str, file: UploadFile , app_settings: Settings
         content={"message": Response_Signal.FILE_UPLOAD_SUCCESS.value
                 ,"file_id": file_id}
     )
-        
+@data_router.post("/process/{project_id}")
+async def process_file(
+    project_id: str,
+    request: Request,
+    file_id: str,
+    app_settings: Settings = Depends(get_settings)
+):
+    """
+    Step 2 of the pipeline: parse an uploaded file into RAG chunks.
+    Call this AFTER /upload and BEFORE /nlp/index/push
+    """
+    file_path = os.path.join(
+        ProjectController().make_project_dir(project_id),
+        file_id
+    )
+
+    if not os.path.exists(file_path):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"message": f"File not found at {file_path}. Did you upload it first?"}
+        )
+
+    try:
+        processing_service = ProcessingService()
+        chunks = processing_service.process_pdf(
+            file_path=file_path,
+            project_id=project_id
+        )
+        await request.app.chunk_repository.add_chunks(project_id, chunks)
+
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "message": "File processed successfully",
+                "chunks_created": len(chunks),
+                "project_id": project_id
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Processing failed: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": f"Processing failed: {str(e)}"}
+        )       
