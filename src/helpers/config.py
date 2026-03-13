@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     GENERATION_BACKEND: str
     EMBEDDING_BACKEND: str
     GROQ_API_KEY: Optional[str] = None
-
     # Model identifiers
     GENERATION_MODEL_ID: Optional[str] = None
     EMBEDDING_MODEL_ID: Optional[str] = None

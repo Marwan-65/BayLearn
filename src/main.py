@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 from mock.seed_data import seed_project
 from repositories.in_memory_chunk_repository import InMemoryChunkRepository
 from routes import base, data, nlp
