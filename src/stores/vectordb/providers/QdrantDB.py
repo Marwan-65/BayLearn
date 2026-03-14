@@ -1,10 +1,13 @@
 from qdrant_client import models, QdrantClient
 from ..VectorDBInterface import VectorDBInterface
-from  ..DistanceMethodEnum import DistanceMethodEnum
+from ..DistanceMethodEnum import DistanceMethodEnum
 import logging
 from typing import List
+import uuid
 
-class QdrantDBProvider(VectorDBInterface):
+
+class QdrantDB(VectorDBInterface):
+
     def __init__(self, db_path: str, distance_method: str):
         self.client = None
         self.db_path = db_path
@@ -33,29 +36,20 @@ class QdrantDBProvider(VectorDBInterface):
 
     def list_all_collections(self) -> List:
         if self.client is None:
-            self.logger.error("Qdrant client is not connected.")
             return []
         return self.client.get_collections()
-    
+
     def delete_collection(self, collection_name: str):
-    #Delete the specified collection if it exists.
-        if self.is_collection_existed(collection_name):
+        if self.is_collection_exists(collection_name):
             return self.client.delete_collection(collection_name=collection_name)
         return False
 
-    def create_collection(self,
-                        collection_name: str,
-                        embedding_size: int,
-                        do_reset: bool = False):
-        """
-        Create a collection with the given embedding size and distance metric.
-
-        If do_reset is True, delete the collection first (if it exists), then recreate.
-        """
+    def create_collection(self, collection_name: str,
+                          embedding_size: int, do_reset: bool = False):
         if do_reset:
-            _ = self.delete_collection(collection_name=collection_name)
+            self.delete_collection(collection_name=collection_name)
 
-        if not self.is_collection_existed(collection_name):
+        if not self.is_collection_exists(collection_name):
             self.client.create_collection(
                 collection_name=collection_name,
                 vectors_config=models.VectorParams(
@@ -64,58 +58,52 @@ class QdrantDBProvider(VectorDBInterface):
                 )
             )
             return True
-
         return False
-    def insert_one(self, collection_name: str, text: str, vector: list, metadata: dict = None,record_id: str = None) -> bool:
-        """
-        Insert a single record into the specified collection.
-        Returns True on success, False on failure.
-        """
-        if not self.is_collection_existed(collection_name):
-            self.logger.error(
-                f"Can not insert new record to non-existed collection: {collection_name}"
+
+    def insert_one(self, collection_name: str, text: str, vector: list,
+                   metadata: dict = None, record_id: str = None) -> bool:
+        if not self.is_collection_exists(collection_name):
+            self.logger.error(f"Collection {collection_name} does not exist.")
+            return False
+        try:
+            # WHY str(uuid.uuid4()) as fallback?
+            # Qdrant requires id to be int or UUID string — never None
+            point_id = int(record_id) if str(record_id).isdigit() else str(uuid.uuid4())
+            self.client.upsert(
+                collection_name=collection_name,
+                points=[
+                    models.PointStruct(
+                        id=point_id,
+                        vector=vector,
+                        payload={"text": text, **(metadata or {})}
+                    )
+                ]
             )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error inserting record: {e}")
             return False
 
-        self.client.upload_records(
-            collection_name=collection_name,
-            records=[
-                models.Record(
-                    id = [record_id] if record_id else None,
-                    vector=vector,
-                    payload={
-                        "text": text,
-                        "metadata": metadata
-                    }
-                )
-            ]
-        )
+    def insert_many(self, collection_name: str, texts: list, vectors: list,
+                    metadata: list = None, record_ids: list = None,
+                    batch_size: int = 100) -> bool:
 
-        return True
-    def insert_many(self,collection_name: str,texts: list,vectors: list,metadata: list = None,record_ids: list = None,batch_size: int = 100,) -> bool:
-        """
-        Insert multiple documents in batches into a collection.
-
-        - texts: list of text strings
-        - vectors: corresponding list of vectors
-        - metadata: optional per-item metadata list
-        - batch_size: size of each batch
-        - record_ids: optional list of record IDs (if provided, must align with texts)
-        """
-        if len(texts) == 0:
-            self.logger.info("No texts provided to insert.")
+        if not texts:
             return True
 
-        if record_ids is None:
-            record_ids = list(range(0,len(texts))) 
+        if not self.is_collection_exists(collection_name):
+            self.logger.error(f"Collection {collection_name} does not exist.")
+            return False
 
+        if record_ids is None:
+            record_ids = list(range(len(texts)))
         if metadata is None:
-            metadata = [None] * len(texts)
+            metadata = [{}] * len(texts)
 
         if not (len(texts) == len(vectors) == len(metadata) == len(record_ids)):
-            self.logger.error("Length mismatch among texts, vectors, metadata, and record_ids.")
+            self.logger.error("Length mismatch among texts, vectors, metadata, record_ids.")
             return False
-        
+
         try:
             for i in range(0, len(texts), batch_size):
                 batch_end = min(i + batch_size, len(texts))
@@ -123,62 +111,71 @@ class QdrantDBProvider(VectorDBInterface):
                 batch_vectors = vectors[i:batch_end]
                 batch_metadatas = metadata[i:batch_end]
                 batch_record_ids = record_ids[i:batch_end]
-                batch_records = [
-                    models.Record(
-                        vector=batch_vectors[x],
-                        payload={
-                            "text": batch_texts[x],
-                            "metadata": batch_metadatas[x],
-                            "record_id": batch_record_ids[x]
-                        }
-                    )
-                    for x in range(len(batch_texts))
-                ]
 
-                self.client.upload_records(
+                points = []
+                for x in range(len(batch_texts)):
+                    raw_id = batch_record_ids[x]
+                    # WHY this conversion?
+                    # Qdrant only accepts int or UUID string as point ID.
+                    # Our chunk_ids are integers, but may arrive as strings.
+                    # isdigit() safely converts "5" → 5, keeps UUIDs as strings.
+                    point_id = int(raw_id) if str(raw_id).isdigit() \
+                               else str(raw_id)
+
+                    points.append(
+                        models.PointStruct(
+                            id=point_id,
+                            vector=batch_vectors[x],
+                            payload={
+                                "text": batch_texts[x],
+                                **(batch_metadatas[x] or {})
+                            }
+                        )
+                    )
+
+                self.logger.info(f"Inserting batch {i//batch_size + 1}: "
+                                f"{len(points)} points into {collection_name}")
+                self.client.upsert(
                     collection_name=collection_name,
-                    records=batch_records
+                    points=points
                 )
 
+            self.logger.info(f"Successfully inserted {len(texts)} records.")
             return True
+
         except Exception as e:
             self.logger.error(f"Error while inserting batch: {e}")
             return False
-    def search_by_vector(self, collection_name: str, query_vector: list, limit: int = 5) -> list:
-            """Search for similar vectors using Qdrant's query API."""
-            if self.client is None:
-                self.logger.error("Qdrant client is not connected.")
-                return []
 
-            if not self.is_collection_exists(collection_name):
-                self.logger.error(f"Collection {collection_name} does not exist.")
-                return []
-
-            try:
-                search_results = self.client.query_points(
-                    collection_name=collection_name,
-                    query=query_vector,
-                    limit=limit,
-                )
-
-                results = []
-                for scored_point in search_results.points:
-                    results.append({
-                        "id": scored_point.id,
-                        "score": scored_point.score,
-                        "payload": scored_point.payload
-                    })
-
-                return results
-
-            except Exception as e:
-                self.logger.error(f"Error during search: {e}")
-                return []
-    def get_collection_info(self, collection_name: str) -> dict:
-        """Get information about a collection."""
+    def search_by_vector(self, collection_name: str, query_vector: list,
+                         limit: int = 5) -> list:
         if self.client is None:
             self.logger.error("Qdrant client is not connected.")
+            return []
+        if not self.is_collection_exists(collection_name):
+            self.logger.error(f"Collection {collection_name} does not exist.")
+            return []
+        try:
+            search_results = self.client.query_points(
+                collection_name=collection_name,
+                query=query_vector,
+                limit=limit,
+            )
+            results = []
+            for scored_point in search_results.points:
+                results.append({
+                    "id": scored_point.id,
+                    "score": scored_point.score,
+                    "payload": scored_point.payload
+                })
+            return results
+        except Exception as e:
+            self.logger.error(f"Error during search: {e}")
+            return []
+
+    def get_collection_info(self, collection_name: str) -> dict:
+        if self.client is None:
             return {}
-        if not self.is_collection_existed(collection_name):
+        if not self.is_collection_exists(collection_name):
             return {}
         return self.client.get_collection(collection_name=collection_name)
