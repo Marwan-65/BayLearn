@@ -128,19 +128,62 @@ class NLPController(BaseController):
     # ---------------------------------------------------------
 
     def generate_augmented_answer(self, project_id: str, question: str,
-                                   limit: int = 5, score_threshold: float = 0.4):
+                                limit: int = 5, score_threshold: float = 0.4):
 
         collection_name = self.create_collection_name(project_id)
 
-        # Step 1: Embed the query
+        # ═══════════════════════════════════════════════════════
+        # STEP 1: HyDE — Generate Hypothetical Document Embedding
+        # WHY: Embedding the raw question gives low similarity scores
+        # because questions and documents have different writing styles.
+        # We generate a hypothetical answer first, then embed that.
+        # The hypothetical answer uses document-style language which
+        # matches real chunks much better in vector space.
+        # Source: Gao et al. 2022, "Precise Zero-Shot Dense Retrieval
+        # without Relevance Labels" (HyDE paper)
+        # ═══════════════════════════════════════════════════════
+        hyde_prompt = f"""Write a short factual passage that would answer 
+    the following question. Write it as if it came from a document or 
+    textbook. Do not mention that this is hypothetical. Just write the 
+    passage directly.
+
+    Question: {question}
+
+    Passage:"""
+
+        hypothetical_answer = self.generation_client.generate_text(
+            prompt=hyde_prompt,
+            chat_history=[],
+            max_output_tokens=200,
+            temperature=0.5  
+            # WHY temperature 0.5 here?
+            # Higher than our usual 0.1 because we WANT some variation
+            # in the hypothetical — we're not looking for one exact answer,
+            # we're trying to cover the semantic space around the question.
+            # Too low (0.1) → too rigid, might miss synonyms
+            # Too high (0.9) → too random, might drift from question topic
+        )
+
+        if not hypothetical_answer:
+            self.logger.warning("HyDE generation failed, falling back to raw query")
+            text_to_embed = question  # graceful fallback
+        else:
+            self.logger.info(f"HyDE hypothetical: {hypothetical_answer[:100]}...")
+            text_to_embed = hypothetical_answer
+
+        # ═══════════════════════════════════════════════════════
+        # STEP 2: Embed the hypothetical answer (not the raw question)
+        # ═══════════════════════════════════════════════════════
         query_vector = self.embedding_client.embed_text(
-            text=question,
+            text=text_to_embed,
             document_type=DocumentTypeEnum.QUERY.value
         )
         if not query_vector:
             return {"error": "Query embedding failed"}
 
-        # Step 2: Search vector DB
+        # ═══════════════════════════════════════════════════════
+        # STEP 3: Search vector DB with the hypothetical embedding
+        # ═══════════════════════════════════════════════════════
         search_results = self.vectordb_client.search_by_vector(
             collection_name=collection_name,
             query_vector=query_vector,
@@ -149,9 +192,19 @@ class NLPController(BaseController):
         if not search_results:
             return {"error": "No relevant documents found"}
 
-        # Step 3: Filter by similarity score threshold
-        # WHY: chunks below threshold are nearly irrelevant and cause hallucination
-        filtered_results = [r for r in search_results if r["score"] >= score_threshold]
+        # ═══════════════════════════════════════════════════════
+        # STEP 4: Filter out image chunks (not useful for answering)
+        # and apply similarity score threshold
+        # ═══════════════════════════════════════════════════════
+        search_results = [
+            r for r in search_results
+            if r["payload"].get("chunk_type", "text") != "image"
+        ]
+
+        filtered_results = [
+            r for r in search_results
+            if r["score"] >= score_threshold
+        ]
 
         if not filtered_results:
             return {
@@ -159,43 +212,46 @@ class NLPController(BaseController):
                 "answer": "I could not find relevant information in the uploaded materials to answer this question.",
                 "sources": [],
                 "scores": [],
-                "num_sources": 0
+                "num_sources": 0,
+                "hyde_used": True,
+                "hypothetical_answer": hypothetical_answer
             }
 
-        # Step 4: Build numbered context so LLM can cite sources
+        # ═══════════════════════════════════════════════════════
+        # STEP 5: Build numbered context
+        # ═══════════════════════════════════════════════════════
         context_parts = []
         for i, result in enumerate(filtered_results, 1):
             text = result["payload"].get("text", "")
             score = result["score"]
-            context_parts.append(f"[Source {i}] (relevance: {score:.2f})\n{text}")
-
+            context_parts.append(
+                f"[Source {i}] (relevance: {score:.2f})\n{text}"
+            )
         context = "\n\n".join(context_parts)
 
-        # Step 5: System prompt - the "contract" for the LLM
+        # ═══════════════════════════════════════════════════════
+        # STEP 6: System prompt + generate final answer
+        # ═══════════════════════════════════════════════════════
         system_prompt = """You are an expert engineering tutor helping university students.
-Your answers must be based STRICTLY on the context provided below.
-Rules you must follow:
-1. If the answer is clearly in the context, answer it step by step.
-2. If the context is partially relevant, use what is available and say what is missing.
-3. If the context does not contain the answer, say exactly: "This topic is not covered in the uploaded materials."
-4. Never invent facts, formulas, or explanations not present in the context.
-5. When possible, refer to which source your answer comes from (e.g. "According to Source 1...")."""
+    Your answers must be based STRICTLY on the context provided below.
+    Rules you must follow:
+    1. If the answer is clearly in the context, answer it step by step.
+    2. If the context is partially relevant, use what is available and say what is missing.
+    3. If the context does not contain the answer, say exactly: "This topic is not covered in the uploaded materials."
+    4. Never invent facts, formulas, or explanations not present in the context.
+    5. When possible, refer to which source your answer comes from (e.g. "According to Source 1...")."""
 
-        # Step 6: User message with context and question
         user_prompt = f"""Context from uploaded study materials:
 
-{context}
+    {context}
 
-Student question: {question}
+    Student question: {question}
 
-Answer:"""
+    Answer:"""
 
-        # Step 7: Generate answer
         answer = self.generation_client.generate_text(
             prompt=user_prompt,
-            chat_history=[
-                {"role": "system", "content": system_prompt}
-            ]
+            chat_history=[{"role": "system", "content": system_prompt}]
         )
 
         return {
@@ -203,5 +259,6 @@ Answer:"""
             "answer": answer,
             "sources": [r["payload"].get("text", "") for r in filtered_results],
             "scores": [r["score"] for r in filtered_results],
-            "num_sources": len(filtered_results)
+            "num_sources": len(filtered_results),
+            "hyde_used": True  # useful for evaluation later
         }
