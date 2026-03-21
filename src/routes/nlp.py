@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Request, status, HTTPException
 from fastapi.responses import JSONResponse
 from routes.schemes.nlp import pushRequest, searchRequest
 from models import Response_Signal
 from controllers import NLPController
 import logging
+from evaluation.ragas_evaluator import RAGASEvaluator
+from evaluation.test_set import TEST_CASES
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -167,6 +169,7 @@ async def ask_question(
         )
 
         project = await controller.validate_project(project_id)
+        print("mamaaaaaProject validation result:", project)  # Debug log
 
         if not project:
             return JSONResponse(
@@ -197,3 +200,63 @@ async def ask_question(
                 "data": response
             }
         )
+
+
+@nlp_router.post("/evaluate/{project_id}")
+async def evaluate_rag(project_id: str, request: Request):
+    controller = NLPController(
+        vectordb_client=request.app.vectordb_client,
+        generation_client=request.app.generation_client,
+        embedding_client=request.app.embedding_client,
+        chunk_repository=request.app.chunk_repository
+    )
+
+    from evaluation.test_set import TEST_CASES
+    from evaluation.ragas_evaluator import RAGASEvaluator
+
+    test_cases = []
+    for case in TEST_CASES:
+        rag_response = controller.generate_augmented_answer(
+            project_id=project_id,
+            question=case["question"],
+            limit=5
+        )
+        logger.info(f"Question: {case['question']}")
+        logger.info(f"Full RAG response: {rag_response}")
+    
+        # IMPORTANT: contexts must be a list of strings
+        sources = rag_response.get("sources", [])
+        if isinstance(sources, str):
+            sources = [sources]
+        elif not isinstance(sources, list):
+            sources = []
+
+        test_cases.append({
+            "question": case["question"],
+            "answer": rag_response.get("answer", ""),
+            "contexts": sources,  # list of strings
+            "ground_truth": case["ground_truth"]
+        })
+
+    evaluator = RAGASEvaluator(
+        groq_api_key=request.app.generation_client.api_key
+    )
+    scores = evaluator.evaluate(test_cases)
+    evaluator.save_results(scores)
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "signal": "Evaluation completed successfully",
+            "scores": scores,
+            "num_test_cases": len(test_cases),
+            "test_details": [
+                {
+                    "question": tc["question"],
+                    "answer": tc["answer"][:100] + "...",
+                    "num_contexts": len(tc["contexts"])
+                }
+                for tc in test_cases
+            ]
+        }
+    )

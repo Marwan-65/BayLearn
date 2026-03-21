@@ -262,3 +262,4 @@ class NLPController(BaseController):
             "num_sources": len(filtered_results),
             "hyde_used": True  # useful for evaluation later
         }
+
