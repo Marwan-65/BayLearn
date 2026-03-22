@@ -24,7 +24,7 @@ class RAGASEvaluator:
                 test_cases[i]["ground_truth"] = ""
             if not case.get("answer", "").strip():
                 logger.warning(f"Test case {i} has empty answer!")
-        # Add this class right before your run_ragas function:
+        
 
 
         def run_ragas():
