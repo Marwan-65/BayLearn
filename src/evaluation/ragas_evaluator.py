@@ -33,7 +33,7 @@ class RAGASEvaluator:
             try:
                 from datasets import Dataset
                 from ragas import evaluate as ragas_evaluate, run_config
-                from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+                from ragas.metrics import (Faithfulness, AnswerRelevancy, ContextPrecision, ContextRecall)
                 from ragas.llms import LangchainLLMWrapper
                 from ragas.embeddings import LangchainEmbeddingsWrapper
 
@@ -45,7 +45,7 @@ class RAGASEvaluator:
                     groq_api_key=self.groq_api_key,
                     temperature=0,
                     max_tokens=2048,
-                    
+                    timeout=60.0,
                 )
                 ragas_llm = LangchainLLMWrapper(llm)
 
@@ -64,11 +64,17 @@ class RAGASEvaluator:
                 )
                 ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
                 dataset = Dataset.from_list(test_cases)
-                run_config.max_workers = 3  # Disable retries to surface issues immediately
+                
+                # faithfulness = Faithfulness(timeout=timeout)
+                # answer_relevancy = AnswerRelevancy(timeout=timeout)
+                # context_precision = ContextPrecision(timeout=timeout)
+                # context_recall = ContextRecall(timeout=timeout)
+                #run_config.max_workers = 2  # Disable retries to surface issues immediately
+                
                 # FIX 2: raise_exceptions=True surfaces silent failures
                 results = ragas_evaluate(
                     dataset=dataset,
-                    metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+                    metrics=[Faithfulness(), AnswerRelevancy(), ContextPrecision(), ContextRecall()],
                     llm=ragas_llm,
                     embeddings=ragas_embeddings,
                     raise_exceptions=True,
@@ -85,7 +91,7 @@ class RAGASEvaluator:
     def _extract_scores(self, results) -> Dict[str, float]:
         df = results.to_pandas()
         logger.info(f"\n=== Per-row RAGAS scores ===\n{df.to_string()}")
-        metrics = ["faithfulness", "answer_relevancy", "context_precision", "context_recall"]
+        metrics = ["Faithfulness", "AnswerRelevancy", "ContextPrecision", "ContextRecall"]
         scores = {}
         for metric in metrics:
             if metric in df.columns:
