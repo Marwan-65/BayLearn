@@ -45,6 +45,7 @@ class RAGASEvaluator:
                     groq_api_key=self.groq_api_key,
                     temperature=0,
                     max_tokens=2048,
+                    # the network timeout on the client is a safeguard
                     timeout=60.0,
                 )
                 ragas_llm = LangchainLLMWrapper(llm)
@@ -69,7 +70,8 @@ class RAGASEvaluator:
                 # answer_relevancy = AnswerRelevancy(timeout=timeout)
                 # context_precision = ContextPrecision(timeout=timeout)
                 # context_recall = ContextRecall(timeout=timeout)
-                #run_config.max_workers = 2  # Disable retries to surface issues immediately
+                run_config.timeout = 60.0  # Set a reasonable timeout for each metric evaluation
+                run_config.max_workers = 2  # Disable retries to surface issues immediately
                 
                 # FIX 2: raise_exceptions=True surfaces silent failures
                 results = ragas_evaluate(
