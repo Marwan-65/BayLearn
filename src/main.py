@@ -9,7 +9,10 @@ from stores.LLM.LLMEnums import LLMEnum, LLMBackendEnum
 from stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
 from routes import base, data, nlp
 from fastapi.middleware.cors import CORSMiddleware
-
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from core.limiter import limiter
 
 app = FastAPI()
 app.add_middleware( CORSMiddleware,
@@ -17,6 +20,9 @@ app.add_middleware( CORSMiddleware,
     allow_methods=["*"],
     allow_headers=["*"],
     )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 @app.on_event("startup")
 async def startup_span():
     settings = get_settings()

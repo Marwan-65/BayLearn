@@ -1,5 +1,6 @@
 from langchain_groq import ChatGroq
 from groq import AsyncGroq, Groq
+import asyncio
 
 
 class GroqChatFixed(ChatGroq):
@@ -58,6 +59,7 @@ class PatchedAsyncCompletions:
 
     async def create(self, **kwargs):
         # Strip every parameter Groq doesn't support
+        await asyncio.sleep(0.5)  # Ensure this is truly async
         kwargs.pop("reasoning_format", None)
         kwargs.pop("reasoning", None)
         if kwargs.get("n", 1) > 1:

@@ -6,7 +6,7 @@ from controllers import NLPController
 import logging
 from evaluation.ragas_evaluator import RAGASEvaluator
 from evaluation.test_set import TEST_CASES
-
+from core.limiter import limiter 
 logger = logging.getLogger("uvicorn.error")
 
 nlp_router = APIRouter(
@@ -155,6 +155,7 @@ async def get_nlp_index_info(
         }
     )
 @nlp_router.post("/ask/{project_id}")
+@limiter.limit("20/minute")
 async def ask_question(
         project_id: str,
         request: Request,
