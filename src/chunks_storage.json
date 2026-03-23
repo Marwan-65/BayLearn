@@ -1,147 +1,2847 @@
 {
-  "demo_project": [
+  "backend_project": [
     {
       "chunk_id": 0,
-      "text": "M anar F arghaly A bdelrahman A bdelshafi Haram, Giza LinkedIn | +201205819054 | m.f.abdelshay@gmail.com EDUCATION AND ACADEMIC RECORDS 2021 \u2013 2026 B.S Cairo University, Faculty of Engineering, Giza, Egypt Department of Computer Engineering expected 2026. GPA : 3.3/4.00 2018 \u2013 2021 STEM School , Maadi STEM School, Giza SKILLS \u2022 Programming Languages: C++ - C - HTML5 - CSS - Node.js - MSSQL - Python - MATLAB - C# - x86 assembly - ARM Cortex-M3 assembly. \u2022 Courses: Object oriented programming \u201cOOP\u201d - Data Structure and Algorithms - Database Design . \u2022 Lab Equipment: Spectrum analyzer - Function generator and Oscilloscope. \u2022 Languages: English - Arabic \u201cMother Tongue\u201d. \u2022 Soft Skills: Presentation skills - Communication skills - Teamwork. RELEVANT ACADEMIC PROJECTS \u2022 CPU Scheduler: In this project the target was designing mini operating system. \u2022 Designed functions for processes migration and the sequence of their executing inside the computer. using C++, OOP, and the suitable algorithms of data structure. \u2022 Family Forever: Desktop application used to help orphanages. \u2022 .NET framework and C# were used in making the view of children's pictures so the user \u201cparent\u201d will be able to select any picture and see information about the chosen child and add him to the favorites, log out, and change password functions. \u2022 Pacman Atari-Game: Designed a game console using pure ARM cortex-M3 assembly coding, using STM32 bluebill microcontroller, a 2.8-inch-ili9341 TFT screen and managing input/output buttons. \u2022 Designed the logic of winning and collision rules with other elements in the game. \u2022 Calculator: Designed a calculator for making the basic operations using logic gates and Logisim. \u2022 Speaker Recognition : Analyzed the input signals by extracting features such as Mel-frequency cepstral coefficients (MFCCs) from recorded audios using Python. INTERESTS AND ACTIVITIES July 2021- September 2021 Volunteer in Resala Charity, Giza 2022-2023 Public Relations member in TCCD \u201cStudent Activity in Faculty of Engineering\u201d AWARDS \u2022 Golden Prize in Kangaroo Math Competition REFERENCES \u2022 Available upon request",
+      "text": "JavaScript\nNotes about meta:\n< meta http-equiv =\"refresh\" content =\"30\">\nThe http-equiv attribute provides an HTTP header for the information/value of the content attribute. The http-equiv attribute can be used to simulate an HTTP response header. Value Description\ncontent- security- policy\nSpecifies a content policy for the document. Example: <meta http-equiv=\"content-security-policy\" content=\"default-src 'self'\">\ncontent-type Specifies the character encoding for the document. Example: <meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\ndefault-style Specified the preferred style sheet to use. Example: <meta http-equiv=\"default-style\" content=\" the document's preferred stylesheet \"> Note: The value of the content attribute above must match the value of the title attribute on a link element in the same document, or it must match the value of\nrefresh Defines a time interval for the document to refresh itself.",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_drQdswso8x3H_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "text",
-        "page_kind": "document",
-        "project_id": "demo_project"
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
       }
     },
     {
       "chunk_id": 1,
-      "text": "Image located on page 1",
+      "text": "in the same document, or it must match the value of\nrefresh Defines a time interval for the document to refresh itself. Example: <meta http-equiv=\"refresh\" content=\"300\"> Note: The value \"refresh\" should be used carefully, as it takes the control of a\n\u2022\nIt is possible to write <script></script >in head or at end of the body and call for external\nfi\nle <script src=\u201d\u201d> in head also. But it is preferable to put script tag at the end of the\npage in body as the compiler would be no\nti\nfi\ned with all the elements in the page and the\nstyling will apply with no errors\nWork With Chrome Developer Tools\n\u2022\nEach feature In JavaScript can be tested in console. \u2022\nConsole.log (\u201c\u201d) print anything in console. \u2022\nDocument.querySelector(\u201ch1\u201d).style.font(\u201cblue\u201d); \u2022\ndocument. write () for making any thing in the window but it is not used ,there are more\nadvanced and prac\nti\ncal tools.",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_drQdswso8x3H_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
         "page": 1,
         "section_heading": "Page 1",
-        "chunk_type": "image",
-        "page_kind": "document",
-        "project_id": "demo_project"
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
       }
     },
     {
       "chunk_id": 2,
       "text": "Image located on page 1",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_drQdswso8x3H_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "image",
         "page_kind": "document",
-        "project_id": "demo_project"
+        "project_id": "backend_project"
       }
     },
     {
       "chunk_id": 3,
       "text": "Image located on page 1",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_drQdswso8x3H_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "image",
         "page_kind": "document",
-        "project_id": "demo_project"
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 4,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 5,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 6,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 7,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 8,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 9,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 10,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 11,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 12,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 13,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 14,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 15,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 16,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 17,
+      "text": "Image located on page 1",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 18,
+      "text": "\u2022\nwindow. alert (\u201c\u201d) for wri\nti\nng any warnings that popup once you load the window .but\nalso it is not preferable at all.\nConsole Methods and Styling And WebAPI\nConsole:\n\u2022\nConsole.log \u2022\nConsole. Error :error message of your desire appears and the posi\nti\non of the error is also\noned \u2022\nmen\nti\nConsole.table([a,b,c]): it contains like array of data but will appear as a table\nStyling console: direc\nti\nve->%c\nIf I want to style in console\nConsole.log (\u201chello%js\u201d,\u201dcolor:red; fontsize:40px\u201d)\nWepAPI: Applica\nti\non Programming Interface\n\u0648\u0627\ufe9f\ufbad\ufbab \ufe91\ufeae\ufee3\ufea0\ufbff\ufbab \ufe91\ufe98\ufed8\ufeaa\ufee3\ufee0\ufeda \ufea7\ufeaa\ufee3\ufe8e\u062a \u0648\ufea3\ufe8e\ufe9f\ufe8e\u062a \ufe97\ufed8\ufeaa\u0631 \ufecb\ufee6 \u0637\ufeae\ufbfe\ufed8\ufbad\ufe8e \ufe97\ufeb4\ufe98\ufea8\ufeaa\u0645 \u0627\ufedf\ufee0\ufef2 \u0627\ufee7\ufe96 \ufecb\ufe8e\u0648\u0632\u0647 \ufe91\ufe8e\u0644\nJS\nFrom its features is console\nWhat Is ECMAScript ?",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 19,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 20,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 21,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 22,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 23,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 24,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 25,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 26,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 27,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 28,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 29,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 30,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 31,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 32,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 33,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 34,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 35,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 36,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 37,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 38,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 39,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 40,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 41,
+      "text": "Image located on page 2",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_TjBCfUPDaCIR_JavaScript.pdf",
+        "doc_title": "JavaScript",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
       }
     },
     {
       "chunk_id": 0,
-      "text": "M anar F arghaly A bdelrahman A bdelshafi Haram, Giza LinkedIn | +201205819054 | m.f.abdelshay@gmail.com EDUCATION AND ACADEMIC RECORDS 2021 \u2013 2026 B.S Cairo University, Faculty of Engineering, Giza, Egypt Department of Computer Engineering expected 2026. GPA : 3.3/4.00 2018 \u2013 2021 STEM School , Maadi STEM School, Giza SKILLS \u2022 Programming Languages: C++ - C - HTML5 - CSS - Node.js - MSSQL - Python - MATLAB - C# - x86 assembly - ARM Cortex-M3 assembly. \u2022 Courses: Object oriented programming \u201cOOP\u201d - Data Structure and Algorithms - Database Design . \u2022 Lab Equipment: Spectrum analyzer - Function generator and Oscilloscope. \u2022 Languages: English - Arabic \u201cMother Tongue\u201d. \u2022 Soft Skills: Presentation skills - Communication skills - Teamwork. RELEVANT ACADEMIC PROJECTS \u2022 CPU Scheduler: In this project the target was designing mini operating system. \u2022 Designed functions for processes migration and the sequence of their executing inside the computer. using C++, OOP, and the suitable algorithms of data structure. \u2022 Family Forever: Desktop application used to help orphanages. \u2022 .NET framework and C# were used in making the view of children's pictures so the user \u201cparent\u201d will be able to select any picture and see information about the chosen child and add him to the favorites, log out, and change password functions. \u2022 Pacman Atari-Game: Designed a game console using pure ARM cortex-M3 assembly coding, using STM32 bluebill microcontroller, a 2.8-inch-ili9341 TFT screen and managing input/output buttons. \u2022 Designed the logic of winning and collision rules with other elements in the game. \u2022 Calculator: Designed a calculator for making the basic operations using logic gates and Logisim. \u2022 Speaker Recognition : Analyzed the input signals by extracting features such as Mel-frequency cepstral coefficients (MFCCs) from recorded audios using Python. INTERESTS AND ACTIVITIES July 2021- September 2021 Volunteer in Resala Charity, Giza 2022-2023 Public Relations member in TCCD \u201cStudent Activity in Faculty of Engineering\u201d AWARDS \u2022 Golden Prize in Kangaroo Math Competition REFERENCES \u2022 Available upon request",
+      "text": "How to build a Backend 1. Define Your Project: o Clearly outline the project's purpose, target audience, and core functionalities. o Identify the data you'll be handling, how it will be structured, and the operations required (CRUD: Create, Read, Update, Delete). 2. Choose the Right Tech Stack: o Select programming languages (Python, JavaScript, Ruby, Java, etc.) based on your familiarity and project requirements. o Consider using frameworks like Django, Express.js, Ruby on Rails, or Spring Boot to accelerate development. o Choose a database system (SQL or NoSQL) depending on your data structure and query needs. 3. Design the Database Schema: o Create a logical structure for your data, defining tables (for SQL) or collections (for NoSQL). o Determine relationships between data entities (one-to-one, one-to-many, many-to-many). o Normalize your data to avoid redundancy and improve data integrity. 4. Develop the API: o Define endpoints for different functionalities (e.g., user registration, data retrieval, updates). o Choose an API architecture (REST, GraphQL, or a combination) based on your project's needs. o Implement data validation and error handling. 5. Implement Business Logic: o Write code to handle core functionalities and calculations. o Consider using design patterns for code organization and reusability. 6. Ensure Security: o Protect user data with encryption and secure authentication methods. o Implement input validation and sanitization to prevent attacks like SQL injection and cross-site scripting (XSS). o Regularly update dependencies and address security vulnerabilities. 7. Test Thoroughly: o Write unit tests to verify individual components. o Conduct integration tests to ensure different parts work together seamlessly. o Perform load testing to assess performance under heavy usage. 8. Deploy to Production: o Choose a hosting platform or cloud provider (AWS, GCP, Azure). o Configure servers, databases, and application deployment. o Implement monitoring and logging for performance and troubleshooting.",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "text",
         "page_kind": "document",
-        "project_id": "demo_project"
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 1,
+      "text": "Additional Considerations: \u2022 Scalability: Design your backend to handle increasing user loads and data volumes. \u2022 Performance: Optimize database queries, caching, and code for speed. \u2022 Error Handling: Provide informative error messages and graceful failure mechanisms. \u2022 Documentation: Create clear documentation for the API and backend logic. \u2022 Version Control: Use Git or similar tools to manage code changes and collaborate effectively. In the Internship: Understanding the Challenge You're transitioning from a familiar language and framework to a new stack. This means learning new syntax, concepts, and tools. But the core principles of building backend systems remain the same: \u2022 Data management: Storing, retrieving, and updating information. \u2022 User authentication: Protecting access to data. \u2022 API design: Creating endpoints for data interaction. \u2022 Logic implementation: Handling business rules and calculations. Your First Steps 1. Master Laravel Basics: o Installation: Set up a Laravel project. o Routing: Understand how to define URL patterns and their corresponding controllers. o Controllers: Learn how to handle incoming requests and return responses. o Models: Create models to interact with the database. o Views: (Optional for now) Learn how to create user interfaces, but for a backend focus, this can come later. o Eloquent ORM: Familiarize yourself with Laravel's ORM for database interactions. 2. Database Design: o Entity-Relationship Diagrams (ERDs): Visualize how data is related. o Migrations: Use Laravel's migration system to create database tables. o Seeders: Populate your database with initial data for testing. 3. Core CRM Features: o Contact Management: Create models for contacts, companies, addresses, etc. o Lead Management: Define lead stages, sources, and related data. o Opportunity Management: Model sales pipelines, deals, and probabilities. o User Management: Implement user roles, permissions, and authentication. 4. Leverage Laravel Features: o Authentication: Use Laravel's built-in authentication scaffolding to handle user logins and registrations. o Validation: Validate user input to prevent errors and security vulnerabilities. missions, and authentication. 4. Leverage Laravel Features: o Authentication: Use Laravel's built-in authentication scaffolding to handle user logins and registrations. o Validation: Validate user input to prevent errors and security vulnerabilities. o Requests: Handle incoming requests and data validation using form requests. o Testing: Write unit and integration tests to ensure code quality. Example Structure",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 2,
+      "text": "Bash crm/ \u251c\u2500\u2500 app/ \u2502 \u251c\u2500\u2500 Http/ \u2502 \u2502 \u251c\u2500\u2500 Controllers/ \u2502 \u2502 \u2502 \u251c\u2500\u2500 ContactController.php \u2502 \u2502 \u2502 \u251c\u2500\u2500 LeadController.php \u2502 \u2502 \u2502 \u251c\u2500\u2500 OpportunityController.php \u2502 \u2502 \u2502 \u2514\u2500\u2500 UserController.php \u2502 \u2502 \u251c\u2500\u2500 Middleware/ \u2502 \u2502 \u251c\u2500\u2500 Requests/ \u2502 \u2502 \u2514\u2500\u2500 Routes/ \u2502 \u251c\u2500\u2500 Models/ \u2502 \u2502 \u251c\u2500\u2500 Contact.php \u2502 \u2502 \u251c\u2500\u2500 Lead.php \u2502 \u2502 \u251c\u2500\u2500 Opportunity.php \u2502 \u2502 \u2514\u2500\u2500 User.php \u2502 \u251c\u2500\u2500 Providers/ \u2502 \u2514\u2500\u2500 Console/ \u251c\u2500\u2500 config/ \u251c\u2500\u2500 database/ \u251c\u2500\u2500 public/ \u251c\u2500\u2500 resources/ \u251c\u2500\u2500 routes/ \u251c\u2500\u2500 storage/ \u251c\u2500\u2500 tests/ \u251c\u2500\u2500 vendor/ \u2514\u2500\u2500 .env Additional Tips \u2022 Break down the problem: Start with a small, manageable feature and gradually expand. \u2022 Learn by doing: Experiment with different approaches and iterate. \u2022 Seek help: Don't hesitate to ask your colleagues or online communities for assistance. \u2022 Leverage Laravel's documentation: It's a valuable resource. Remember, building a CRM is a learning process. Focus on understanding the core concepts and gradually adding complexity. With dedication and practice, you'll be able to create a robust and efficient CRM system. Hints in Backend: 1. When there is a problem in fetch that can be due to an error in the app.post function in the server side, you must check where the error there and add many console.log to print the data so you can know where the data lost. 2. When there is a problem in the appearing of any object, you must check objects that appear in the DOM, and if you want to pass data between 2 views, you can use local storage What is a back-end? \u2022 The back-end is all of the technology required to process the incoming request and generate and send the response to the client. This typically includes three major parts:",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 3,
+        "section_heading": "Page 3",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 3,
+      "text": "\u2022 1. The server. This is the computer that receives requests. 2.The app. This is the application running on the server that listens for requests, retrieves information from the database, and sends a response. 3. The database. Databases are used to organize and persist data. How to build a Backend for a Website? Backend involves 1. Define your needs: \u2022 how it should work and what core functionalities it should have. \u2022 What functionalities will you implement in the future? \u2022 How many users will use your app? 2. Choose the right tools \u2022 Programming language: This decision will have an effect on all future possibilities and limitations . \u2022 API: it is time to specify the type of API (Public, Private, Partner, Composite) and its architecture (REST, SOAP, RPC, GraphQL). It is the massenger that takes request and tells the system what o you want to do and then returns response back to you, it is like a waiter. \u2022 API Documentation. \u2022 Backend is responsible for creating APIs (Application Programming Interfaces) that allow communication between different components of a system. APIs enable integration with third-party services and ensure a seamless user experience. \u2022 Operating system : Then it is good to find the best operating system . Here it is a simple choice: Linux or Windows . In the case of Linux, we need to specify the distribution (RedHat, Fedora, Debian, Ubuntu, etc.) and its version . To avoid being locked into a single operating system, developers often use Docker \u2013 a tool that allows them to create a small virtual system just for development purposes. \u2022 Building Data base : 3. Coding \u2022 folder structure: MCV structure. \u2022 paradigm to choose (functional or object-oriented programming) \u2022 methodology: TDD (Test-Driven Development), BDD (Behavior-Driven Development), and DDD (Domain-Driven Development). \u2022 follow a few principles like SOLID (five code design principles), KISS (Keep It Simple Stupid), and DRY (Don\u2019t Repeat Yourself). 4. Deployment: deploy the code into the world \u2022 we have many cloud platforms like AWS (Amazon Web Services), Google Cloud, Firebase, DigitalOcean, Heroku, etc. \u2022 DevOps have to configure all services you need for the project, eg. \u2019t Repeat Yourself). 4. Deployment: deploy the code into the world \u2022 we have many cloud platforms like AWS (Amazon Web Services), Google Cloud, Firebase, DigitalOcean, Heroku, etc. \u2022 DevOps have to configure all services you need for the project, eg. compute cloud/ engine, storage and database. In this step, we usually set up two environments: prod (what all can use) and stage (to show changes to the client and for testing purposes).",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 4,
+        "section_heading": "Page 4",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 4,
+      "text": "5. CI/CD: Continuous Integration / Continues Delivery. While CI is responsible for building code and testing it (with automatic tests), CD takes care of the build delivery to the server. Again, we have plenty of tools that can help us like eg. Jenkins, GitLab, CircleCI, TeamCity, Bamboo, etc. 6. Monitoring: To minimize the risk of sudden interruption on the backend, DevOps uses monitoring systems to analyze the utility of resources. Many cloud platforms have built-in solutions but if there is a need to use custom tools we can choose one of these: Sematex Monitoring, Prometheus and Grafana, Dynatrace, Datadog, etc. Important things to have Knowelage about: 1. Communication Protocols Communications protocols link the frontend to the backend \u2022 TCP o is a stream-based connection-oriented protocol . o provides reliable delivery at a cost of connection setup and retransmission \u2022 UDP o a message based and connectionless. o starts faster but doesn\u2019t have guaranteed delivery. \u2022 There are multiple protocols we have to determine the protocol we will use according to project requirements. \u2022 HTTP protocol is built on top or TCP/UDP 2. Accesability along with security compilance (Knowledge of Web Security ). \u2022 You can secure communications with encryption or TLS. \u2022 You can prevent network intrusion with firewall rules and proper network configuration. You can study common software vulnerabilities and protect against denial of service attacks. As a software engineer, it is important to be familiar with the different types of security risks and how to mitigate them. \u2022 One type of security risk is a man-in-the-middle attack. This is where an attacker intercepts communication between two parties and tries to eavesdrop or modify the data being exchanged. To prevent this type of attack, it is important to encrypt and authenticate the communicated parties using Transport Layer Security (TLS). \u2022 Another type of security risk is a denial of service attack. This is where an attacker tries to prevent legitimate users from accessing a service by flooding it with requests or through finding a way to crash the backend by sending a special payload.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 5,
+      "text": "Another type of security risk is a denial of service attack. This is where an attacker tries to prevent legitimate users from accessing a service by flooding it with requests or through finding a way to crash the backend by sending a special payload. To prevent this type of attack, it is important to have a firewall or a layer 7 DDOS protection layer in place to block illegitimate requests. Cloudflare has great services to detect DDOS traffic. This is of course made possible through layer 7 inspection. \u2022 There is a client side security attacks such as XSS (cross side scripting), there are server side security attacks such as SQL injection \u2022 Using HTTPS: HTTPS is a secured HTTP. When data is sent using HTTPS, it is protected via the Transport Layer Security protocol, which has three layers of protection: o Encryption: Way of securing data along with a password or \u201ckey\u201d which is used to decrypt the information. o Data Integrity: When data integrity is secure, information stored in a database is complete, accurate, and reliable for a lifetime. o Authentication: This method protects against attacks and builds user trust which response to business growth.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 6,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 7,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 8,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 9,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 10,
+      "text": "\u2022 Implementing secure backup and recovery: Data loss could be the major threat that could lead to security breaches. To avoid this, make sure to implement a backup process. This could be implemented in many ways: o Protecting media and content from theft or destruction. o Periodically testing the backups. o Apply a two-person rule so that one person cannot access the content or media without the permission of another article. o and various other methods include XSS Attacks, Software updates, and SQL Injection. 3. Web Server: \u2022 Web servers deliver static or dynamic content served on top of the HTTP protocol. \u2022 If you build a Web API you may spin up your own web server in your language of choice or use a web framework such as Express or Django. \u2022 The internal architecture of web servers can also differ. Web servers can be single or multithreaded. They can have one thread or multiple listener threads. There are many ways client connections can be accepted and distributed among the threads \u2022 Examples of off-the-shelf web servers are Apache Tomcat, Apache httpd, and NGINX . The latter can act as both a web server and a proxy. \u2022 Modern web servers support both HTTP/1.1 and HTTP/2. HTTP/3 is slowly getting support as its newer protocol. Configuring your web server with the appropriate protocol is critical for performance and resilience of your backend application; And it all depends on the environment. For example, Do you expect multiple concurrent requests from the same client? or do you expect fewer requests but from many clients? Based on that, you can pick multiplexing HTTP/ 2 or vanilla simple HTTP/1.1. \u2022 The web server runs websites, it stores, processes, and delivers (response) web pages to the user\u2019s request. When the user makes a request by the web server, it is accepted by an HTTP server which finds and sends back the content to the browser through HTTP. Some examples of web servers are Apache and NGINX and express js which are open-source platforms used to deliver content as per requests made. \u2022 When you use Express.js, the web server is essentially built by: 1. Node.js: Provides the underlying HTTP server functionality. 2.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 11,
+      "text": "ers are Apache and NGINX and express js which are open-source platforms used to deliver content as per requests made. \u2022 When you use Express.js, the web server is essentially built by: 1. Node.js: Provides the underlying HTTP server functionality. 2. Express.js: Handles routing, middleware, and other web application logic on top of Node.js. Like that: \u2022 const server = http.createServer((req, res) => { res.statusCode = 200; res.setHeader('Content-Type', 'text/plain'); res.end('Hello, World!\\n'); }); 4. Proxy: \u2022 Proxies are becoming increasingly popular in the engineering world, especially with the introduction of micro-services. The main purpose of a proxy is it receives requests from a client and forward the requests to backend servers. The proxy hides the network layer identity of the original client from the destination server.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 12,
+      "text": "Image located on page 6",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 13,
+      "text": "Image located on page 6",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 14,
+      "text": "\u2022 There are two levels of proxying: layer 4 and layer 7 proxying. Layer 4 proxying works at the transport layer, while layer 7 proxying works at the application level. Each layer provides different capabilities and can be used for different purposes. Layer 7 proxying require the proxy to understand the application protocol while layer 4 proxying works with any application protocol because it works at the transport layer (TCP or UDP). \u2022 You might have heard the forward proxy and reverse proxy used interchangeably. Both the forward proxy and the reverse proxy, receive requests from clients and forward the request to a backend. In the forward proxy, the client explicitly asks for a particular backend server and the proxy fulfills this request. Forward proxies must be configured in the client network proxy section for them to work. In the reverse proxy the client doesn\u2019t know the final backend server, to the client the final destination is the reverse proxy. The client doesn\u2019t know there are more servers on the backend. \u2022 A common uses cases of proxies are caching, API gateways, authentication, load balancing and much more. For example a content delivery network (CDN) is a reverse proxy that sends request to the origin backends. Fiddler or MITM are proxies configured on the client side and all requests* get sent to them first. Service meshes are essentially a proxy and a reverse proxy. Learn more about proxies here. 5. Authontication : there is a detailed website in the references part. 6. App scaling 7. Hosting Environment 8. System Design 9. Containerization & Testing \u2022 Containerization is the process of packaging software code with all the necessary elements like frameworks, libraries, and other dependencies, to make services isolated from each other in a container. This process is done by the backend developers to run a container easily. Docker and Kubernetes are the most used containers. \u2022 Docker is an open-source containerization platform, that enables developers to package applications into containers. It is similar to a virtual machine but much more efficient. Its basic use of it is it allows the applications to run in different environments.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 15,
+      "text": "an open-source containerization platform, that enables developers to package applications into containers. It is similar to a virtual machine but much more efficient. Its basic use of it is it allows the applications to run in different environments. \u2022 Kubernetes often abbreviated as \u201cK8s\u201d, automates deploying and managing cloud-native applications using public cloud platforms. 10. Deployment \u2022 When the testing passes, developers move to the deployment where they can see the working of their application. It can also be referred to as a live environment. This process includes 5 steps: Planning, development, testing, deploying, and monitoring. \u2022 Planning: When multiple developers are working on the same project, a deployment plan is a necessity. Using this step, you avoid conflicts between changes made making sure the deployment process is as smooth and easy. This could lead to the quicker and more efficient development of the application. \u2022 Development: Once, the planning is done, actual development takes place. This is the step where you gather ideas and prioritization requirements. Then, the management of the complete application can be moved to testing.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 16,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 17,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 18,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 19,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 20,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 21,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 22,
+      "text": "\u2022 Testing: Testing is a crucial step to ensure there are no bugs before moving it to the production level. Testing is possible only when you deploy it to various environments to check whether it fits in or not. Check for the bugs and if any, make sure to remove them and then move to the deployment process. \u2022 Deploying: Seeing your application working live, with no bugs, and in an optimized way gives satisfaction to the effort made. It means pushing changes or updates from one environment to another. \u2022 Monitoring: Constant monitoring is required to check whether the website is working well or not. There might be a chance that issues may occur after deploying as well, so keep an eye out for the proper functioning, and the time for release should be planned so that minimum users would have viewed and changes can be made to see the optimized web application. 11. Cloud Providers o Everything is making its way to the cloud, be it software, applications, services, or products. Cloud computing. It is Web-based computing that permits businesses and individuals to consume computing resources such as virtual machines, databases, processing, services, storage, and events, and gives you a pay-as-you-go service. Cloud computing can be divided into three major categories, Software as a Service (SaaS), Platform as a Service (PaaS), and Infrastructure as a Service (IaaS). The most used Cloud Services are: o Amazon Web Services (AWS) o Microsoft Azure o Google Cloud o Alibaba Cloud o IBM Cloud 12. Compliance and Regulations: \u2022 Backend developers implement features and processes to ensure that applications comply with legal regulations and industry standards, such as data protection laws. 13. Data Validation: Backend is responsible for validating data before it is stored in the database. This ensures data integrity and prevents the storage of incorrect or inconsistent data. 14. Scalability: Backend architecture plays a key role in the scalability of an application. Well- designed backend systems can easily scale to handle increased loads and user traffic. 15. Support for Multiple Platforms : Backend logic ensures consistency and compatibility across various platforms and devices.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 23,
+      "text": "scalability of an application. Well- designed backend systems can easily scale to handle increased loads and user traffic. 15. Support for Multiple Platforms : Backend logic ensures consistency and compatibility across various platforms and devices. This allows users to access the application from different devices without compromising the user experience. 16. Updates and Maintenance: Backend development facilitates easier updates and maintenance of applications. Changes to the application logic can be implemented on the server without requiring updates to individual client devices. 17. Optimization: Backend developers optimize code and databases to improve application performance. This includes optimizing queries, implementing caching strategies, and reducing response times. 18. Message Formats",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 24,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 25,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 26,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 27,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 28,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 29,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 30,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 31,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 32,
+      "text": "\u2022 Message formats go hand in hand with communication protocols; They describe in- wire format of the message being sent. They usually broken down into two types human readable and non-human readable. Examples are XML, JSON and protocol buffers. \u2022 When a client sends a message to a backend, it needs to serialize the message from the language data structure to the on-wire message format. When the backend receives the message it needs to then deserialize the message from this format to the language data structure. 19. Message Sytems like kafka and RabbitQA 20. What is a server? \u2022 A server is simply a computer that listens for incoming requests. Though there are machines made and optimized for this particular purpose, any computer that is connected to a network can act as a server. In fact, you will often use your very own computer as server when developing apps. Project Folders: 1. Models: has the schema models and relations. 2. Routes: includes all routes and has a file for each route type. 3. Controllers: Our routes get requests and pass these requests to the suitable controller fn , then it uses models to get data and pass these data into a view, and we reference those controllers fns in our routes file, and then the view renders these data into its template and it gets sent back to the browser. \u2022 This folder will include files according to each routig file , then the const blog =require('../models/\u2019) will be moved to this file. 4. Views folders have the .ejs files 5. app.js file 6. server.js file Notes: 7. URI: A URI (Uniform Resource Identifier) is a string that refers to a resource.The most common are URLs, which identify the resource by giving its location on the Web. URNs, by contrast, refer to a resource by a name, in a given namespace, such as the ISBN of a book. 8. What are the core functions of the app? The server runs an app that contains logic about how to respond to various requests based on the HTTP verb and the Uniform Resource Identifier (URI). The pair of an HTTP verb and a URI is called a route and matching them based on a request is called routing. Some of these handler functions will be middleware.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 33,
+      "text": "ond to various requests based on the HTTP verb and the Uniform Resource Identifier (URI). The pair of an HTTP verb and a URI is called a route and matching them based on a request is called routing. Some of these handler functions will be middleware. In this context, middleware is any code that executes between the server receiving a request and sending a response. These middleware functions might modify the request object, query the database, or otherwise process the incoming request. Middleware functions typically end by passing control to the next middleware function, rather than by sending a response.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 34,
+      "text": "Image located on page 9",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 35,
+      "text": "Image located on page 9",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 36,
+      "text": "Eventually, a middleware function will be called that ends the request-response cycle by sending an HTTP response back to the client. What is a Proxy?A proxy is essentially an intermediary that acts on behalf of another. General Concept: Imagine you're too busy to go to the grocery store. You ask your friend to go for you. Your friend becomes your proxy - they act on your behalf to purchase the groceries. Proxy in Computing: In the digital world, a proxy server acts as an intermediary between your computer and the internet. It handles your internet requests and responds on your behalf. Why use a proxy? Privacy: Hides your IP address, making it harder for websites to track you. Security: Can filter malicious content or protect against attacks. Caching: Stores copies of frequently accessed web pages to speed up loading times. Circumventing restrictions: Can be used to access blocked websites or content. Types of Proxies:\nHTTP Proxy: Handles HTTP requests. SOCKS Proxy: More flexible, allowing for different protocols. Reverse Proxy: Directs traffic to different servers based on rules.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 3
+      }
+    },
+    {
+      "chunk_id": 37,
+      "text": "xy: More flexible, allowing for different protocols. Reverse Proxy: Directs traffic to different servers based on rules. Web Server\nDirectly serves content: Typically handles static content (HTML, CSS, images) and dynamic content generated by applications running on the same server. Focus: Primarily concerned with delivering content to clients. Proxy Server\nIntermediary: Acts as a middleman between clients and backend servers. Additional functionalities: Often provides additional services like load balancing, caching, security, and filtering. Flexibility: Can be configured to forward requests to different backend servers based on various criteria. To summarize:\nA web server is primarily focused on serving content. A proxy server is more versatile, offering additional features beyond simple request forwarding. While a web server can handle basic request forwarding, a proxy server provides more advanced capabilities and is often used in complex architectures.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 3
+      }
+    },
+    {
+      "chunk_id": 38,
+      "text": "basic request forwarding, a proxy server provides more advanced capabilities and is often used in complex architectures. References: \u2022\nhttps://\nfi\nvedottwelve.com/blog/backend-development-process-what-does-it-look-like-and-\nhow-to-plan-it-effectively/ \u2022\nhttps://developer.mozilla.org/en-US/docs/Glossary/URI \u2022\nhttps://www.codecademy.com/article/back-end-architecture\n(this is very important for\nclarifying everything) \u2022\nhttps://www.geeksforgeeks.org/containerization-using-docker/\n(Containerization using\nDocker) \u2022\nhttps://dev.to/bilal1718/how-to-create-a-backend-api-in-express-js-e0k\n(How to create a\nbackend API in Express JS)",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 2,
+        "total_sub_chunks": 3
+      }
+    },
+    {
+      "chunk_id": 39,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 40,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 41,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 42,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 43,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 44,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 45,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 46,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 47,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 48,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 49,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 50,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 51,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 52,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 53,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 54,
+      "text": "\u2022\nhttps://developer.mozilla.org/en-US/docs/Web/HTTP/Methods \u2022\nhttps://blog.postman.com/how-to-create-a-rest-api-with-node-js-and-express/\n. (for building rest-api on nodejs) \u2022\n#:~:text=js!,APIs%20for%20your%20web%20applications\nhttps://mohamedadell.medium.com/15-steps-for-perfect-authentication-\nfl\now-in-the-backend-\n(authentication) \u2022\nd5e287a9ce0a\nhttps://support.zyte.com/support/solutions/articles/22000201935-deploying-a-project-from-a-\n(Deployment) \u2022\ngithub-repository\n(JWT) \u2022\nhttps://www.geeksforgeeks.org/jwt-authentication-with-node-js/\nhttps://blog.stackademic.com/encrypt-and-decrypt-data-in-node-js-2a02d8dbd5ff\n(DataEncrypt) \u2022\n(GraphQL with node.js) \u2022\nhttps://www.toptal.com/graphql/graphql-nodejs-api\n(PERN project) \u2022\nhttps://www.youtube.com/watch?v=ldYcgPKEZC8&t=429s\nhttps://www.youtube.com/watch?v=6_bYRsbeyCc\n(How to create API documentation in\nPostman [under 5 Minutes] 2023)(\nhow to Create clear documentation for the API and\nbackend logic)",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 55,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 56,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 57,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 58,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 59,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 60,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 61,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 62,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 63,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 64,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 65,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 66,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 67,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 68,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 69,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 70,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 71,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 72,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 73,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 74,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 75,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 76,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 77,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 78,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 79,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_5zomJkDN3npJ_AllaboutBackend2.pdf",
+        "doc_title": "All about Backend 2",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 0,
+      "text": "How to build a Backend 1. Define Your Project: o Clearly outline the project's purpose, target audience, and core functionalities. o Identify the data you'll be handling, how it will be structured, and the operations required (CRUD: Create, Read, Update, Delete). 2. Choose the Right Tech Stack: o Select programming languages (Python, JavaScript, Ruby, Java, etc.) based on your familiarity and project requirements. o Consider using frameworks like Django, Express.js, Ruby on Rails, or Spring Boot to accelerate development. o Choose a database system (SQL or NoSQL) depending on your data structure and query needs. 3. Design the Database Schema: o Create a logical structure for your data, defining tables (for SQL) or collections (for NoSQL). o Determine relationships between data entities (one-to-one, one-to-many, many-to-many). o Normalize your data to avoid redundancy and improve data integrity. 4. Develop the API: o Define endpoints for different functionalities (e.g., user registration, data retrieval, updates). o Choose an API architecture (REST, GraphQL, or a combination) based on your project's needs. o Implement data validation and error handling. 5. Implement Business Logic: o Write code to handle core functionalities and calculations. o Consider using design patterns for code organization and reusability. 6. Ensure Security: o Protect user data with encryption and secure authentication methods. o Implement input validation and sanitization to prevent attacks like SQL injection and cross-site scripting (XSS). o Regularly update dependencies and address security vulnerabilities. 7. Test Thoroughly: o Write unit tests to verify individual components. o Conduct integration tests to ensure different parts work together seamlessly. o Perform load testing to assess performance under heavy usage. 8. Deploy to Production: o Choose a hosting platform or cloud provider (AWS, GCP, Azure). o Configure servers, databases, and application deployment. o Implement monitoring and logging for performance and troubleshooting.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 1,
+      "text": "Additional Considerations: \u2022 Scalability: Design your backend to handle increasing user loads and data volumes. \u2022 Performance: Optimize database queries, caching, and code for speed. \u2022 Error Handling: Provide informative error messages and graceful failure mechanisms. \u2022 Documentation: Create clear documentation for the API and backend logic. \u2022 Version Control: Use Git or similar tools to manage code changes and collaborate effectively. In the Internship: Understanding the Challenge You're transitioning from a familiar language and framework to a new stack. This means learning new syntax, concepts, and tools. But the core principles of building backend systems remain the same: \u2022 Data management: Storing, retrieving, and updating information. \u2022 User authentication: Protecting access to data. \u2022 API design: Creating endpoints for data interaction. \u2022 Logic implementation: Handling business rules and calculations. Your First Steps 1. Master Laravel Basics: o Installation: Set up a Laravel project. o Routing: Understand how to define URL patterns and their corresponding controllers. o Controllers: Learn how to handle incoming requests and return responses. o Models: Create models to interact with the database. o Views: (Optional for now) Learn how to create user interfaces, but for a backend focus, this can come later. o Eloquent ORM: Familiarize yourself with Laravel's ORM for database interactions. 2. Database Design: o Entity-Relationship Diagrams (ERDs): Visualize how data is related. o Migrations: Use Laravel's migration system to create database tables. o Seeders: Populate your database with initial data for testing. 3. Core CRM Features: o Contact Management: Create models for contacts, companies, addresses, etc. o Lead Management: Define lead stages, sources, and related data. o Opportunity Management: Model sales pipelines, deals, and probabilities. o User Management: Implement user roles, permissions, and authentication. 4. Leverage Laravel Features: o Authentication: Use Laravel's built-in authentication scaffolding to handle user logins and registrations. o Validation: Validate user input to prevent errors and security vulnerabilities. missions, and authentication. 4. Leverage Laravel Features: o Authentication: Use Laravel's built-in authentication scaffolding to handle user logins and registrations. o Validation: Validate user input to prevent errors and security vulnerabilities. o Requests: Handle incoming requests and data validation using form requests. o Testing: Write unit and integration tests to ensure code quality. Example Structure",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 2,
+      "text": "Bash crm/ \u251c\u2500\u2500 app/ \u2502 \u251c\u2500\u2500 Http/ \u2502 \u2502 \u251c\u2500\u2500 Controllers/ \u2502 \u2502 \u2502 \u251c\u2500\u2500 ContactController.php \u2502 \u2502 \u2502 \u251c\u2500\u2500 LeadController.php \u2502 \u2502 \u2502 \u251c\u2500\u2500 OpportunityController.php \u2502 \u2502 \u2502 \u2514\u2500\u2500 UserController.php \u2502 \u2502 \u251c\u2500\u2500 Middleware/ \u2502 \u2502 \u251c\u2500\u2500 Requests/ \u2502 \u2502 \u2514\u2500\u2500 Routes/ \u2502 \u251c\u2500\u2500 Models/ \u2502 \u2502 \u251c\u2500\u2500 Contact.php \u2502 \u2502 \u251c\u2500\u2500 Lead.php \u2502 \u2502 \u251c\u2500\u2500 Opportunity.php \u2502 \u2502 \u2514\u2500\u2500 User.php \u2502 \u251c\u2500\u2500 Providers/ \u2502 \u2514\u2500\u2500 Console/ \u251c\u2500\u2500 config/ \u251c\u2500\u2500 database/ \u251c\u2500\u2500 public/ \u251c\u2500\u2500 resources/ \u251c\u2500\u2500 routes/ \u251c\u2500\u2500 storage/ \u251c\u2500\u2500 tests/ \u251c\u2500\u2500 vendor/ \u2514\u2500\u2500 .env Additional Tips \u2022 Break down the problem: Start with a small, manageable feature and gradually expand. \u2022 Learn by doing: Experiment with different approaches and iterate. \u2022 Seek help: Don't hesitate to ask your colleagues or online communities for assistance. \u2022 Leverage Laravel's documentation: It's a valuable resource. Remember, building a CRM is a learning process. Focus on understanding the core concepts and gradually adding complexity. With dedication and practice, you'll be able to create a robust and efficient CRM system. Hints in Backend: 1. When there is a problem in fetch that can be due to an error in the app.post function in the server side, you must check where the error there and add many console.log to print the data so you can know where the data lost. 2. When there is a problem in the appearing of any object, you must check objects that appear in the DOM, and if you want to pass data between 2 views, you can use local storage What is a back-end? \u2022 The back-end is all of the technology required to process the incoming request and generate and send the response to the client. This typically includes three major parts:",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 3,
+        "section_heading": "Page 3",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 3,
+      "text": "\u2022 1. The server. This is the computer that receives requests. 2.The app. This is the application running on the server that listens for requests, retrieves information from the database, and sends a response. 3. The database. Databases are used to organize and persist data. How to build a Backend for a Website? Backend involves 1. Define your needs: \u2022 how it should work and what core functionalities it should have. \u2022 What functionalities will you implement in the future? \u2022 How many users will use your app? 2. Choose the right tools \u2022 Programming language: This decision will have an effect on all future possibilities and limitations . \u2022 API: it is time to specify the type of API (Public, Private, Partner, Composite) and its architecture (REST, SOAP, RPC, GraphQL). It is the massenger that takes request and tells the system what o you want to do and then returns response back to you, it is like a waiter. \u2022 API Documentation. \u2022 Backend is responsible for creating APIs (Application Programming Interfaces) that allow communication between different components of a system. APIs enable integration with third-party services and ensure a seamless user experience. \u2022 Operating system : Then it is good to find the best operating system . Here it is a simple choice: Linux or Windows . In the case of Linux, we need to specify the distribution (RedHat, Fedora, Debian, Ubuntu, etc.) and its version . To avoid being locked into a single operating system, developers often use Docker \u2013 a tool that allows them to create a small virtual system just for development purposes. \u2022 Building Data base : 3. Coding \u2022 folder structure: MCV structure. \u2022 paradigm to choose (functional or object-oriented programming) \u2022 methodology: TDD (Test-Driven Development), BDD (Behavior-Driven Development), and DDD (Domain-Driven Development). \u2022 follow a few principles like SOLID (five code design principles), KISS (Keep It Simple Stupid), and DRY (Don\u2019t Repeat Yourself). 4. Deployment: deploy the code into the world \u2022 we have many cloud platforms like AWS (Amazon Web Services), Google Cloud, Firebase, DigitalOcean, Heroku, etc. \u2022 DevOps have to configure all services you need for the project, eg. \u2019t Repeat Yourself). 4. Deployment: deploy the code into the world \u2022 we have many cloud platforms like AWS (Amazon Web Services), Google Cloud, Firebase, DigitalOcean, Heroku, etc. \u2022 DevOps have to configure all services you need for the project, eg. compute cloud/ engine, storage and database. In this step, we usually set up two environments: prod (what all can use) and stage (to show changes to the client and for testing purposes).",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 4,
+        "section_heading": "Page 4",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 4,
+      "text": "5. CI/CD: Continuous Integration / Continues Delivery. While CI is responsible for building code and testing it (with automatic tests), CD takes care of the build delivery to the server. Again, we have plenty of tools that can help us like eg. Jenkins, GitLab, CircleCI, TeamCity, Bamboo, etc. 6. Monitoring: To minimize the risk of sudden interruption on the backend, DevOps uses monitoring systems to analyze the utility of resources. Many cloud platforms have built-in solutions but if there is a need to use custom tools we can choose one of these: Sematex Monitoring, Prometheus and Grafana, Dynatrace, Datadog, etc. Important things to have Knowelage about: 1. Communication Protocols Communications protocols link the frontend to the backend \u2022 TCP o is a stream-based connection-oriented protocol . o provides reliable delivery at a cost of connection setup and retransmission \u2022 UDP o a message based and connectionless. o starts faster but doesn\u2019t have guaranteed delivery. \u2022 There are multiple protocols we have to determine the protocol we will use according to project requirements. \u2022 HTTP protocol is built on top or TCP/UDP 2. Accesability along with security compilance (Knowledge of Web Security ). \u2022 You can secure communications with encryption or TLS. \u2022 You can prevent network intrusion with firewall rules and proper network configuration. You can study common software vulnerabilities and protect against denial of service attacks. As a software engineer, it is important to be familiar with the different types of security risks and how to mitigate them. \u2022 One type of security risk is a man-in-the-middle attack. This is where an attacker intercepts communication between two parties and tries to eavesdrop or modify the data being exchanged. To prevent this type of attack, it is important to encrypt and authenticate the communicated parties using Transport Layer Security (TLS). \u2022 Another type of security risk is a denial of service attack. This is where an attacker tries to prevent legitimate users from accessing a service by flooding it with requests or through finding a way to crash the backend by sending a special payload.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 5,
+      "text": "Another type of security risk is a denial of service attack. This is where an attacker tries to prevent legitimate users from accessing a service by flooding it with requests or through finding a way to crash the backend by sending a special payload. To prevent this type of attack, it is important to have a firewall or a layer 7 DDOS protection layer in place to block illegitimate requests. Cloudflare has great services to detect DDOS traffic. This is of course made possible through layer 7 inspection. \u2022 There is a client side security attacks such as XSS (cross side scripting), there are server side security attacks such as SQL injection \u2022 Using HTTPS: HTTPS is a secured HTTP. When data is sent using HTTPS, it is protected via the Transport Layer Security protocol, which has three layers of protection: o Encryption: Way of securing data along with a password or \u201ckey\u201d which is used to decrypt the information. o Data Integrity: When data integrity is secure, information stored in a database is complete, accurate, and reliable for a lifetime. o Authentication: This method protects against attacks and builds user trust which response to business growth.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 6,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 7,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 8,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 9,
+      "text": "Image located on page 5",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 10,
+      "text": "\u2022 Implementing secure backup and recovery: Data loss could be the major threat that could lead to security breaches. To avoid this, make sure to implement a backup process. This could be implemented in many ways: o Protecting media and content from theft or destruction. o Periodically testing the backups. o Apply a two-person rule so that one person cannot access the content or media without the permission of another article. o and various other methods include XSS Attacks, Software updates, and SQL Injection. 3. Web Server: \u2022 Web servers deliver static or dynamic content served on top of the HTTP protocol. \u2022 If you build a Web API you may spin up your own web server in your language of choice or use a web framework such as Express or Django. \u2022 The internal architecture of web servers can also differ. Web servers can be single or multithreaded. They can have one thread or multiple listener threads. There are many ways client connections can be accepted and distributed among the threads \u2022 Examples of off-the-shelf web servers are Apache Tomcat, Apache httpd, and NGINX . The latter can act as both a web server and a proxy. \u2022 Modern web servers support both HTTP/1.1 and HTTP/2. HTTP/3 is slowly getting support as its newer protocol. Configuring your web server with the appropriate protocol is critical for performance and resilience of your backend application; And it all depends on the environment. For example, Do you expect multiple concurrent requests from the same client? or do you expect fewer requests but from many clients? Based on that, you can pick multiplexing HTTP/ 2 or vanilla simple HTTP/1.1. \u2022 The web server runs websites, it stores, processes, and delivers (response) web pages to the user\u2019s request. When the user makes a request by the web server, it is accepted by an HTTP server which finds and sends back the content to the browser through HTTP. Some examples of web servers are Apache and NGINX and express js which are open-source platforms used to deliver content as per requests made. \u2022 When you use Express.js, the web server is essentially built by: 1. Node.js: Provides the underlying HTTP server functionality. 2.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 11,
+      "text": "ers are Apache and NGINX and express js which are open-source platforms used to deliver content as per requests made. \u2022 When you use Express.js, the web server is essentially built by: 1. Node.js: Provides the underlying HTTP server functionality. 2. Express.js: Handles routing, middleware, and other web application logic on top of Node.js. Like that: \u2022 const server = http.createServer((req, res) => { res.statusCode = 200; res.setHeader('Content-Type', 'text/plain'); res.end('Hello, World!\\n'); }); 4. Proxy: \u2022 Proxies are becoming increasingly popular in the engineering world, especially with the introduction of micro-services. The main purpose of a proxy is it receives requests from a client and forward the requests to backend servers. The proxy hides the network layer identity of the original client from the destination server.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 12,
+      "text": "Image located on page 6",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 13,
+      "text": "Image located on page 6",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 14,
+      "text": "\u2022 There are two levels of proxying: layer 4 and layer 7 proxying. Layer 4 proxying works at the transport layer, while layer 7 proxying works at the application level. Each layer provides different capabilities and can be used for different purposes. Layer 7 proxying require the proxy to understand the application protocol while layer 4 proxying works with any application protocol because it works at the transport layer (TCP or UDP). \u2022 You might have heard the forward proxy and reverse proxy used interchangeably. Both the forward proxy and the reverse proxy, receive requests from clients and forward the request to a backend. In the forward proxy, the client explicitly asks for a particular backend server and the proxy fulfills this request. Forward proxies must be configured in the client network proxy section for them to work. In the reverse proxy the client doesn\u2019t know the final backend server, to the client the final destination is the reverse proxy. The client doesn\u2019t know there are more servers on the backend. \u2022 A common uses cases of proxies are caching, API gateways, authentication, load balancing and much more. For example a content delivery network (CDN) is a reverse proxy that sends request to the origin backends. Fiddler or MITM are proxies configured on the client side and all requests* get sent to them first. Service meshes are essentially a proxy and a reverse proxy. Learn more about proxies here. 5. Authontication : there is a detailed website in the references part. 6. App scaling 7. Hosting Environment 8. System Design 9. Containerization & Testing \u2022 Containerization is the process of packaging software code with all the necessary elements like frameworks, libraries, and other dependencies, to make services isolated from each other in a container. This process is done by the backend developers to run a container easily. Docker and Kubernetes are the most used containers. \u2022 Docker is an open-source containerization platform, that enables developers to package applications into containers. It is similar to a virtual machine but much more efficient. Its basic use of it is it allows the applications to run in different environments.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 15,
+      "text": "an open-source containerization platform, that enables developers to package applications into containers. It is similar to a virtual machine but much more efficient. Its basic use of it is it allows the applications to run in different environments. \u2022 Kubernetes often abbreviated as \u201cK8s\u201d, automates deploying and managing cloud-native applications using public cloud platforms. 10. Deployment \u2022 When the testing passes, developers move to the deployment where they can see the working of their application. It can also be referred to as a live environment. This process includes 5 steps: Planning, development, testing, deploying, and monitoring. \u2022 Planning: When multiple developers are working on the same project, a deployment plan is a necessity. Using this step, you avoid conflicts between changes made making sure the deployment process is as smooth and easy. This could lead to the quicker and more efficient development of the application. \u2022 Development: Once, the planning is done, actual development takes place. This is the step where you gather ideas and prioritization requirements. Then, the management of the complete application can be moved to testing.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 16,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 17,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 18,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 19,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 20,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 21,
+      "text": "Image located on page 7",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 22,
+      "text": "\u2022 Testing: Testing is a crucial step to ensure there are no bugs before moving it to the production level. Testing is possible only when you deploy it to various environments to check whether it fits in or not. Check for the bugs and if any, make sure to remove them and then move to the deployment process. \u2022 Deploying: Seeing your application working live, with no bugs, and in an optimized way gives satisfaction to the effort made. It means pushing changes or updates from one environment to another. \u2022 Monitoring: Constant monitoring is required to check whether the website is working well or not. There might be a chance that issues may occur after deploying as well, so keep an eye out for the proper functioning, and the time for release should be planned so that minimum users would have viewed and changes can be made to see the optimized web application. 11. Cloud Providers o Everything is making its way to the cloud, be it software, applications, services, or products. Cloud computing. It is Web-based computing that permits businesses and individuals to consume computing resources such as virtual machines, databases, processing, services, storage, and events, and gives you a pay-as-you-go service. Cloud computing can be divided into three major categories, Software as a Service (SaaS), Platform as a Service (PaaS), and Infrastructure as a Service (IaaS). The most used Cloud Services are: o Amazon Web Services (AWS) o Microsoft Azure o Google Cloud o Alibaba Cloud o IBM Cloud 12. Compliance and Regulations: \u2022 Backend developers implement features and processes to ensure that applications comply with legal regulations and industry standards, such as data protection laws. 13. Data Validation: Backend is responsible for validating data before it is stored in the database. This ensures data integrity and prevents the storage of incorrect or inconsistent data. 14. Scalability: Backend architecture plays a key role in the scalability of an application. Well- designed backend systems can easily scale to handle increased loads and user traffic. 15. Support for Multiple Platforms : Backend logic ensures consistency and compatibility across various platforms and devices.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 23,
+      "text": "scalability of an application. Well- designed backend systems can easily scale to handle increased loads and user traffic. 15. Support for Multiple Platforms : Backend logic ensures consistency and compatibility across various platforms and devices. This allows users to access the application from different devices without compromising the user experience. 16. Updates and Maintenance: Backend development facilitates easier updates and maintenance of applications. Changes to the application logic can be implemented on the server without requiring updates to individual client devices. 17. Optimization: Backend developers optimize code and databases to improve application performance. This includes optimizing queries, implementing caching strategies, and reducing response times. 18. Message Formats",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 24,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 25,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 26,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 27,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 28,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 29,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 30,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 31,
+      "text": "Image located on page 8",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 8,
+        "section_heading": "Page 8",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 32,
+      "text": "\u2022 Message formats go hand in hand with communication protocols; They describe in- wire format of the message being sent. They usually broken down into two types human readable and non-human readable. Examples are XML, JSON and protocol buffers. \u2022 When a client sends a message to a backend, it needs to serialize the message from the language data structure to the on-wire message format. When the backend receives the message it needs to then deserialize the message from this format to the language data structure. 19. Message Sytems like kafka and RabbitQA 20. What is a server? \u2022 A server is simply a computer that listens for incoming requests. Though there are machines made and optimized for this particular purpose, any computer that is connected to a network can act as a server. In fact, you will often use your very own computer as server when developing apps. Notes: 1. URI: A URI (Uniform Resource Identifier) is a string that refers to a resource.The most common are URLs, which identify the resource by giving its location on the Web. URNs, by contrast, refer to a resource by a name, in a given namespace, such as the ISBN of a book. 2. What are the core functions of the app? The server runs an app that contains logic about how to respond to various requests based on the HTTP verb and the Uniform Resource Identifier (URI). The pair of an HTTP verb and a URI is called a route and matching them based on a request is called routing. Some of these handler functions will be middleware. In this context, middleware is any code that executes between the server receiving a request and sending a response. These middleware functions might modify the request object, query the database, or otherwise process the incoming request. Middleware functions typically end by passing control to the next middleware function, rather than by sending a response. Eventually, a middleware function will be called that ends the request-response cycle by sending an HTTP response back to the client. What is a Proxy?A proxy is essentially an intermediary that acts on behalf of another. General Concept: Imagine you're too busy to go to the grocery store. You ask your friend to go for you.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 33,
+      "text": "ponse cycle by sending an HTTP response back to the client. What is a Proxy?A proxy is essentially an intermediary that acts on behalf of another. General Concept: Imagine you're too busy to go to the grocery store. You ask your friend to go for you. Your friend becomes your proxy - they act on your behalf to purchase the groceries. Proxy in Computing: In the digital world, a proxy server acts as an intermediary between your computer and the internet. It handles your internet requests and responds on your behalf. Why use a proxy? Privacy: Hides your IP address, making it harder for websites to track you.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 34,
+      "text": "Image located on page 9",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 35,
+      "text": "Image located on page 9",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 9,
+        "section_heading": "Page 9",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 36,
+      "text": "Security: Can filter malicious content or protect against attacks. Caching: Stores copies of frequently accessed web pages to speed up loading times. Circumventing restrictions: Can be used to access blocked websites or content. Types of Proxies:\nHTTP Proxy: Handles HTTP requests. SOCKS Proxy: More flexible, allowing for different protocols. Reverse Proxy: Directs traffic to different servers based on rules. Web Server\nDirectly serves content: Typically handles static content (HTML, CSS, images) and dynamic content generated by applications running on the same server. Focus: Primarily concerned with delivering content to clients. Proxy Server\nIntermediary: Acts as a middleman between clients and backend servers. Additional functionalities: Often provides additional services like load balancing, caching, security, and filtering. Flexibility: Can be configured to forward requests to different backend servers based on various criteria. To summarize:\nA web server is primarily focused on serving content. A proxy server is more versatile, offering additional features beyond simple request forwarding.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 3
+      }
+    },
+    {
+      "chunk_id": 37,
+      "text": "sed on serving content. A proxy server is more versatile, offering additional features beyond simple request forwarding. While a web server can handle basic request forwarding, a proxy server provides more advanced capabilities and is often used in complex architectures. References: \u2022\nhttps://\nfi\nvedottwelve.com/blog/backend-development-process-what-does-it-look-like-and-\nhow-to-plan-it-effectively/ \u2022\nhttps://developer.mozilla.org/en-US/docs/Glossary/URI \u2022\nhttps://www.codecademy.com/article/back-end-architecture\n(this is very important for\nclarifying everything) \u2022\nhttps://www.geeksforgeeks.org/containerization-using-docker/\n(Containerization using\nDocker) \u2022\nhttps://dev.to/bilal1718/how-to-create-a-backend-api-in-express-js-e0k\n(How to create a\nbackend API in Express JS) \u2022\nhttps://developer.mozilla.org/en-US/docs/Web/HTTP/Methods \u2022\nhttps://blog.postman.com/how-to-create-a-rest-api-with-node-js-and-express/\n.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 3
+      }
+    },
+    {
+      "chunk_id": 38,
+      "text": ".mozilla.org/en-US/docs/Web/HTTP/Methods \u2022\nhttps://blog.postman.com/how-to-create-a-rest-api-with-node-js-and-express/\n. (for building rest-api on nodejs) \u2022\n#:~:text=js!,APIs%20for%20your%20web%20applications\nhttps://mohamedadell.medium.com/15-steps-for-perfect-authentication-\nfl\now-in-the-backend-\n(authentication) \u2022\nd5e287a9ce0a\nhttps://support.zyte.com/support/solutions/articles/22000201935-deploying-a-project-from-a-\n(Deployment) \u2022\ngithub-repository\n(JWT) \u2022\nhttps://www.geeksforgeeks.org/jwt-authentication-with-node-js/\nhttps://blog.stackademic.com/encrypt-and-decrypt-data-in-node-js-2a02d8dbd5ff\n(DataEncrypt) \u2022\n(GraphQL with node.js) \u2022\nhttps://www.toptal.com/graphql/graphql-nodejs-api\nhttps://www.youtube.com/watch?v=ldYcgPKEZC8&t=429s\n(PERN project)",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project",
+        "sub_chunk_index": 2,
+        "total_sub_chunks": 3
+      }
+    },
+    {
+      "chunk_id": 39,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 40,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 41,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 42,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 43,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 44,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 45,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 46,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 47,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 48,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 49,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 50,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 51,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 52,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 53,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 54,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 55,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 56,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 57,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 58,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 59,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 60,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 61,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 62,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 63,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 64,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 65,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 66,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 67,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 68,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 69,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 70,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 71,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 72,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 73,
+      "text": "Image located on page 10",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 10,
+        "section_heading": "Page 10",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 74,
+      "text": "\u2022\nhttps://www.youtube.com/watch?v=6_bYRsbeyCc\n(How to create API documentation in\nPostman [under 5 Minutes] 2023)(\nhow to Create clear documentation for the API and\nbackend logic)",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "text",
+        "page_kind": "slide",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 75,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 76,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 77,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 78,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 79,
+      "text": "Image located on page 11",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_7tcvrGMxSwJZ_HintsinBackend.pdf",
+        "doc_title": "Hints in Backend",
+        "page": 11,
+        "section_heading": "Page 11",
+        "chunk_type": "image",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 0,
+      "text": "Node Js: Pros: 1. Scalability \u2022 if you want to build web applications that need to scale on the server side (such as e- commerce websites). 2. most popular language for developing real-time apps, especially in the enterprise space where it can handle thousands of simultaneous connections while maintaining low latency and high performance. 3. Speed: \u2022 asynchronous processing and non-blocking I/O operations\u2014which means no more waiting around while your program runs! \u2022 Low latency is the ability of a computing system or network to provide responses with minimal delay. \u2022 great choice for dynamic applications. \u2022 Performance and responsiveness \u2022 Better performance in slow network environments 4. Productivity: \u2022 It\u2019s a single-threaded, event-driven environment, which makes it ideal for real- time applications such as chat and video streaming. 5. Error handling: \u2022 catch errors at runtime and do something with them \u2022 there are no exceptions! Errors are just thrown as an event that can be caught by your code. 6. Cost-effectiveness: \u2022 With a comprehensive cloud solution from NodeStack, you can save money in many ways including: \u2022 Lowering your IT costs by reducing the amount of hardware required for server deployments. \u2022 Decreasing operating expenses related to software licensing. \u2022 Eliminating maintenance costs associated with upgrading or patching existing applications or servers Note: 1.Server deployment is the process of making a server operational. In practice, deployment typically involves installing the hardware on a server rack and configuring the software required for the server's intended function. It is like installing the software on the server. 2.Memory Leaks: If your web application is not coded well, it can be defenseless against to memory leaks.A memory leak is when a piece of code allocates memory but never frees it, resulting in the memory being \u201cleaked.\u201d 3. There are a number of ways to prevent memory leaks in Node.js. The first is to make sure that all code that allocates memory also frees it. This can be difficult to do in a complex application, but it is crucial.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 0,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 1,
+      "text": "ting in the memory being \u201cleaked.\u201d 3. There are a number of ways to prevent memory leaks in Node.js. The first is to make sure that all code that allocates memory also frees it. This can be difficult to do in a complex application, but it is crucial. The second is to use a tool like heapdump to take periodic snapshots of the Node.js process\u2019s memory usage. This can help identify areas where memory is being leaked. 4. The biggest challenge for developers who are increasingly looking to use this technology is sharing code between client and server, which can be time-consuming if you don\u2019t have a team in place to handle it. This problem can be solved by using something like Webpack or Babel which helps automate the process of handling multiple languages when making changes on both sides of an app (browser vs server). 7. Faster development: \u2022 Faster than php and java \u2022 most popular platform for building microservices",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project",
+        "sub_chunk_index": 1,
+        "total_sub_chunks": 2
+      }
+    },
+    {
+      "chunk_id": 2,
+      "text": "Cons: 1. Unstable API: lead to software that is difficult to maintain and upgrade. 2. Not Suited for CPU-intensive Tasks 3. Lacks a Strong Library Support System. 4. Dealing with Relational Database ROR: Pros: 1. Easy to learn: Some aspects can even be automated 2. Very Reliable : the probability of failure-free operation of a computer program for a specified period in a specified environment. 3. High speed and Time-efficient 4. Huge Amounts of Helpful Resources are Available 5. cost-effective 6. A Strong, Supportive, and Active Community 7. Strong and Solid Standards Cons: 1. Inflexible: developers don\u2019t have a lot of flexibility to play around with the code. They\u2019re limited to a reasonably strict scaffold and don\u2019t have much scope for creativity 2. Slower Performance Times: not huge 3. It\u2019s Constantly Changing: If you\u2019re not plugged into the community and constantly monitoring updates, it can be a struggle to keep up 4. Poor Documentation 5. Aging Infrastructure : Plenty of developers say it\u2019s perfectly fit for purpose and doesn\u2019t need any major overhauling. But others think it needs to evolve a long way to meet the changing needs of the development community. 6. if you\u2019re looking for something more flexible, speedy, and complex, Ruby on Rails might not be for you Pyhton(Django): Not recommended for simple applications like e-commerce sites or blogs. Pros: 1. Very secure 2. Takes care of user authentication by default 3. Flexible but not super :can do different things but with fixed manner and scalable: need cost 4. Easy to learn 5. A high-level framework with built-in features for efficient development.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 2,
+        "section_heading": "Page 2",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 3,
+      "text": "6. Vibrant community support and extensive third-party resources. 7. verstality: it can be used to create a wide variety of applications. Cons: 1 . Django ORM: If you want or must do anything in an unconventional way, ORM becomes a crutch instead of a trampoline. Lead to Monolithic deployment, Some developers who prefer writing raw SQL queries or using different ORM libraries will probably find Django\u2019s ORM restrictive and even unnecessary. 2. In-depth system knowledge is required 3. Maybe overkill for simple websites. 4. Can have performance limitations and issues with high throughput scenarios 5. More memory usage compared to lighter frameworks like Flask. 6. Built-in ORM may restrict developers who prefer different database approaches. 7. Performance problems in apps require high throughput or low-latency responses. 8. steeper learning curve. Flask: use Flask if you need to integrate with specific libraries or frameworks, have full control over the application\u2019s structure, or prefer a leaner codebase. Pros: 1. lightweight and flexible more freedom in architecture and customization. cons: 2. micro-framework 3. requires additional configuration for common functionalities 4. minimalistic core 5. very poor Fast API: Pros: 1. much better performance compared to Django. 2. asynchronous capabilities 3. high-performance design 4. automatic request validation and serialization using Python type hints 5. support for WebSocket communication: for real time apps 6. build something like a high-performance API backend for a real-time messaging application cons: 1. it\u2019s a newer framework PHP: Content Management System. Web-based applications and development of sites. E-commerce websites and applications. Data Analytics and Representation. Processing of Images. Graphical interface design-based applications. Developing the features of Flash. Pros: 1. open-source and free from cost. 2. Portability 3. faster rate of loading over slow internet speed than other programming language.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 3,
+        "section_heading": "Page 3",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 4,
+      "text": "4. less learning curve 5. more stable 6. It helps in managing code easily. 7. reusing an equivalent code and not got have to write lengthy code 8. PHP\u2019s built-in database connection modules help in connecting databases easily reducing trouble and time for the development of web applications and content-based sites. 9. Community 10. Flexible Cons: 1. not that secure 2. not suitable for giant content-based web applications. 3. Using more features of PHP framework and tools cause poor performance of online applications. 4. doesn\u2019t allow change or modification in the core behavior of online applications. 5. lacks debugging tools 6. It already imitates the features of the Java language. Go lang: Pros: 1. open-source programming languages 2. Memory Safety 3. Real-time Applications Development: messaging and chat programs, video conferencing software 4. Networking Development: Go is currently widely utilized in networking solutions and works fantastic with those incorporating Docker, built-in Go. The programming language includes goroutines and channels created to match contemporary technology\u2019s demands. 5. Microservices 6. Simplicity and Ease of Use 7. automated variable declaration, quick compilation, and latency-free garbage collection: you don\u2019t need to work on manual memory management. This automation ultimately saves time. 8. GoLang comes with rich libraries with built-in features and functionalities but are not that advanced compared to other libraries. Cons: 9. can also be challenging as a project grows due to its Simplicity 10. New in the market & doesn\u2019t have many libraries or information. 11. Low-level features in a high-level language 12. Automation might invite mistakes when its scope is too narrow. Rust: Pros: 13. memory safety by default (unless you use unsafe Rust) 14. speed (as fast as C, I think) 15. support for async 16. good package system and testing framework 17. memory effecient (regarding memory use, not program size!) 18. stability Cons:",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 4,
+        "section_heading": "Page 4",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 5,
+      "text": "19. difficult to master 20. sometimes prone to boilerplate code or verbose syntax due to some limitations of the type system 21. async has been added to the language at a later stage, so async integration sometimes feels limited and (pinning, lifetime issues, etc.) 22. error handling sometimes feels like having a lot of friction 23. complexity of the language leads to inevitable design flaws in std C# and .net: Pros: 24. Object-Oriented Software Development Mode 25. saves time 26. cost 27. allows developers to define the interactions of objects without needing to manage their inner attributes. 28. the code is easier to test, much more manageable, and responsive to problems 29. Cross-Platform Design(portability) 30. open-source code 31. Simplified Maintenance and Flexible Deployment 32. Large Online Community and Microsoft Support Cons: 33. Memory Leaks 34. If you change one letter in your code, you must recompile the whole application and deploy it again. This often leads to added bugs if a minor change isn't thoroughly tested. 35. Hosting cost Database choices: 1.MySQL \u2022 read-heavy operations. \u2022 user-friendly and relatively simple to set up \u2022 Prioritizes speed and performance \u2022 Less extensible but simpler to use 2. PostgreSQL \u2022 robust support for complex queries, transactions, and data integrity \u2022 Strong emphasis on data integrity \u2022 steeper learning curve \u2022 enterprise-level applications with frequent write operations and complex queries. PostgreSQL: Best for complex applications requiring full SQL compliance, data integrity, and extensibility. Suitable for developers needing custom data types and complex queries. MySQL: Ideal for simple, read-heavy applications requiring speed and reliability. Offers various storage engines and is easier to set up for beginners. 3. MongoDB",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 5,
+        "section_heading": "Page 5",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 6,
+      "text": "SQL vs NoSQL: SQL: 1. More for read mainly websites. NoSQL: 1. Higher performance due to avoiding ACID transactions. 2. Unstructured data Scalability horizontal better: High-throughput workloads, Real-time analytics: Airbnb : SQL for Structured Data \u2022 User profiles: Detailed information about users, including preferences, booking history, and payment details. \u2022 Listing information: Property details, location, amenities, pricing. \u2022 Booking data: Reservations, cancellations, payments. \u2022 Financial transactions: Payment processing, refunds, payouts. NoSQL for Unstructured and Semi-Structured Data \u2022 User reviews: Textual reviews and ratings. \u2022 Images and videos: Property photos and videos. \u2022 Search and recommendation data: User preferences, search history for personalized recommendations. \u2022 Real-time analytics: Storing and processing large volumes of user interaction data. \u2022 References: 1. https://www.geeksforgeeks.org/the-pros-and-cons-of-node-js-in-web-development/ 2. https://www.cisco.com/c/en/us/solutions/data-center/data-center-networking/what-is-low- latency.html#:~:text=Low%20latency%20is%20the%20ability,provide%20responses%20with %20minimal%20delay . 3. https://phoenixnap.com/glossary/server- deployment#:~:text=Glossary%20%C2%BB%20S%20%C2%BB%20What%20Is%20a,for% 20the%20server's%20intended%20function . 4. https://www.computer.org/publications/tech-news/build-your-career/developers-insight-into- the-ruby-on-rails 5. https://sastra.um.ac.id/wp-content/uploads/2009/11/Reliability.pdf 6. https://www.benchmarkit.solutions/lets-understand-the-pros-and-cons-of-using-django/ 7. https://blog.boot.dev/backend/django-for-backend/ 8. https://www.geeksforgeeks.org/advantages-and-disadvantages-of-php/ Network Security using firewalls, intrusion detection systems, and other measures. Network security is the practice of safeguarding computer networks from unauthorized access, use, disclosure, disruption, modification, or destruction. Funnel Analysis \u2022 Definition: A visual representation of the customer journey, from initial awareness to a desired action (e.g., purchase, signup). computer networks from unauthorized access, use, disclosure, disruption, modification, or destruction. Funnel Analysis \u2022 Definition: A visual representation of the customer journey, from initial awareness to a desired action (e.g., purchase, signup). \u2022 Purpose: To identify bottlenecks and drop-off points in the conversion process, allowing for optimization.",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 6,
+        "section_heading": "Page 6",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    },
+    {
+      "chunk_id": 7,
+      "text": "A/B Testing \u2022 Definition: Comparing two versions of a webpage or element (e.g., button, headline) to determine which performs better. Heatmaps \u2022 Definition: A visual representation of user interactions on a webpage, showing where users click, hover, or scroll. \u2022 Purpose: To understand user behavior and identify areas of interest or frustration",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/backend_project/backend_project_YVIkPnpdhwJM_Backendframeworks.pdf",
+        "doc_title": "Backend frameworks",
+        "page": 7,
+        "section_heading": "Page 7",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "backend_project"
+      }
+    }
+  ],
+  "cv_project": [
+    {
+      "chunk_id": 0,
+      "text": "M anar F arghaly A bdelrahman A bdelshafi Haram, Giza LinkedIn | +201205819054 | m.f.abdelshay@gmail.com EDUCATION AND ACADEMIC RECORDS 2021 \u2013 2026 B.S Cairo University, Faculty of Engineering, Giza, Egypt Department of Computer Engineering expected 2026. GPA : 3.3/4.00 2018 \u2013 2021 STEM School , Maadi STEM School, Giza SKILLS \u2022 Programming Languages: C++ - C - HTML5 - CSS - Node.js - MSSQL - Python - MATLAB - C# - x86 assembly - ARM Cortex-M3 assembly. \u2022 Courses: Object oriented programming \u201cOOP\u201d - Data Structure and Algorithms - Database Design . \u2022 Lab Equipment: Spectrum analyzer - Function generator and Oscilloscope. \u2022 Languages: English - Arabic \u201cMother Tongue\u201d. \u2022 Soft Skills: Presentation skills - Communication skills - Teamwork. RELEVANT ACADEMIC PROJECTS \u2022 CPU Scheduler: In this project the target was designing mini operating system. \u2022 Designed functions for processes migration and the sequence of their executing inside the computer. using C++, OOP, and the suitable algorithms of data structure. \u2022 Family Forever: Desktop application used to help orphanages. \u2022 .NET framework and C# were used in making the view of children's pictures so the user \u201cparent\u201d will be able to select any picture and see information about the chosen child and add him to the favorites, log out, and change password functions. \u2022 Pacman Atari-Game: Designed a game console using pure ARM cortex-M3 assembly coding, using STM32 bluebill microcontroller, a 2.8-inch-ili9341 TFT screen and managing input/output buttons. \u2022 Designed the logic of winning and collision rules with other elements in the game. \u2022 Calculator: Designed a calculator for making the basic operations using logic gates and Logisim. \u2022 Speaker Recognition : Analyzed the input signals by extracting features such as Mel-frequency cepstral coefficients (MFCCs) from recorded audios using Python. INTERESTS AND ACTIVITIES July 2021- September 2021 Volunteer in Resala Charity, Giza 2022-2023 Public Relations member in TCCD \u201cStudent Activity in Faculty of Engineering\u201d AWARDS \u2022 Golden Prize in Kangaroo Math Competition REFERENCES \u2022 Available upon request",
+      "metadata": {
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/cv_project/cv_project_rtGDUFrU8ccF_test.pdf",
+        "doc_title": "",
+        "page": 1,
+        "section_heading": "Page 1",
+        "chunk_type": "text",
+        "page_kind": "document",
+        "project_id": "cv_project"
       }
     },
     {
       "chunk_id": 1,
       "text": "Image located on page 1",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/cv_project/cv_project_rtGDUFrU8ccF_test.pdf",
+        "doc_title": "",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "image",
         "page_kind": "document",
-        "project_id": "demo_project"
+        "project_id": "cv_project"
       }
     },
     {
       "chunk_id": 2,
       "text": "Image located on page 1",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/cv_project/cv_project_rtGDUFrU8ccF_test.pdf",
+        "doc_title": "",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "image",
         "page_kind": "document",
-        "project_id": "demo_project"
+        "project_id": "cv_project"
       }
     },
     {
       "chunk_id": 3,
       "text": "Image located on page 1",
       "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
+        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/cv_project/cv_project_rtGDUFrU8ccF_test.pdf",
+        "doc_title": "",
         "page": 1,
         "section_heading": "Page 1",
         "chunk_type": "image",
         "page_kind": "document",
-        "project_id": "demo_project"
-      }
-    },
-    {
-      "chunk_id": 0,
-      "text": "M anar F arghaly A bdelrahman A bdelshafi Haram, Giza LinkedIn | +201205819054 | m.f.abdelshay@gmail.com EDUCATION AND ACADEMIC RECORDS 2021 \u2013 2026 B.S Cairo University, Faculty of Engineering, Giza, Egypt Department of Computer Engineering expected 2026. GPA : 3.3/4.00 2018 \u2013 2021 STEM School , Maadi STEM School, Giza SKILLS \u2022 Programming Languages: C++ - C - HTML5 - CSS - Node.js - MSSQL - Python - MATLAB - C# - x86 assembly - ARM Cortex-M3 assembly. \u2022 Courses: Object oriented programming \u201cOOP\u201d - Data Structure and Algorithms - Database Design . \u2022 Lab Equipment: Spectrum analyzer - Function generator and Oscilloscope. \u2022 Languages: English - Arabic \u201cMother Tongue\u201d. \u2022 Soft Skills: Presentation skills - Communication skills - Teamwork. RELEVANT ACADEMIC PROJECTS \u2022 CPU Scheduler: In this project the target was designing mini operating system. \u2022 Designed functions for processes migration and the sequence of their executing inside the computer. using C++, OOP, and the suitable algorithms of data structure. \u2022 Family Forever: Desktop application used to help orphanages. \u2022 .NET framework and C# were used in making the view of children's pictures so the user \u201cparent\u201d will be able to select any picture and see information about the chosen child and add him to the favorites, log out, and change password functions. \u2022 Pacman Atari-Game: Designed a game console using pure ARM cortex-M3 assembly coding, using STM32 bluebill microcontroller, a 2.8-inch-ili9341 TFT screen and managing input/output buttons. \u2022 Designed the logic of winning and collision rules with other elements in the game. \u2022 Calculator: Designed a calculator for making the basic operations using logic gates and Logisim. \u2022 Speaker Recognition : Analyzed the input signals by extracting features such as Mel-frequency cepstral coefficients (MFCCs) from recorded audios using Python. INTERESTS AND ACTIVITIES July 2021- September 2021 Volunteer in Resala Charity, Giza 2022-2023 Public Relations member in TCCD \u201cStudent Activity in Faculty of Engineering\u201d AWARDS \u2022 Golden Prize in Kangaroo Math Competition REFERENCES \u2022 Available upon request",
-      "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
-        "page": 1,
-        "section_heading": "Page 1",
-        "chunk_type": "text",
-        "page_kind": "document",
-        "project_id": "demo_project"
-      }
-    },
-    {
-      "chunk_id": 1,
-      "text": "Image located on page 1",
-      "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
-        "page": 1,
-        "section_heading": "Page 1",
-        "chunk_type": "image",
-        "page_kind": "document",
-        "project_id": "demo_project"
-      }
-    },
-    {
-      "chunk_id": 2,
-      "text": "Image located on page 1",
-      "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
-        "page": 1,
-        "section_heading": "Page 1",
-        "chunk_type": "image",
-        "page_kind": "document",
-        "project_id": "demo_project"
-      }
-    },
-    {
-      "chunk_id": 3,
-      "text": "Image located on page 1",
-      "metadata": {
-        "source": "/Users/manarfarghaly/Desktop/Data/senior2firstterm/GP MVP/GP/BayLearn/src/assets/files/demo_project/demo_project_XGa56MXsjhPy_test.pdf",
-        "page": 1,
-        "section_heading": "Page 1",
-        "chunk_type": "image",
-        "page_kind": "document",
-        "project_id": "demo_project"
+        "project_id": "cv_project"
       }
     }
   ]
