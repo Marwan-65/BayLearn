@@ -28,7 +28,8 @@ class ProcessingService:
 
         # Run Rehab's full pipeline: preprocess → extract → structure
         parsed_content = self.pdf_parser.parse(file_path)
-
+        doc_title = parsed_content.title
+        # or os.path.basename(file_path)
         logger.info(f"Parser returned {parsed_content.total_chunks} chunks "
                    f"from {len(parsed_content.sections)} sections")
 
@@ -37,13 +38,36 @@ class ProcessingService:
 
         for section in parsed_content.sections:
             for chunk in section.chunks:
+            # ── Contextual Header (Anthropic technique, 2024) ──
+            # WHY: Prepending context before embedding helps the model
+            # understand WHERE this chunk comes from, not just WHAT it says.
+            # This reduces embedding ambiguity and improves retrieval by 49%.
+                chunk_type = chunk.metadata.get("chunk_type", "text")
+                page = section.page
+                if chunk_type == "text":
+                    contextual_text = (
+                        f"Document: {doc_title} | "
+                        f"Page: {page} | "
+                        f"Section: {section.heading}\n\n"
+                        f"{chunk.content}"
+                    )
+                elif chunk_type == "table":
+                    contextual_text = (
+                        f"Table from: {doc_title} | Page: {page}\n\n"
+                        f"{chunk.content}"
+                    )
+                else:
+                    contextual_text = chunk.content
+
                 metadata = {
                     "source": file_path,
-                    "page": section.page,
+                    "doc_title": doc_title,
+                    "page": page,
                     "section_heading": section.heading,
-                    "chunk_type": chunk.metadata.get("chunk_type", "text"),
+                    "chunk_type": chunk_type,
                     "page_kind": chunk.metadata.get("page_kind", "document"),
                     "project_id": project_id,
+                    #"original_text": chunk.content,  # store original separately
                 }
                 # Add sub_chunk info if it exists
                 if "sub_chunk_index" in chunk.metadata:

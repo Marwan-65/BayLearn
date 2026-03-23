@@ -24,7 +24,31 @@ class GroqChatFixed(ChatGroq):
         self.client = PatchedSyncCompletions(
             self.client
         )
+    def _create_chat_result(self, response, generation_info=None):
+        chat_result = super()._create_chat_result(response)
+        if chat_result.generations:
+            chat_result.generations[0].generation_info = generation_info
+        return chat_result
+        
 
+    def _get_request_payload(self, input_messages, stop=None, **kwargs):
+        """Inject JSON system message into every RAGAS request."""
+        payload = super()._get_request_payload(input_messages, stop, **kwargs)
+        
+        messages = payload.get("messages", [])
+        
+        # Check if there's already a system message
+        has_system = any(m.get("role") == "system" for m in messages)
+        
+        if not has_system:
+            # Inject strict JSON instruction as system message
+            json_system = {
+                "role": "system",
+                "content": "You must respond with valid JSON only. No explanations, no markdown, no extra text. Return only the JSON object as specified."
+            }
+            payload["messages"] = [json_system] + messages
+        
+        return payload
 
 class PatchedAsyncCompletions:
     """Wraps Groq's async completions to strip unsupported params."""

@@ -203,7 +203,7 @@ async def ask_question(
 
 
 @nlp_router.post("/evaluate/{project_id}")
-async def evaluate_rag(project_id: str, request: Request):
+async def evaluate_rag(project_id: str, request: Request,  batch_start: int = 0, batch_size: int = 5):
     controller = NLPController(
         vectordb_client=request.app.vectordb_client,
         generation_client=request.app.generation_client,
@@ -215,7 +215,8 @@ async def evaluate_rag(project_id: str, request: Request):
     from evaluation.ragas_evaluator import RAGASEvaluator
 
     test_cases = []
-    for case in TEST_CASES:
+    cases_to_evaluate = TEST_CASES[batch_start:batch_start+batch_size] if batch_size > 0 else TEST_CASES
+    for case in cases_to_evaluate:
         rag_response = controller.generate_augmented_answer(
             project_id=project_id,
             question=case["question"],

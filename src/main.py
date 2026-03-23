@@ -8,9 +8,15 @@ from stores.LLM.LLMProviderFactory import LLMProviderFactory
 from stores.LLM.LLMEnums import LLMEnum, LLMBackendEnum
 from stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
 from routes import base, data, nlp
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
-
+app.add_middleware( CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    )
 @app.on_event("startup")
 async def startup_span():
     settings = get_settings()
@@ -56,6 +62,7 @@ async def startup_span():
         provider=settings.VECTOR_DB_BACKEND
     )
     app.vectordb_client.connect()
+
 
 @app.on_event("shutdown")
 async def shutdown_span():

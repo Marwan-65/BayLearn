@@ -32,7 +32,7 @@ class RAGASEvaluator:
             asyncio.set_event_loop(loop)
             try:
                 from datasets import Dataset
-                from ragas import evaluate as ragas_evaluate
+                from ragas import evaluate as ragas_evaluate, run_config
                 from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
                 from ragas.llms import LangchainLLMWrapper
                 from ragas.embeddings import LangchainEmbeddingsWrapper
@@ -41,10 +41,11 @@ class RAGASEvaluator:
                 # The OpenAI shim injects params like 'n=1' that Groq rejects silently
                 llm = GroqChatFixed(
                     #model="llama3-70b-8192",
-                    model = "llama-3.3-70b-versatile",
+                    model = "llama-3.1-8b-instant",
                     groq_api_key=self.groq_api_key,
                     temperature=0,
-                    max_tokens=4096,
+                    max_tokens=2048,
+                    
                 )
                 ragas_llm = LangchainLLMWrapper(llm)
 
@@ -63,7 +64,7 @@ class RAGASEvaluator:
                 )
                 ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
                 dataset = Dataset.from_list(test_cases)
-
+                run_config.max_workers = 3  # Disable retries to surface issues immediately
                 # FIX 2: raise_exceptions=True surfaces silent failures
                 results = ragas_evaluate(
                     dataset=dataset,

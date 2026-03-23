@@ -2,7 +2,7 @@
 # ground_truth = the correct answer YOU write, not the RAG's answer
 # This is your evaluation "answer key"
 
-TEST_CASES = [
+CV_TEST_CASES = [
     # ── LEVEL 1: Direct Lookup ──────────────────────────────
     {
         "question": "What programming languages does Manar know?",
@@ -50,7 +50,8 @@ TEST_CASES = [
         "question": "What internships has Manar completed?",
         "ground_truth": "The document does not mention any internships. It only mentions volunteer work at Resala Charity."
     },
-    # Level 1 — Direct lookup
+]
+Backend_TEST_CASES = [
     {
         "question": "What are the three major parts of a backend?",
         "ground_truth": "The three major parts are the server (computer that receives requests), the app (application running on the server that listens for requests), and the database (used to organize and persist data)."
@@ -97,5 +98,9 @@ TEST_CASES = [
         "question": "What is the salary of a backend developer?",
         "ground_truth": "The document does not contain any information about backend developer salaries."
     },
-
 ]
+
+TEST_CASES = CV_TEST_CASES[:5]
+# TEST_CASES = CV_TEST_CASES[5:]
+# TEST_CASES = Backend_TEST_CASES[:5]
+# TEST_CASES = Backend_TEST_CASES[5:]
