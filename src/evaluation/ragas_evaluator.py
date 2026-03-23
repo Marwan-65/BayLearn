@@ -10,7 +10,7 @@ class RAGASEvaluator:
         self.groq_api_key = groq_api_key
         self.timeout = timeout
 
-    def evaluate(self, test_cases: List[Dict[str, Any]]) -> Dict[str, float]:
+    async def evaluate(self, test_cases: List[Dict[str, Any]]) -> Dict[str, float]:
         if not test_cases:
             raise ValueError("test_cases cannot be empty")
 
@@ -28,68 +28,58 @@ class RAGASEvaluator:
 
 
         def run_ragas():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                from datasets import Dataset
-                from ragas import evaluate as ragas_evaluate, run_config
-                from ragas.metrics import (Faithfulness, AnswerRelevancy, ContextPrecision, ContextRecall)
-                from ragas.llms import LangchainLLMWrapper
-                from ragas.embeddings import LangchainEmbeddingsWrapper
+            from datasets import Dataset
+            from ragas import evaluate as ragas_evaluate, run_config
+            from ragas.metrics import (
+                Faithfulness, AnswerRelevancy,
+                ContextPrecision, ContextRecall
+            )
+            from ragas.llms import LangchainLLMWrapper
+            from ragas.embeddings import LangchainEmbeddingsWrapper
 
-                # FIX 1: Use native ChatGroq, NOT OpenAI shim
-                # The OpenAI shim injects params like 'n=1' that Groq rejects silently
-                llm = GroqChatFixed(
-                    #model="llama3-70b-8192",
-                    model = "llama-3.1-8b-instant",
-                    groq_api_key=self.groq_api_key,
-                    temperature=0,
-                    max_tokens=2048,
-                    # the network timeout on the client is a safeguard
-                    timeout=60.0,
-                )
-                ragas_llm = LangchainLLMWrapper(llm)
+            llm = GroqChatFixed(
+                model="llama-3.1-8b-instant",
+                groq_api_key=self.groq_api_key,
+                temperature=0,
+                max_tokens=2048,
+                timeout=120.0,
+            )
 
-                # class LocalEmbeddings(Embeddings):
-                #     def __init__(self):
-                #         self.model = "sentence-transformers/all-MiniLM-L6-v2"
-                #     def embed_documents(self, texts):
-                #         return self.model.encode(texts, show_progress_bar=False).tolist()
-                #     def embed_query(self, text):
-                #         return self.model.encode(text, show_progress_bar=False).tolist()
-                # 🔧 UPGRADE: Use BGE embeddings for better performance
-                embeddings = HuggingFaceEmbeddings(
-                    model_name="BAAI/bge-small-en-v1.5",
-                    model_kwargs={'device': 'cpu'},
-                    encode_kwargs={'normalize_embeddings': True}
-                )
-                ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
-                dataset = Dataset.from_list(test_cases)
-                
-                # faithfulness = Faithfulness(timeout=timeout)
-                # answer_relevancy = AnswerRelevancy(timeout=timeout)
-                # context_precision = ContextPrecision(timeout=timeout)
-                # context_recall = ContextRecall(timeout=timeout)
-                run_config.timeout = 60.0  # Set a reasonable timeout for each metric evaluation
-                run_config.max_workers = 2  # Disable retries to surface issues immediately
-                
-                # FIX 2: raise_exceptions=True surfaces silent failures
-                results = ragas_evaluate(
-                    dataset=dataset,
-                    metrics=[Faithfulness(), AnswerRelevancy(), ContextPrecision(), ContextRecall()],
-                    llm=ragas_llm,
-                    embeddings=ragas_embeddings,
-                    raise_exceptions=True,
-                )
-                return results
-            finally:
-                loop.close()
+            ragas_llm = LangchainLLMWrapper(llm)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(run_ragas)
-            results = future.result(timeout=self.timeout)
+            embeddings = HuggingFaceEmbeddings(
+                model_name="BAAI/bge-small-en-v1.5",
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
+            )
+
+            ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
+
+            dataset = Dataset.from_list(test_cases)
+
+            run_config.timeout = 120.0
+            run_config.max_workers = 1
+
+            return ragas_evaluate(
+                dataset=dataset,
+                metrics=[
+                    Faithfulness(),
+                    AnswerRelevancy(),
+                    ContextPrecision(),
+                    ContextRecall()
+                ],
+                llm=ragas_llm,
+                embeddings=ragas_embeddings,
+                raise_exceptions=True,
+            )
+
+
+        # ✅ THIS is the critical fix
+        loop = asyncio.get_running_loop()
+        results = await loop.run_in_executor(None, run_ragas)
+
         return self._extract_scores(results)
-
+        
     def _extract_scores(self, results) -> Dict[str, float]:
         df = results.to_pandas()
         logger.info(f"\n=== Per-row RAGAS scores ===\n{df.to_string()}")
