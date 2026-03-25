@@ -1,170 +1,134 @@
 import re
 from datetime import datetime
+
+import plotly.graph_objects as go
 import sympy as sp
 import streamlit as st
 from sympy.parsing.sympy_parser import (
+    implicit_multiplication_application,
     parse_expr,
     standard_transformations,
-    implicit_multiplication_application,
 )
+
 from level2_solver import level_2_solver
 
 st.set_page_config(
     page_title="BayLearn Math Solver",
-    page_icon="",
+    page_icon="📈",
     layout="wide",
 )
 
 st.markdown(
     """
     <style>
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    :root {
+        --bg: #f7fafc;
+        --surface: #ffffff;
+        --text: #1e2a38;
+        --muted: #4b5d73;
+        --primary: #0f4c81;
+        --primary-soft: #dfeef9;
+        --success: #1f7a4d;
+        --border: #d7e2ee;
+        --accent: #f59e0b;
     }
-    @keyframes softGlow {
-        0% { box-shadow: 0 8px 20px rgba(57, 38, 112, 0.08); }
-        50% { box-shadow: 0 10px 26px rgba(123, 60, 255, 0.16); }
-        100% { box-shadow: 0 8px 20px rgba(57, 38, 112, 0.08); }
+
+    .stApp {
+        background:
+            radial-gradient(circle at 90% 5%, #eef7ff 0%, transparent 32%),
+            radial-gradient(circle at 8% 2%, #fff6e9 0%, transparent 30%),
+            var(--bg);
+        color: var(--text);
     }
-    .main {
-        background: radial-gradient(circle at 10% 0%, #fff6d6 0%, #ffeef9 38%, #eef7ff 100%);
+
+    .block-container {
+        padding-top: 1.2rem;
+        padding-bottom: 1.8rem;
     }
+
     .hero {
-        padding: 1.25rem 1.5rem;
-        border-radius: 16px;
-        border: 1px solid rgba(123, 60, 255, 0.35);
-        background: linear-gradient(120deg, rgba(123, 60, 255, 0.14), rgba(0, 166, 251, 0.12), rgba(255, 0, 110, 0.08));
-        margin-bottom: 1rem;
-        box-shadow: 0 8px 24px rgba(68, 41, 163, 0.12);
-        animation: fadeInUp 420ms ease-out;
-        transition: transform 160ms ease, box-shadow 160ms ease;
+        background: linear-gradient(120deg, #f4f9ff 0%, #ffffff 58%, #fff8ec 100%);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1rem 1.15rem;
+        margin-bottom: 0.8rem;
     }
-    .hero:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 30px rgba(68, 41, 163, 0.2);
-    }
+
     .hero h1 {
         margin: 0;
-        color: #1f1147;
-        font-size: 1.9rem;
-        font-weight: 700;
+        color: #16324f;
+        font-size: 1.75rem;
     }
+
     .hero p {
-        margin: 0.45rem 0 0;
-        color: #32206f;
-        font-size: 1rem;
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.97rem;
     }
-    .panel {
-        border-radius: 14px;
-        border: 1px solid rgba(123, 60, 255, 0.22);
-        background: rgba(255, 255, 255, 0.84);
-        padding: 1rem;
-        box-shadow: 0 8px 20px rgba(57, 38, 112, 0.08);
-        animation: fadeInUp 450ms ease-out;
-        transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
-    }
-    .panel:hover {
-        transform: translateY(-2px);
-        border-color: rgba(123, 60, 255, 0.35);
-        box-shadow: 0 12px 26px rgba(57, 38, 112, 0.14);
-    }
-    .chips {
+
+    .indicator-row {
         display: flex;
+        gap: 0.45rem;
         flex-wrap: wrap;
-        gap: 0.5rem;
-        margin: 0.4rem 0 0.2rem;
+        margin-top: 0.65rem;
     }
-    .chip {
-        padding: 0.26rem 0.62rem;
+
+    .indicator {
+        background: var(--primary-soft);
+        border: 1px solid #c8ddf0;
+        color: #174368;
+        padding: 0.18rem 0.56rem;
         border-radius: 999px;
-        border: 1px solid rgba(105, 68, 197, 0.35);
-        background: rgba(124, 58, 237, 0.10);
-        color: #2a195b;
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         font-weight: 600;
     }
-    .small-note {
-        color: #4a377f;
-        font-size: 0.92rem;
-        margin-top: 0.35rem;
+
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0.3rem;
     }
-    .panel-divider {
-        margin: 1rem 0 1.2rem;
-        height: 10px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, #7b3cff 0%, #00a6fb 45%, #ff006e 100%);
-        opacity: 0.75;
-        animation: softGlow 3.4s ease-in-out infinite;
+
+    .stTabs [data-baseweb="tab"] {
+        background: #eef3f8;
+        border-radius: 8px 8px 0 0;
+        border: 1px solid var(--border);
+        border-bottom: none;
+        padding: 0.5rem 0.8rem;
+        color: var(--text) !important;
     }
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, rgba(123, 60, 255, 0.09) 0%, rgba(0, 166, 251, 0.08) 55%, rgba(255, 0, 110, 0.07) 100%);
-        border-right: 1px solid rgba(123, 60, 255, 0.22);
+
+    .stTabs [aria-selected="true"] {
+        background: #ffffff;
+        color: var(--primary);
+        font-weight: 700;
     }
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] .stMarkdown,
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label {
-        color: #24124f !important;
+
+    .streamlit-expanderHeader {
+        color: var(--text) !important;
     }
-    section[data-testid="stSidebar"] .stButton button {
-        background: linear-gradient(90deg, #5b21b6 0%, #7c3aed 45%, #4f46e5 100%) !important;
-        color: #ffffff !important;
-        border: 1px solid #2f1f66 !important;
+    .streamlit-expanderHeader p {
+        color: var(--text) !important;
     }
-    section[data-testid="stSidebar"] .stButton button:hover {
-        filter: brightness(1.05);
-        transform: translateY(-1px);
+    .streamlit-expanderContent {
+        background: #ffffff !important;
+        color: var(--text) !important;
     }
+    .streamlit-expanderContent > div {
+        color: var(--text) !important;
+    }
+
     .stButton button {
-        transition: transform 140ms ease, filter 140ms ease, box-shadow 140ms ease;
+        background: #003d7a !important;
+        color: #ffffff !important;
+        border: 1px solid #001a3d !important;
+        font-weight: 600;
     }
     .stButton button:hover {
-        transform: translateY(-1px);
-        filter: brightness(1.03);
+        background: #002d5e !important;
     }
-    .stButton button:active {
-        transform: translateY(0);
-    }
-    @media (prefers-color-scheme: dark) {
-        .chip {
-            border-color: rgba(220, 194, 255, 0.45);
-            background: rgba(196, 181, 253, 0.18);
-            color: #f6edff;
-        }
-        section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, rgba(76, 29, 149, 0.28) 0%, rgba(30, 64, 175, 0.24) 55%, rgba(157, 23, 77, 0.2) 100%);
-            border-right: 1px solid rgba(220, 194, 255, 0.35);
-        }
-        section[data-testid="stSidebar"] h2,
-        section[data-testid="stSidebar"] .stMarkdown,
-        section[data-testid="stSidebar"] p,
-        section[data-testid="stSidebar"] span,
-        section[data-testid="stSidebar"] label {
-            color: #f6edff !important;
-        }
-        section[data-testid="stSidebar"] .stButton button {
-            background: #1e40af !important;
-            color: #ffffff !important;
-            border: 1px solid #bfdbfe !important;
-        }
-    }
-    @media (prefers-reduced-motion: reduce) {
-        .hero,
-        .panel,
-        .panel-divider,
-        .stButton button {
-            animation: none !important;
-            transition: none !important;
-            transform: none !important;
-        }
+
+    section[data-testid="stSidebar"] {
+        background: #f3f7fb;
+        border-right: 1px solid var(--border);
     }
     </style>
     """,
@@ -174,65 +138,17 @@ st.markdown(
 st.markdown(
     """
     <div class="hero">
-      <h1>BayLearn Math Solver</h1>
-            <p>Write math in plain language and get readable equations, clear steps, and final answers in LaTeX.</p>
-            <div class="chips">
-                <span class="chip">Natural Language Input</span>
-                <span class="chip">LaTeX Equation Output</span>
-                <span class="chip">Step-by-Step Reasoning</span>
-            </div>
+      <h1>BayLearn Math Workspace</h1>
+      <p>Type a request in natural language, solve it, then inspect graphable equations in a dedicated graph tab.</p>
+      <div class="indicator-row">
+        <span class="indicator">Light Mode</span>
+        <span class="indicator">Structured Steps</span>
+        <span class="indicator">Interactive Graphing</span>
+      </div>
     </div>
     """,
     unsafe_allow_html=True,
 )
-
-def apply_wcag_aaa_theme():
-    st.markdown(
-        """
-        <style>
-        :root {
-                    --bg: #fff8ff;
-                    --surface: #ffffff;
-                    --text: #1a103d;
-                    --muted: #34215f;
-                    --primary: #4c1d95;
-                    --border: #3f2c77;
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-                        --bg: #0f0b1f;
-                        --surface: #1b1435;
-                        --text: #f8f4ff;
-                        --muted: #f0e7ff;
-                                                --primary: #1d4ed8;
-                                                --border: #bfdbfe;
-          }
-        }
-
-        .stApp { background: var(--bg); color: var(--text); }
-        .stMarkdown, p, span, label, div { color: var(--text) !important; }
-        .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
-          background: var(--surface) !important;
-          color: var(--text) !important;
-          border: 1px solid var(--border) !important;
-        }
-        .stButton button {
-          background: var(--primary) !important;
-          color: #FFFFFF !important;
-          border: 1px solid var(--border) !important;
-          font-weight: 600;
-        }
-        .stCodeBlock, code {
-          background: var(--surface) !important;
-          color: var(--text) !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-apply_wcag_aaa_theme()
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -240,135 +156,39 @@ if "last_result" not in st.session_state:
     st.session_state.last_result = "Your solution will appear here."
 if "user_input" not in st.session_state:
     st.session_state.user_input = "Solve 2x + y = 10 and x - y = 2"
-if "trace_equation" not in st.session_state:
-    st.session_state.trace_equation = "y = x^2"
-if "trace_x_values" not in st.session_state:
-    st.session_state.trace_x_values = "-2, -1, 0, 1, 2"
+if "last_translation" not in st.session_state:
+    st.session_state.last_translation = None
+
 
 def _to_sympy_expr(text):
     normalized = text.strip().replace("^", "**")
     return sp.sympify(normalized, evaluate=False)
 
+
 def _parse_math_expr(text):
     transformations = standard_transformations + (implicit_multiplication_application,)
     return parse_expr(text.strip().replace("^", "**"), transformations=transformations)
 
-def _parse_equation_input(text):
-    x_symbol, y_symbol = sp.symbols("x y")
-    cleaned = text.strip()
-    if not cleaned:
-        raise ValueError("Enter an equation first.")
 
-    if "=" in cleaned:
-        left_text, right_text = cleaned.split("=", 1)
-        left_expr = _parse_math_expr(left_text)
-        right_expr = _parse_math_expr(right_text)
-        equation = sp.Eq(left_expr, right_expr)
-    else:
-        equation = sp.Eq(y_symbol, _parse_math_expr(cleaned))
-
-    branches = sp.solve(equation, y_symbol)
-    if not branches:
-        raise ValueError("Could not isolate y as a function of x.")
-
-    return x_symbol, y_symbol, equation, branches
-
-def _parse_x_values(text):
-    values = []
-    for item in text.split(","):
-        token = item.strip()
-        if not token:
-            continue
-        try:
-            values.append(float(token))
-        except ValueError as exc:
-            raise ValueError(f"Invalid x value: {token}") from exc
-    if not values:
-        raise ValueError("Provide at least one x value.")
-    return values
-
-def _format_numeric(expr_value):
+def _numeric_value(expr_value):
     simplified = sp.N(expr_value)
     if getattr(simplified, "is_real", None) is False or simplified.has(sp.I):
-        return "undefined"
+        return None
     try:
         return float(simplified)
     except Exception:
-        return "undefined"
+        return None
 
-def _build_trace_rows(x_symbol, branches, x_values):
-    rows = []
-    for x_value in x_values:
-        row = {"x": x_value}
-        for index, branch in enumerate(branches, start=1):
-            raw_value = branch.subs(x_symbol, x_value)
-            cell = _format_numeric(raw_value)
-            key = "y" if len(branches) == 1 else f"y{index}"
-            row[key] = cell
-        rows.append(row)
-    return rows
 
-def render_tracing_table():
-    st.markdown('<div class="panel">', unsafe_allow_html=True)
-    st.subheader("Tracing Table")
-    st.caption("Deterministic mode: pure SymPy (no AI call).")
+def _expr_to_readable_text(expr):
+    """Convert sympy expression to readable text format (not LaTeX)."""
+    text = sp.sstr(expr)
+    # Replace ** with ^ for better readability
+    text = text.replace("**", "^")
+    # Clean up spaces around operators
+    text = text.replace(" ", "")
+    return text
 
-    trace_input_col, range_col = st.columns([1.4, 1])
-    with trace_input_col:
-        trace_equation = st.text_input(
-            "Equation in x and y",
-            value=st.session_state.trace_equation,
-            placeholder="Example: y = 2x^2 + 1 or x^2 + y = 10",
-        )
-    with range_col:
-        range_start = st.number_input("x start", value=-2.0, step=1.0)
-        range_end = st.number_input("x end", value=2.0, step=1.0)
-        range_step = st.number_input("x step", min_value=0.1, value=1.0, step=0.1)
-
-    generate_default = st.button("Generate x range", use_container_width=True)
-    if generate_default:
-        generated = []
-        cursor = range_start
-        max_iterations = 1000
-        iterations = 0
-        while cursor <= range_end + 1e-9 and iterations < max_iterations:
-            generated.append(f"{cursor:g}")
-            cursor += range_step
-            iterations += 1
-        st.session_state.trace_x_values = ", ".join(generated)
-
-    x_values_text = st.text_input(
-        "x values (comma-separated)",
-        value=st.session_state.trace_x_values,
-        placeholder="Example: -2, -1, 0, 1, 2",
-    )
-
-    trace_clicked = st.button("Build tracing table", type="primary", use_container_width=True)
-
-    if trace_clicked:
-        st.session_state.trace_equation = trace_equation.strip()
-        st.session_state.trace_x_values = x_values_text.strip()
-
-    if st.session_state.trace_equation and st.session_state.trace_x_values:
-        try:
-            x_symbol, _, equation, branches = _parse_equation_input(st.session_state.trace_equation)
-            x_values = _parse_x_values(st.session_state.trace_x_values)
-
-            st.markdown("#### Parsed Equation")
-            st.latex(f"{sp.latex(equation.lhs)} = {sp.latex(equation.rhs)}")
-
-            st.markdown("#### y(x) Branches")
-            for index, branch in enumerate(branches, start=1):
-                label = "y" if len(branches) == 1 else f"y_{index}"
-                st.latex(f"{label} = {sp.latex(branch)}")
-
-            rows = _build_trace_rows(x_symbol, branches, x_values)
-            st.markdown("#### Table")
-            st.dataframe(rows, use_container_width=True)
-        except Exception as trace_error:
-            st.warning(str(trace_error))
-
-    st.markdown('</div>', unsafe_allow_html=True)
 
 def _render_math_equation(left_text, right_text):
     try:
@@ -377,6 +197,7 @@ def _render_math_equation(left_text, right_text):
         st.latex(f"{sp.latex(left_expr)} = {sp.latex(right_expr)}")
     except Exception:
         st.write(f"{left_text} = {right_text}")
+
 
 def _render_solution_assignments(text):
     chunks = [chunk.strip() for chunk in text.split("|") if chunk.strip()]
@@ -396,17 +217,18 @@ def _render_solution_assignments(text):
             left_text, right_text = assignment.split("=", 1)
             _render_math_equation(left_text, right_text)
 
+
 def render_solver_output(output_text):
     final_match = re.search(r"Final Result:\s*(.+)$", output_text, flags=re.S)
     steps_text = output_text.strip()
     final_text = ""
 
     if final_match:
-        steps_text = output_text[:final_match.start()].strip()
+        steps_text = output_text[: final_match.start()].strip()
         final_text = final_match.group(1).strip()
 
     if steps_text:
-        with st.expander("Show solution steps", expanded=True):
+        with st.expander("Solution Steps", expanded=True):
             for raw_line in steps_text.splitlines():
                 line = raw_line.strip()
                 if not line:
@@ -436,7 +258,7 @@ def render_solver_output(output_text):
                 st.write(line)
 
     if final_text:
-        st.markdown("#### Final Result")
+        st.markdown("### Final Result")
         if "=" in final_text and not final_text.startswith("[") and not final_text.startswith("("):
             _render_solution_assignments(final_text)
         else:
@@ -446,88 +268,378 @@ def render_solver_output(output_text):
             except Exception:
                 st.write(final_text)
 
-with st.sidebar:
-    st.header("History")
-    st.caption(f"Solved: {len(st.session_state.history)} prompt(s)")
-    if st.button("Clear history", use_container_width=True):
-        st.session_state.history = []
 
-    with st.expander("Recent solves", expanded=True):
-        if not st.session_state.history:
-            st.caption("No solved prompts yet.")
+def _extract_graph_functions(ai_translation):
+    x_symbol, y_symbol = sp.symbols("x y")
+    parsed = []
+
+    if not ai_translation:
+        return parsed
+
+    for equation_index, eq_data in enumerate(ai_translation.get("equations", []), start=1):
+        lhs_text = str(eq_data.get("lhs", "")).strip()
+        rhs_text = str(eq_data.get("rhs", "")).strip()
+        if not lhs_text and not rhs_text:
+            continue
+
+        try:
+            lhs_expr = _parse_math_expr(lhs_text)
+            rhs_expr = _parse_math_expr(rhs_text)
+            equation = sp.Eq(lhs_expr, rhs_expr)
+            branches = sp.solve(equation, y_symbol)
+        except Exception:
+            continue
+
+        for branch_index, branch in enumerate(branches, start=1):
+            if branch.has(y_symbol):
+                continue
+            branch_label = f"Eq {equation_index}" if len(branches) == 1 else f"Eq {equation_index} - branch {branch_index}"
+            parsed.append(
+                {
+                    "label": branch_label,
+                    "equation": equation,
+                    "expression": sp.simplify(branch),
+                    "equation_text": f"{lhs_text} = {rhs_text}",
+                }
+            )
+
+    return parsed
+
+
+def _build_trace_rows(branches, x_values):
+    x_symbol = sp.Symbol("x")
+    rows = []
+    
+    # Pre-compute column headers for all branches
+    column_headers = {}
+    for index, branch in enumerate(branches):
+        equation_str = _expr_to_readable_text(branch["expression"])
+        # Use shorter column name with just the label
+        column_headers[index] = f"{branch['label']}"
+
+    for x_val in x_values:
+        row = {"x": float(x_val)}
+        for index, branch in enumerate(branches):
+            value = _numeric_value(branch["expression"].subs(x_symbol, x_val))
+            col_header = column_headers[index]
+            row[col_header] = value if value is not None else "undefined"
+        rows.append(row)
+
+    return rows
+
+
+def _build_plot(branches, x_values):
+    x_symbol = sp.Symbol("x")
+    fig = go.Figure()
+    colors = ["#0f4c81", "#d97706", "#059669", "#7c3aed", "#dc2626", "#14b8a6"]
+
+    for branch_index, branch in enumerate(branches):
+        y_values = []
+        for x_val in x_values:
+            value = _numeric_value(branch["expression"].subs(x_symbol, x_val))
+            y_values.append(value)
+
+        # Create legend entry with equation in readable text format
+        equation_str = _expr_to_readable_text(branch["expression"])
+        trace_name = f"{branch['label']}: y = {equation_str}"
+
+        fig.add_trace(
+            go.Scatter(
+                x=x_values,
+                y=y_values,
+                mode="lines+markers",
+                name=trace_name,
+                line=dict(color=colors[branch_index % len(colors)], width=2.5),
+                marker=dict(size=4),
+                hovertemplate="<b>" + trace_name + "</b><br>x=%{x:.3f}<br>y=%{y:.3f}<extra></extra>",
+            )
+        )
+
+    fig.update_layout(
+        title="Equation Graph",
+        xaxis_title="x",
+        yaxis_title="y",
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        hovermode="x unified",
+        margin=dict(l=24, r=24, t=52, b=120),
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor="rgba(255, 255, 255, 0.85)",
+            bordercolor="#d7e2ee",
+            borderwidth=1,
+            font=dict(color="#1e2a38", size=12),
+        ),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor="#e5edf4")
+    fig.update_yaxes(showgrid=True, gridcolor="#e5edf4", zeroline=True, zerolinecolor="#cdd8e5")
+
+    return fig
+
+
+tab_solver, tab_graph = st.tabs(["Equation Solver", "Graphing + Tracing"])
+
+with tab_solver:
+    sample_prompts = {
+        "Linear system": "Solve 2x + y = 10 and x - y = 2",
+        "Derivative": "what is the derivative of e^-2x sin(3x) with respect to x",
+        "Integral": "integrate x^2 * exp(x) with respect to x",
+        "Quadratic": "solve y = x^2 - 4x + 1",
+    }
+
+    col_example, col_toggle = st.columns([1.2, 1])
+    with col_example:
+        selected_example = st.selectbox("Quick examples", list(sample_prompts.keys()))
+    with col_toggle:
+        show_translation = st.toggle("Show AI translation JSON", value=False)
+
+    if st.button("Use selected example"):
+        st.session_state.user_input = sample_prompts[selected_example]
+
+    user_input = st.text_area(
+        "Enter your math request",
+        value=st.session_state.user_input,
+        height=145,
+        placeholder="Example: Solve 3x + 2 = 11",
+    )
+
+    solve_clicked = st.button("Solve", type="primary")
+
+    if solve_clicked:
+        cleaned_input = user_input.strip()
+        st.session_state.user_input = cleaned_input
+        if not cleaned_input:
+            st.warning("Please enter a math prompt first.")
         else:
-            for index, item in enumerate(reversed(st.session_state.history), start=1):
-                label = item["prompt"]
-                if len(label) > 42:
-                    label = f"{label[:39]}..."
-                solved_at = item.get("timestamp", "recent")
-                st.caption(f"{solved_at}")
-                if st.button(f"{index}. {label}", key=f"history_{index}", use_container_width=True):
-                    st.session_state.user_input = item["prompt"]
-                    st.session_state.last_result = item["result"]
-
-st.markdown('<div class="panel">', unsafe_allow_html=True)
-st.subheader("Input")
-
-sample_prompts = {
-    "Linear system": "Solve 2x + y = 10 and x - y = 2",
-    "Derivative": "what is the derivative of e^-2x sin(3x) with respect to x",
-    "Integral": "integrate x^2 * exp(x) with respect to x",
-}
-
-selected_example = st.selectbox("Quick examples", list(sample_prompts.keys()))
-
-default_text = sample_prompts[selected_example]
-if st.button("Use selected example", use_container_width=True):
-    st.session_state.user_input = default_text
-
-user_input = st.text_area(
-    "Enter your math request",
-    value=st.session_state.user_input,
-    height=160,
-    placeholder="Example: Solve 3x + 2 = 11",
-)
-
-show_translation = st.toggle("Show AI translation JSON", value=False)
-solve_clicked = st.button("Solve", type="primary", use_container_width=True)
-
-st.markdown(
-    '<p class="small-note">Tip: You can write equations normally (e.g., 2x + y = 10).</p>',
-    unsafe_allow_html=True,
-)
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('<div class="panel-divider"></div>', unsafe_allow_html=True)
-
-st.markdown('<div class="panel">', unsafe_allow_html=True)
-st.subheader("Output")
-
-if solve_clicked:
-    cleaned_input = user_input.strip()
-    st.session_state.user_input = cleaned_input
-    if not cleaned_input:
-        st.warning("Please enter a math prompt first.")
-    else:
-        with st.spinner("Solving with SymPy + AI translation..."):
-            try:
-                response_text = level_2_solver(cleaned_input, show_translation=show_translation)
-                st.session_state.last_result = response_text
+            with st.spinner("Solving..."):
+                solved_text, translation_data = level_2_solver(
+                    cleaned_input,
+                    show_translation=show_translation,
+                    return_translation=True,
+                )
+                st.session_state.last_result = solved_text
+                st.session_state.last_translation = translation_data
                 st.session_state.history.append(
                     {
                         "prompt": cleaned_input,
-                        "result": response_text,
-                        "timestamp": datetime.now().strftime("%H:%M")
+                        "result": solved_text,
+                        "translation": translation_data,
+                        "timestamp": datetime.now().strftime("%H:%M"),
                     }
                 )
                 if len(st.session_state.history) > 20:
                     st.session_state.history = st.session_state.history[-20:]
-            except Exception as exc:
-                st.session_state.last_result = f"System Error: {exc}"
 
-render_solver_output(st.session_state.last_result)
-st.markdown('</div>', unsafe_allow_html=True)
+    if st.session_state.last_translation and isinstance(st.session_state.last_translation, dict):
+        operation = st.session_state.last_translation.get("operation", "unknown")
+        graphable_count = len(_extract_graph_functions(st.session_state.last_translation))
+        status_col1, status_col2 = st.columns(2)
+        with status_col1:
+            op_display = operation.upper()
+            if operation == "dsolve":
+                st.success(f"Operation: {op_display} (Differential Equation)")
+            else:
+                st.info(f"Detected operation: {op_display}")
+        with status_col2:
+            if operation == "dsolve":
+                st.caption("Graphing: View general solution in Graphing tab")
+            elif graphable_count > 0:
+                st.success(f"Graphable equations: {graphable_count}")
+            else:
+                st.caption(f"Graphable equations: {graphable_count}")
 
-st.markdown('<div class="panel-divider"></div>', unsafe_allow_html=True)
-render_tracing_table()
+    render_solver_output(st.session_state.last_result)
 
-st.caption("Powered by Groq + SymPy")
+    if show_translation and st.session_state.last_translation:
+        st.markdown("### AI Translation JSON")
+        st.json(st.session_state.last_translation)
+
+with tab_graph:
+    st.markdown("### Graphing Module")
+    st.caption("This tab uses equations extracted from the latest AI translation JSON.")
+
+    graph_functions = _extract_graph_functions(st.session_state.last_translation)
+    
+    # Check if this is a differential equation solution
+    is_diff_eq = st.session_state.last_translation and st.session_state.last_translation.get("operation") == "dsolve"
+
+    if not st.session_state.last_translation:
+        st.warning("Solve a prompt first to generate AI translation JSON.")
+    elif is_diff_eq:
+        st.info("📊 **Differential Equation Solution Detected**")
+        st.write("Differential equations produce **general solutions** with arbitrary constants (like C1, C2, etc.).")
+        st.write("To graph the solution, specify values for these constants below:")
+        
+        # Extract the general solution from the result
+        if st.session_state.last_result:
+            st.markdown("**General Solution:**")
+            st.code(st.session_state.last_result.split('\n')[-1], language="text")
+            
+            # Try to extract constant symbols from the solution text
+            solution_text = st.session_state.last_result
+            import re as regex
+            constants = sorted(set(regex.findall(r'\bC\d+\b', solution_text)))
+            
+            if constants:
+                st.markdown("**Specify constant values for plotting:**")
+                const_values = {}
+                cols = st.columns(min(3, len(constants)))
+                for idx, const in enumerate(constants):
+                    with cols[idx % len(cols)]:
+                        const_values[const] = st.number_input(
+                            f"Value of {const}",
+                            value=1.0,
+                            step=0.1,
+                            key=f"const_{const}"
+                        )
+                
+                # Graph control parameters
+                st.markdown("**Graph Parameters:**")
+                graph_col1, graph_col2, graph_col3 = st.columns(3)
+                with graph_col1:
+                    x_min_diff = st.number_input("x min", value=-10.0, step=1.0, key="diff_x_min")
+                with graph_col2:
+                    x_max_diff = st.number_input("x max", value=10.0, step=1.0, key="diff_x_max")
+                with graph_col3:
+                    points_diff = st.slider("Sample points", min_value=50, max_value=300, value=150, step=10, key="diff_points")
+                
+                if st.button("Plot solution", type="primary", key="plot_diff_eq"):
+                    try:
+                        # Extract the solution expression from "Final Result: Eq(y(x), expression)"
+                        final_result_line = st.session_state.last_result.split("Final Result: ")[-1].strip()
+                        
+                        # Parse the equation to extract the RHS
+                        # Format: Eq(y(x), expression) or similar
+                        if "Eq(" in final_result_line:
+                            # Extract content between the commas
+                            eq_content = final_result_line[final_result_line.find("Eq(") + 3 : final_result_line.rfind(")")]
+                            parts = eq_content.split(",", 1)
+                            if len(parts) == 2:
+                                solution_expr_str = parts[1].strip()
+                            else:
+                                solution_expr_str = parts[0].strip()
+                        else:
+                            solution_expr_str = final_result_line
+                        
+                        # Create symbols for parsing
+                        x_sym = sp.Symbol("x")
+                        const_symbols = {const: sp.Symbol(const) for const in constants}
+                        
+                        # Parse the expression
+                        solution_expr = parse_expr(
+                            solution_expr_str,
+                            transformations=(standard_transformations + (implicit_multiplication_application,)),
+                            local_dict={"x": x_sym, **const_symbols}
+                        )
+                        
+                        # Substitute constant values
+                        substitutions = {sp.Symbol(const): const_values[const] for const in constants}
+                        solution_with_values = solution_expr.subs(substitutions)
+                        
+                        # Create x values
+                        if x_min_diff >= x_max_diff:
+                            st.error("x min must be smaller than x max.")
+                        else:
+                            x_values = [x_min_diff + (x_max_diff - x_min_diff) * i / (points_diff - 1) for i in range(points_diff)]
+                            
+                            # Compute y values
+                            y_values = []
+                            for x_val in x_values:
+                                try:
+                                    y_val = float(solution_with_values.subs(x_sym, x_val))
+                                    y_values.append(y_val)
+                                except (TypeError, ValueError):
+                                    y_values.append(None)
+                            
+                            # Create the plot
+                            fig = go.Figure()
+                            
+                            # Add the solution curve
+                            const_str = ", ".join([f"{c}={const_values[c]}" for c in constants])
+                            label = f"y(x) with {const_str}"
+                            
+                            fig.add_trace(
+                                go.Scatter(
+                                    x=x_values,
+                                    y=y_values,
+                                    mode="lines+markers",
+                                    name=label,
+                                    line=dict(color="#0f4c81", width=2.5),
+                                    marker=dict(size=4),
+                                    hovertemplate="<b>" + label + "</b><br>x=%{x:.3f}<br>y=%{y:.3f}<extra></extra>",
+                                )
+                            )
+                            
+                            fig.update_layout(
+                                title=f"Differential Equation Solution",
+                                xaxis_title="x",
+                                yaxis_title="y(x)",
+                                paper_bgcolor="#ffffff",
+                                plot_bgcolor="#ffffff",
+                                hovermode="x unified",
+                                margin=dict(l=24, r=24, t=52, b=52),
+                                legend=dict(
+                                    orientation="v",
+                                    yanchor="top",
+                                    y=0.99,
+                                    xanchor="left",
+                                    x=0.01,
+                                    bgcolor="rgba(255, 255, 255, 0.85)",
+                                    bordercolor="#d7e2ee",
+                                    borderwidth=1,
+                                    font=dict(color="#1e2a38", size=12),
+                                ),
+                            )
+                            fig.update_xaxes(showgrid=True, gridcolor="#e5edf4")
+                            fig.update_yaxes(showgrid=True, gridcolor="#e5edf4", zeroline=True, zerolinecolor="#cdd8e5")
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Show the evaluated solution
+                            st.success("✅ Solution plotted successfully!")
+                            st.write(f"**Plotted solution:** y(x) = {_expr_to_readable_text(solution_with_values)}")
+                    
+                    except Exception as e:
+                        st.error(f"Error plotting solution: {str(e)}")
+                        st.write("Make sure the general solution is in the format: Eq(y(x), expression)")
+            else:
+                st.write("General solution found. Use the solve tab to see the complete solution with steps.")
+    elif not graph_functions:
+        st.warning("No y(x) equations were found in the latest translation. Try a graphable equation such as y = x^2 - 3x.")
+    else:
+        for item in graph_functions:
+            st.latex(f"{item['label']}:\\quad y = {sp.latex(item['expression'])}")
+
+        control_col1, control_col2, control_col3 = st.columns(3)
+        with control_col1:
+            x_min = st.number_input("x min", value=-10.0, step=1.0)
+        with control_col2:
+            x_max = st.number_input("x max", value=10.0, step=1.0)
+        with control_col3:
+            points = st.slider("Sample points", min_value=30, max_value=400, value=160, step=10)
+
+        if x_min >= x_max:
+            st.error("x min must be smaller than x max.")
+        else:
+            x_values = [x_min + (x_max - x_min) * i / (points - 1) for i in range(points)]
+            figure = _build_plot(graph_functions, x_values)
+            st.plotly_chart(figure, use_container_width=True)
+
+            st.markdown("### Tracing Table")
+            
+            # Show equation legend
+            st.write("**Column Definitions:**")
+            for branch in graph_functions:
+                equation_str = _expr_to_readable_text(branch["expression"])
+                st.write(f"- **{branch['label']}**: y = {equation_str}")
+            
+            trace_points = st.slider("Tracing points", min_value=3, max_value=40, value=9, step=1)
+            trace_x = [x_min + (x_max - x_min) * i / (trace_points - 1) for i in range(trace_points)]
+            table_rows = _build_trace_rows(graph_functions, trace_x)
+            st.dataframe(table_rows, use_container_width=True)
+
+st.caption("Powered by Groq and SymPy")

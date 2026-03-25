@@ -2,3 +2,4 @@ sympy
 groq
 python-dotenv
 streamlit
+plotly
