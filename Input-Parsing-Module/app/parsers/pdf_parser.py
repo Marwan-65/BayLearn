@@ -1,3 +1,24 @@
+"""
+PDFParser v2 — Universal PDF parser for learning tutor projects.
+
+Strategy:
+  DIGITAL pages   → PyMuPDF direct text extraction (free, instant, no API)
+  SCANNED pages   → Render to image → Gemini Flash API (free tier: 1000 req/day)
+  EMBEDDED images → Gemini Flash API for OCR
+  TABLES          → img2table (unchanged)
+  DIAGRAMS        → vector detection + clip → Gemini Flash API
+
+Why Gemini instead of PaddleOCR/TrOCR:
+  - Multimodal LLM sees the WHOLE PAGE with layout context
+  - Reads handwriting, math notation, arrows, diagrams as a human would
+  - Free tier: Gemini 2.5 Flash-Lite = 1,000 requests/day, 15 req/min
+  - No GPU needed — it's an API call
+  - PaddleOCR garbled math; TrOCR hallucinated English words
+
+Requirements:
+  pip install google-genai PyMuPDF opencv-python-headless pillow numpy img2table
+"""
+
 import fitz
 import uuid
 import os
@@ -5,18 +26,135 @@ import re
 import csv
 import shutil
 import hashlib
+import logging
+import base64
+import time
 import numpy as np
 import cv2
+from io import BytesIO
 from PIL import Image
-from paddleocr import PaddleOCR
-from img2table.document import PDF as Img2TablePDF
+from typing import Optional
+
 from app.parsers.base_parser import BaseParser
 from app.models.unified_content_schema import ParsedContent
 
+logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════
+# GEMINI OCR ENGINE
+# ═══════════════════════════════════════════════════════════════════
+
+OCR_PROMPT = """You are an expert OCR system for academic handwritten notes.
+Extract ALL text from this image exactly as written.
+
+Rules:
+- Preserve mathematical notation: use standard ASCII math (e.g., V(s) = sum pi(a|s) * P(s'|s,a) * [R(s,a) + gamma * V(s')])
+- For Greek letters write the name: gamma, pi, alpha, theta, epsilon
+- For summation write "sum", for product write "prod"
+- Preserve subscripts/superscripts using underscore/caret: V_i, Q^*, s_t+1
+- Keep arrows as ->
+- Preserve line breaks and section structure
+- If text is unclear, give your best reading — do NOT skip it
+- Do NOT add explanations — output ONLY the extracted text
+- Ignore any "Scanned with CamScanner" watermarks"""
+
+EMBEDDED_IMG_PROMPT = """Extract ALL text visible in this image.
+If there is mathematical notation, use ASCII math notation (gamma, pi, sum, etc.).
+If this is a diagram with labels, extract all labels and describe the structure briefly.
+Output ONLY the extracted text, no commentary."""
+
+
+class GeminiOCR:
+    """Thin wrapper around Gemini API for image-to-text."""
+
+    _client = None
+
+    @classmethod
+    def _get_client(cls):
+        if cls._client is None:
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if not api_key:
+                raise ValueError("GEMINI_API_KEY not set")
+
+            from google import genai
+            cls._client = genai.Client(api_key=api_key)
+
+            # ✅ Use cls._client (not client)
+            try:
+                print("Available models:")
+                for m in cls._client.models.list():
+                    print(m.name)
+            except Exception as e:
+                logger.warning(f"Failed to list models: {e}")
+
+        return cls._client
+
+    @classmethod
+    def ocr_image(cls, image: Image.Image, prompt: str = OCR_PROMPT,
+                  model = "gemini-2.5-flash",
+                  max_retries: int = 3) -> str:
+        """Send an image to Gemini and get extracted text back.
+
+        Args:
+            image: PIL Image
+            prompt: The OCR instruction prompt
+            model: Gemini model to use (Flash-Lite = 1000 req/day free)
+            max_retries: Retry count for rate limit errors
+        Returns:
+            Extracted text string
+        """
+        client = cls._get_client()
+
+        # Convert PIL Image to bytes
+        buf = BytesIO()
+        image.save(buf, format="PNG")
+        image_bytes = buf.getvalue()
+
+        from google.genai import types
+
+        for attempt in range(max_retries):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=[
+                        types.Content(
+                            role="user",
+                            parts=[
+                                types.Part.from_bytes(
+                                    data=image_bytes,
+                                    mime_type="image/png",
+                                ),
+                                types.Part.from_text(text=prompt),
+                            ],
+                        )
+                    ],
+                )
+                text = response.text or ""
+                return text.strip()
+
+            except Exception as e:
+                error_str = str(e).lower()
+                if "404" in error_str:
+                    logger.error(f"Model not found: {e}")
+                    return ""
+                if hasattr(e, "status_code") and e.status_code == 429:
+                    wait = 2 ** attempt * 5
+                    logger.warning(f"Rate limited, retrying in {wait}s... ({e})")
+                    time.sleep(wait)
+                    continue
+                else:
+                    logger.error(f"Gemini OCR failed: {e}")
+                    return ""
+
+        logger.error("Gemini OCR: max retries exceeded")
+        return ""
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PDF PARSER
+# ═══════════════════════════════════════════════════════════════════
 
 class PDFParser(BaseParser):
-
-    _ocr = None
 
     def preprocess(self, file_path):
         doc = fitz.open(file_path)
@@ -25,48 +163,22 @@ class PDFParser(BaseParser):
         doc.close()
         return cleaned_path
 
-    # -------------------------
-    # OCR INITIALIZATION
-    # -------------------------
-    @classmethod
-    def _get_ocr(cls):
-        if cls._ocr is None:
-            cls._ocr = PaddleOCR(
-                use_angle_cls=True,
-                lang="en",
-                det_db_box_thresh=0.3,
-                det_db_unclip_ratio=1.8,
-                rec_batch_num=6,
-            )
-        return cls._ocr
-
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
     # PAGE TYPE DETECTION
-    # -------------------------
-    def is_scanned_page(self, page):
-        """Classify a page as scanned only when a large raster image dominates
-        and there is virtually no extractable text.  Small embedded images on
-        an otherwise text-light page are NOT treated as scanned so that the
-        digital extraction path still runs for each individual image."""
-
+    # ─────────────────────────────────────────────────────────────
+    def is_scanned_page(self, page) -> bool:
         text = page.get_text().strip()
         images = page.get_images(full=True)
         text_length = len(text)
 
-        if text_length >= 30 or len(images) == 0:
-            # Enough text OR no images → digital page
+        if text_length >= 50 or len(images) == 0:
             page_area = page.rect.width * page.rect.height
             if page_area > 0 and text_length / page_area < 0.00005 and len(images) > 0:
-                # Very sparse text with images — check if a big scan dominates
                 return self._has_dominant_image(page)
             return False
-
-        # Almost no text and at least one image — check if a big image covers
-        # most of the page (typical full-page scan).
         return self._has_dominant_image(page)
 
-    def _has_dominant_image(self, page):
-        """Return True if any single embedded image covers > 50 % of the page."""
+    def _has_dominant_image(self, page) -> bool:
         page_area = page.rect.width * page.rect.height
         if page_area == 0:
             return False
@@ -78,89 +190,35 @@ class PDFParser(BaseParser):
                     return True
         return False
 
-    # -------------------------
-    # IMAGE PREPROCESSING
-    # -------------------------
-    def preprocess_image(self, image):
-        img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-
-        # Light denoising — binarization destroys handwriting strokes
-        img = cv2.fastNlMeansDenoising(img, h=10)
-
-        img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-
-        # Convert back to RGB for PaddleOCR
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-        return img
-
-    # -------------------------
-    # RENDER PAGE FOR OCR
-    # -------------------------
-    def render_page(self, page):
-        pix = page.get_pixmap(matrix=fitz.Matrix(4, 4), alpha=False)
+    # ─────────────────────────────────────────────────────────────
+    # RENDER PAGE
+    # ─────────────────────────────────────────────────────────────
+    def render_page(self, page, zoom: float = 2.0) -> Image.Image:
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
         mode = "RGB" if pix.n >= 3 else "L"
-        image = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-        return image
+        return Image.frombytes(mode, [pix.width, pix.height], pix.samples)
 
-    # -------------------------
-    # RUN OCR
-    # -------------------------
-    def run_ocr(self, image):
-        ocr = self._get_ocr()
-        img = self.preprocess_image(image)
-        result = ocr.ocr(img)
+    # ─────────────────────────────────────────────────────────────
+    # OCR VIA GEMINI
+    # ─────────────────────────────────────────────────────────────
+    def run_ocr(self, image: Image.Image, prompt: str = OCR_PROMPT) -> str:
+        return GeminiOCR.ocr_image(image, prompt=prompt)
 
-        lines = []
-        if not result:
-            return ""
-
-        for block in result:
-            if block is None:
-                continue
-            for line in block:
-                if len(line) < 2:
-                    continue
-                text = line[1][0]
-                conf = line[1][1]
-                if conf > 0.2:
-                    lines.append(text)
-
-        return " ".join(lines).strip()
-
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
     # TEXT CLEANING
-    # -------------------------
-    def clean_text(self, text):
+    # ─────────────────────────────────────────────────────────────
+    def clean_text(self, text: str) -> str:
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
-    # -------------------------
-    # VECTOR DIAGRAM DETECTION
-    # -------------------------
-    def detect_diagram_regions(
-        self, page, min_area=3000, merge_gap=50, max_page_ratio=0.85
-    ):
-        """Find bounding boxes of vector-drawn diagram regions on the page.
-
-        Strategy
-        --------
-        1. Collect bboxes of ALL drawing elements (fills, strokes, curves).
-        2. Only exclude a drawing element if it is a **thin, small decorator**
-           (underline, border) fully inside a text block.  Large shapes that
-           *contain* or overlap text — like diagram boxes — are kept.
-        3. Merge nearby elements (within *merge_gap* pts) iteratively.
-        4. For each merged region, count how many original drawing commands
-           fall inside it (drawing density).  Regions with very few commands
-           and no fills / curves are likely stray lines, not diagrams.
-        5. Reject regions that are too small, cover the whole page, or are
-           near-duplicates.
-        """
-
+    # ─────────────────────────────────────────────────────────────
+    # VECTOR DIAGRAM DETECTION (unchanged from v1)
+    # ─────────────────────────────────────────────────────────────
+    def detect_diagram_regions(self, page, min_area=3000, merge_gap=50, max_page_ratio=0.85):
         drawings = page.get_drawings()
         if not drawings:
             return []
 
-        # ---- text-block bboxes (for filtering tiny decorators only) ----
         text_bboxes = []
         try:
             for b in page.get_text("dict")["blocks"]:
@@ -173,10 +231,6 @@ class PDFParser(BaseParser):
         page_area = page_rect.width * page_rect.height
 
         def is_thin_text_decorator(r):
-            """True only for small, thin elements fully inside a text block
-            (underlines, strikethroughs, text-box borders).  Large shapes
-            that surround text — diagram boxes — are NOT decorators."""
-            # Must be thin in at least one dimension
             if r.width > 15 and r.height > 15:
                 return False
             for tb in text_bboxes:
@@ -184,10 +238,8 @@ class PDFParser(BaseParser):
                     return True
             return False
 
-        # ---- collect drawing rects ----
-        all_drawing_rects = []  # every rect (for density counting later)
-        rects = []              # rects that participate in merging
-
+        all_drawing_rects = []
+        rects = []
         for d in drawings:
             r = d.get("rect")
             if not r:
@@ -195,23 +247,16 @@ class PDFParser(BaseParser):
             r = fitz.Rect(r)
             if r.is_empty or r.is_infinite:
                 continue
-
             all_drawing_rects.append(r)
-
-            # Skip truly tiny marks (< 2px in both dimensions)
             if r.width < 2 and r.height < 2:
                 continue
-
-            # Skip thin decorators inside text blocks (underlines etc.)
             if is_thin_text_decorator(r):
                 continue
-
             rects.append(r)
 
         if not rects:
             return []
 
-        # ---- iterative greedy merge ----
         changed = True
         while changed:
             changed = False
@@ -224,12 +269,7 @@ class PDFParser(BaseParser):
                 for j in range(i + 1, len(rects)):
                     if used[j]:
                         continue
-                    expanded = current + (
-                        -merge_gap,
-                        -merge_gap,
-                        merge_gap,
-                        merge_gap,
-                    )
+                    expanded = current + (-merge_gap, -merge_gap, merge_gap, merge_gap)
                     if expanded.intersects(rects[j]):
                         current = current | rects[j]
                         used[j] = True
@@ -237,127 +277,76 @@ class PDFParser(BaseParser):
                 merged.append(current)
             rects = merged
 
-        # ---- filter, density-check, and deduplicate ----
         regions = []
         for r in rects:
             r = r & page_rect
             if r.is_empty or r.is_infinite:
                 continue
             area = r.width * r.height
-            if area < min_area:
+            if area < min_area or (page_area > 0 and area / page_area > max_page_ratio):
                 continue
-            if page_area > 0 and area / page_area > max_page_ratio:
-                continue
-
-            # Drawing density: count how many original drawing elements
-            # fall inside this merged region.  A real diagram typically has
-            # several shapes; a stray horizontal rule has one.
-            density = sum(
-                1 for dr in all_drawing_rects
-                if r.contains(dr) or r.intersects(dr)
-            )
+            density = sum(1 for dr in all_drawing_rects if r.contains(dr) or r.intersects(dr))
             if density < 3 and area < 15000:
-                # Very few drawing commands AND small area — likely not a
-                # diagram (could be a separator line or border).
                 continue
-
-            # Near-duplicate check
-            duplicate = False
-            for accepted in regions:
-                inter = r & accepted
-                if not inter.is_empty:
-                    overlap = (inter.width * inter.height) / area
-                    if overlap > 0.85:
-                        duplicate = True
-                        break
-            if duplicate:
-                continue
-            regions.append(r)
-
+            dup = any(
+                not (r & a).is_empty and (r & a).width * (r & a).height / area > 0.85
+                for a in regions
+            )
+            if not dup:
+                regions.append(r)
         return regions
 
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
     # IMAGE QUALITY FILTERS
-    # -------------------------
-    def is_garbage_image(self, pix):
-        """Return True for images that are too small, nearly blank/black,
-        or have an extremely low unique-colour count (solid fills, etc.)."""
-
+    # ─────────────────────────────────────────────────────────────
+    def is_garbage_image(self, pix) -> bool:
         if pix.width * pix.height < 2000:
             return True
-
-        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
-            pix.height, pix.width, -1
-        )
-
+        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, -1)
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY) if arr.ndim == 3 else arr
+        return gray.mean() < 15 or gray.mean() > 252 or gray.std() < 5
 
-        if gray.mean() < 15:
-            return True
-        if gray.mean() > 252:
-            return True
-        if gray.std() < 5:
-            return True
-
-        return False
-
-    def is_duplicate_image(self, image_bytes, seen_hashes):
-        """Return True if this image's content hash was already seen."""
+    def is_duplicate_image(self, image_bytes, seen_hashes) -> bool:
         h = hashlib.md5(image_bytes).hexdigest()
         if h in seen_hashes:
             return True
         seen_hashes.add(h)
         return False
 
-    # -------------------------
-    # PIXMAP EXTRACTION HELPERS
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
+    # PIXMAP HELPERS
+    # ─────────────────────────────────────────────────────────────
     def _extract_pixmap(self, doc, img_tuple):
-        """Safely extract a Pixmap from a page image entry, handling SMask
-        (soft-mask / transparency) and CMYK → RGB conversion."""
-
         xref = img_tuple[0]
         pix = fitz.Pixmap(doc, xref)
-
-        # Apply soft-mask if present (index 1 in the tuple is the smask xref)
         smask_xref = img_tuple[1] if len(img_tuple) > 1 else 0
         if smask_xref and smask_xref != 0:
             try:
-                mask_pix = fitz.Pixmap(doc, smask_xref)
-                # Composite the image with its mask
-                pix = fitz.Pixmap(pix, mask_pix)
+                pix = fitz.Pixmap(pix, fitz.Pixmap(doc, smask_xref))
             except Exception:
                 pass
-
-        # CMYK → RGB
         if pix.colorspace and pix.colorspace.n == 4:
             pix = fitz.Pixmap(fitz.csRGB, pix)
-
-        # Flatten alpha onto white background
         if pix.alpha:
-            bg = fitz.Pixmap(fitz.csRGB, pix, 0)  # drop alpha, white bg
-            pix = bg
-
+            pix = fitz.Pixmap(fitz.csRGB, pix, 0)
         return pix
 
-    def _pixmap_to_pil(self, pix):
-        """Convert a fitz.Pixmap to a PIL RGB Image."""
+    def _pixmap_to_pil(self, pix) -> Image.Image:
         mode = "RGB" if pix.colorspace and pix.colorspace.n >= 3 else "L"
         img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
-        return img
+        return img.convert("RGB") if img.mode != "RGB" else img
 
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
     # TABLE HELPERS
-    # -------------------------
-    def convert_table_to_markdown(self, table):
+    # ─────────────────────────────────────────────────────────────
+    def convert_table_to_markdown(self, table) -> str:
         if not table:
             return ""
-        lines = []
         header = table[0]
-        lines.append("| " + " | ".join(header) + " |")
-        lines.append("|" + "|".join(["---"] * len(header)) + "|")
+        lines = [
+            "| " + " | ".join(header) + " |",
+            "|" + "|".join(["---"] * len(header)) + "|",
+        ]
         for row in table[1:]:
             lines.append("| " + " | ".join(row) + " |")
         return "\n".join(lines)
@@ -365,60 +354,51 @@ class PDFParser(BaseParser):
     def normalize_table(self, rows):
         return [["" if c is None else str(c) for c in r] for r in rows]
 
-    # -------------------------
+    # ═══════════════════════════════════════════════════════════════
     # MAIN EXTRACTION
-    # -------------------------
-    def extract(self, file_path):
+    # ═══════════════════════════════════════════════════════════════
+    def extract(self, file_path: str) -> dict:
         doc = fitz.open(file_path)
         sections = []
 
-        # Clear and recreate output directories on every run
         for folder in ("extracted_images", "extracted_tables"):
             if os.path.exists(folder):
                 shutil.rmtree(folder)
             os.makedirs(folder)
 
-        # Track already-extracted xrefs globally to avoid cross-page duplicates
         extracted_xrefs: set = set()
 
-        img2table_pdf = Img2TablePDF(src=file_path)
-
+        # Table extraction
+        extracted_tables = {}
         try:
+            from img2table.document import PDF as Img2TablePDF
+            img2table_pdf = Img2TablePDF(src=file_path)
             extracted_tables = img2table_pdf.extract_tables(
-                ocr=None,
-                borderless_tables=True,
-                implicit_rows=False,
-                implicit_columns=True,
+                ocr=None, borderless_tables=True,
+                implicit_rows=False, implicit_columns=True,
             )
-        except Exception:
-            print("Table extraction failed, continuing without tables.")
-            extracted_tables = {}
+        except Exception as e:
+            logger.warning(f"img2table failed: {e}")
 
         for page_index, page in enumerate(doc):
             page_number = page_index + 1
             blocks = []
             is_scanned = self.is_scanned_page(page)
 
-            # -------------------------
-            # SCANNED PAGE — full-page OCR
-            # -------------------------
+            # ─── SCANNED PAGE → Gemini OCR ───────────────────────
             if is_scanned:
-                image = self.render_page(page)
-                text = self.run_ocr(image)
+                image = self.render_page(page, zoom=2.0)
+                text = self.run_ocr(image, prompt=OCR_PROMPT)
                 if text:
-                    blocks.append(
-                        {
-                            "id": str(uuid.uuid4()),
-                            "type": "text",
-                            "content": text,
-                            "embedding_ready_text": text,
-                            "bbox": None,
-                        }
-                    )
+                    blocks.append({
+                        "id": str(uuid.uuid4()),
+                        "type": "text",
+                        "content": text,
+                        "embedding_ready_text": text,
+                        "bbox": None,
+                    })
 
-            # -------------------------
-            # DIGITAL PAGE — block-level text
-            # -------------------------
+            # ─── DIGITAL PAGE → PyMuPDF direct extraction ────────
             else:
                 text_dict = page.get_text("dict")
                 for block in text_dict["blocks"]:
@@ -429,25 +409,19 @@ class PDFParser(BaseParser):
                         for span in line["spans"]:
                             text += span["text"] + " "
                     text = self.clean_text(text)
-                    if not text:
-                        continue
-                    blocks.append(
-                        {
+                    if text:
+                        blocks.append({
                             "id": str(uuid.uuid4()),
                             "type": "text",
                             "content": text,
                             "embedding_ready_text": text,
                             "bbox": block["bbox"],
-                        }
-                    )
+                        })
 
-            # -------------------------
-            # IMAGE EXTRACTION (raster XObjects)
-            # -------------------------
+            # ─── IMAGE EXTRACTION + OCR ──────────────────────────
             img_counter = 0
             seen_hashes: set = set()
 
-            # Pass 1: standard get_images (XObject images)
             for img in page.get_images(full=True):
                 xref = img[0]
                 if xref in extracted_xrefs:
@@ -458,14 +432,10 @@ class PDFParser(BaseParser):
                     pix = self._extract_pixmap(doc, img)
                 except Exception:
                     continue
-
-                # Skip garbage images (too small, blank, black, low-contrast)
                 if self.is_garbage_image(pix):
                     continue
 
                 image_bytes = pix.tobytes("png")
-
-                # Skip duplicate images
                 if self.is_duplicate_image(image_bytes, seen_hashes):
                     continue
 
@@ -474,31 +444,23 @@ class PDFParser(BaseParser):
                     f.write(image_bytes)
                 img_counter += 1
 
-                # OCR: on scanned pages the full-page OCR already ran; for
-                # digital pages run OCR on each embedded image individually.
                 if is_scanned:
                     embedding_text = f"Image on page {page_number}"
                 else:
                     pil_img = self._pixmap_to_pil(pix)
-                    img_ocr_text = self.run_ocr(pil_img)
-                    embedding_text = (
-                        img_ocr_text
-                        if img_ocr_text
-                        else f"Image on page {page_number}"
-                    )
+                    img_ocr_text = self.run_ocr(pil_img, prompt=EMBEDDED_IMG_PROMPT)
+                    embedding_text = img_ocr_text or f"Image on page {page_number}"
 
-                blocks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "type": "image",
-                        "content": embedding_text,
-                        "embedding_ready_text": embedding_text,
-                        "image_path": image_path,
-                        "bbox": None,
-                    }
-                )
+                blocks.append({
+                    "id": str(uuid.uuid4()),
+                    "type": "image",
+                    "content": embedding_text,
+                    "embedding_ready_text": embedding_text,
+                    "image_path": image_path,
+                    "bbox": None,
+                })
 
-            # Pass 2: catch inline / missed images via get_image_info
+            # Pass 2: inline images
             for info in page.get_image_info(xrefs=True):
                 xref = info.get("xref", 0)
                 if xref == 0 or xref in extracted_xrefs:
@@ -513,7 +475,6 @@ class PDFParser(BaseParser):
                         pix = fitz.Pixmap(fitz.csRGB, pix, 0)
                 except Exception:
                     continue
-
                 if self.is_garbage_image(pix):
                     continue
 
@@ -530,44 +491,29 @@ class PDFParser(BaseParser):
                     embedding_text = f"Image on page {page_number}"
                 else:
                     pil_img = self._pixmap_to_pil(pix)
-                    img_ocr_text = self.run_ocr(pil_img)
-                    embedding_text = (
-                        img_ocr_text
-                        if img_ocr_text
-                        else f"Image on page {page_number}"
-                    )
+                    img_ocr_text = self.run_ocr(pil_img, prompt=EMBEDDED_IMG_PROMPT)
+                    embedding_text = img_ocr_text or f"Image on page {page_number}"
 
-                blocks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "type": "image",
-                        "content": embedding_text,
-                        "embedding_ready_text": embedding_text,
-                        "image_path": image_path,
-                        "bbox": info.get("bbox"),
-                    }
-                )
+                blocks.append({
+                    "id": str(uuid.uuid4()),
+                    "type": "image",
+                    "content": embedding_text,
+                    "embedding_ready_text": embedding_text,
+                    "image_path": image_path,
+                    "bbox": info.get("bbox"),
+                })
 
-            # -------------------------
-            # VECTOR DIAGRAM EXTRACTION
-            # Runs on ALL pages (scanned and digital) so individual
-            # diagrams are captured even on scanned pages.
-            # -------------------------
+            # ─── VECTOR DIAGRAMS ─────────────────────────────────
             diagram_regions = self.detect_diagram_regions(page)
             for region in diagram_regions:
-                mat = fitz.Matrix(2, 2)
-                clip_pix = page.get_pixmap(matrix=mat, clip=region, alpha=False)
-
+                clip_pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=region, alpha=False)
                 image_bytes = clip_pix.tobytes("png")
                 if self.is_duplicate_image(image_bytes, seen_hashes):
                     continue
 
                 arr = np.frombuffer(clip_pix.samples, dtype=np.uint8).reshape(
-                    clip_pix.height, clip_pix.width, -1
-                )
+                    clip_pix.height, clip_pix.width, -1)
                 gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
-
-                # Skip near-blank regions (just borders/lines)
                 if gray.mean() > 248 or gray.std() < 5:
                     continue
 
@@ -576,38 +522,29 @@ class PDFParser(BaseParser):
                     f.write(image_bytes)
                 img_counter += 1
 
-                pil_img = Image.frombytes(
-                    "RGB", [clip_pix.width, clip_pix.height], clip_pix.samples
-                )
-                img_ocr_text = self.run_ocr(pil_img)
-                embedding_text = (
-                    img_ocr_text
-                    if img_ocr_text
-                    else f"Diagram on page {page_number}"
-                )
+                pil_img = Image.frombytes("RGB", [clip_pix.width, clip_pix.height], clip_pix.samples)
+                img_ocr_text = self.run_ocr(pil_img, prompt=EMBEDDED_IMG_PROMPT)
+                embedding_text = img_ocr_text or f"Diagram on page {page_number}"
 
-                blocks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "type": "image",
-                        "content": embedding_text,
-                        "embedding_ready_text": embedding_text,
-                        "image_path": image_path,
-                        "bbox": list(region),
-                    }
-                )
+                blocks.append({
+                    "id": str(uuid.uuid4()),
+                    "type": "image",
+                    "content": embedding_text,
+                    "embedding_ready_text": embedding_text,
+                    "image_path": image_path,
+                    "bbox": list(region),
+                })
 
-            # -------------------------
-            # TABLE EXTRACTION
-            # -------------------------
+            # ─── TABLES ──────────────────────────────────────────
             tables = extracted_tables.get(page_number, [])
-
             for idx, table in enumerate(tables):
                 df = getattr(table, "df", None)
                 if df is None:
                     continue
-
                 table_data = self.normalize_table(df.values.tolist())
+                non_empty = sum(1 for row in table_data for cell in row if cell.strip())
+                if non_empty == 0:
+                    continue
 
                 csv_path = f"extracted_tables/page{page_number}_table{idx}.csv"
                 with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -616,32 +553,27 @@ class PDFParser(BaseParser):
                         writer.writerow(row)
 
                 markdown = self.convert_table_to_markdown(table_data)
-
-                blocks.append(
-                    {
-                        "id": str(uuid.uuid4()),
-                        "type": "table",
-                        "content": table_data,
-                        "embedding_ready_text": markdown,
-                        "bbox": None,
-                        "csv_path": csv_path,
-                    }
-                )
-
-            sections.append(
-                {
+                blocks.append({
                     "id": str(uuid.uuid4()),
-                    "heading": f"Page {page_number}",
-                    "page": page_number,
-                    "blocks": blocks,
-                }
-            )
+                    "type": "table",
+                    "content": table_data,
+                    "embedding_ready_text": markdown,
+                    "bbox": None,
+                    "csv_path": csv_path,
+                })
+
+            sections.append({
+                "id": str(uuid.uuid4()),
+                "heading": f"Page {page_number}",
+                "page": page_number,
+                "blocks": blocks,
+            })
 
         return {"sections": sections, "metadata": doc.metadata}
 
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
     # STRUCTURE
-    # -------------------------
+    # ─────────────────────────────────────────────────────────────
     def structure(self, raw_data):
         from app.models.unified_content_schema import Section, Chunk
 
@@ -660,11 +592,9 @@ class PDFParser(BaseParser):
                         metadata={
                             "page": section["page"],
                             "chunk_type": block["type"],
-                            **(
-                                {"image_path": block["image_path"]}
-                                if block["type"] == "image" and "image_path" in block
-                                else {}
-                            ),
+                            **({"image_path": block["image_path"]}
+                               if block["type"] == "image" and "image_path" in block
+                               else {}),
                         },
                     )
                 )
