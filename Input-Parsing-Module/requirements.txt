@@ -9,3 +9,7 @@ openai-whisper
 opencv-python
 ffmpeg-python
 img2table
+google-genai
+paddleocr
+transformers
+torch
