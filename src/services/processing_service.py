@@ -1,7 +1,8 @@
+import re
 from parsers.pdf_parser import PDFParser
 from models.chunk import Chunk as RAGChunk
 import logging
-
+import re
 logger = logging.getLogger(__name__)
 
 
@@ -19,6 +20,26 @@ class ProcessingService:
 
     def __init__(self):
         self.pdf_parser = PDFParser()
+        self.chunk_counter = 0
+        
+    def split_large_chunk_by_sections(self, text: str) -> list:
+        """
+        Split a large chunk into smaller topic-focused chunks.
+        """
+        section_pattern = r'(?=\b[A-Z][A-Z\s&]{4,}\b)'
+        sections = re.split(section_pattern, text)
+        
+        chunks = []
+        for section in sections:
+            section = section.strip()
+            if len(section) > 80:
+                chunks.append(section)
+        
+        if len(chunks) <= 1:
+            bullet_pattern = r'(?=•|\n-|\n\*)'
+            chunks = [c.strip() for c in re.split(bullet_pattern, text) if len(c.strip()) > 80]
+        
+        return chunks if len(chunks) > 1 else [text]
 
     def process_pdf(self, file_path: str, project_id: str) -> list:
         """
@@ -34,7 +55,6 @@ class ProcessingService:
                    f"from {len(parsed_content.sections)} sections")
 
         rag_chunks = []
-        chunk_counter = 0
 
         for section in parsed_content.sections:
             for chunk in section.chunks:
@@ -42,44 +62,38 @@ class ProcessingService:
             # WHY: Prepending context before embedding helps the model
             # understand WHERE this chunk comes from, not just WHAT it says.
             # This reduces embedding ambiguity and improves retrieval by 49%.
-                chunk_type = chunk.metadata.get("chunk_type", "text")
-                page = section.page
-                if chunk_type == "text":
+                if chunk.metadata.get("chunk_type") != "text":
+                    continue
+                raw_text = chunk.content
+                # Split large chunks by section headers or bullets
+                if len(raw_text) > MEDIUM_THRESHOLD:
+                    sub_chunks = self.split_large_chunk_by_sections(raw_text)
+                else:
+                    sub_chunks = [raw_text]               
+                for sub_chunk in sub_chunks:
                     contextual_text = (
                         f"Document: {doc_title} | "
-                        f"Page: {page} | "
+                        f"Page: {section.page} | "
                         f"Section: {section.heading}\n\n"
-                        f"{chunk.content}"
+                        f"{sub_chunk}"
                     )
-                elif chunk_type == "table":
-                    contextual_text = (
-                        f"Table from: {doc_title} | Page: {page}\n\n"
-                        f"{chunk.content}"
-                    )
-                else:
-                    contextual_text = chunk.content
+                    metadata = {
+                        "source": file_path,
+                        "doc_title": doc_title,
+                        "page": section.page,
+                        "section_heading": section.heading,
+                        "chunk_type": "text",
+                        "page_kind": chunk.metadata.get("page_kind", "document"),
+                        "project_id": project_id,
+                    }
 
-                metadata = {
-                    "source": file_path,
-                    "doc_title": doc_title,
-                    "page": page,
-                    "section_heading": section.heading,
-                    "chunk_type": chunk_type,
-                    "page_kind": chunk.metadata.get("page_kind", "document"),
-                    "project_id": project_id,
-                    #"original_text": chunk.content,  # store original separately
-                }
-                # Add sub_chunk info if it exists
-                if "sub_chunk_index" in chunk.metadata:
-                    metadata["sub_chunk_index"] = chunk.metadata["sub_chunk_index"]
-                    metadata["total_sub_chunks"] = chunk.metadata["total_sub_chunks"]
-
-                rag_chunks.append(RAGChunk(
-                    chunk_id=chunk_counter,
-                    text=chunk.content,
-                    metadata=metadata
-                ))
-                chunk_counter += 1
+                    # If no retriever → pass as-is
+                    rag_chunks.append(RAGChunk(
+                        chunk_id=self.chunk_counter,
+                        text=contextual_text,
+                        metadata=metadata
+                    ))
+                self.chunk_counter += 1
 
         logger.info(f"Converted to {len(rag_chunks)} RAG chunks")
         return rag_chunks

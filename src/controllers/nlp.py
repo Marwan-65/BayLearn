@@ -1,5 +1,5 @@
 import json
-from typing import List
+from typing import List, Optional
 from stores.LLM.LLMEnums import DocumentTypeEnum
 from .base import BaseController
 import logging
@@ -13,6 +13,7 @@ class NLPController(BaseController):
         generation_client,
         embedding_client,
         chunk_repository,
+        
     ):
         super().__init__()
         self.vectordb_client = vectordb_client
@@ -121,7 +122,31 @@ class NLPController(BaseController):
         return json.loads(
             json.dumps(search_results, default=lambda x: x.__dict__)
         )
+    def compress_context(self, chunk_text: str, question: str) -> str:
+        """
+        Extract only sentences relevant to the question.
+        """
+        compression_prompt = f"""Extract ONLY the sentences from the text below that are directly relevant to answering the question.
+        Return ONLY the extracted sentences.
+        If nothing is relevant, return: NOT_RELEVANT
 
+        Question: {question}
+
+        Text:  {chunk_text}
+
+        Relevant sentences:"""
+
+        compressed = self.generation_client.generate_text(
+            prompt=compression_prompt,
+            chat_history=[],
+            max_output_tokens=200,
+            temperature=0.0  # deterministic
+        )
+
+        if not compressed or "NOT_RELEVANT" in compressed :
+            return chunk_text  # fallback
+
+        return compressed.strip()
     # ---------------------------------------------------------
     # Collection Info
     # ---------------------------------------------------------
@@ -166,8 +191,8 @@ class NLPController(BaseController):
         hypothetical_answer = self.generation_client.generate_text(
             prompt=hyde_prompt,
             chat_history=[],
-            max_output_tokens=200,
-            temperature=0.5  
+            max_output_tokens=300,
+            temperature= 0.5
             # WHY temperature 0.5 here?
             # Higher than our usual 0.1 because we WANT some variation
             # in the hypothetical — we're not looking for one exact answer,
@@ -205,14 +230,8 @@ class NLPController(BaseController):
             return {"error": "No relevant documents found"}
 
         # ═══════════════════════════════════════════════════════
-        # STEP 4: Filter out image chunks (not useful for answering)
-        # and apply similarity score threshold
+        # STEP 4: apply similarity score threshold
         # ═══════════════════════════════════════════════════════
-        search_results = [
-            r for r in search_results
-            if r["payload"].get("chunk_type", "text") != "image"
-        ]
-
         filtered_results = [
             r for r in search_results
             if r["score"] >= score_threshold
@@ -232,15 +251,40 @@ class NLPController(BaseController):
         # ═══════════════════════════════════════════════════════
         # STEP 5: Build numbered context
         # ═══════════════════════════════════════════════════════
+        # context_parts = []
+        # for i, result in enumerate(filtered_results, 1):
+        #     text = result["payload"].get("text", "")
+        #     score = result["score"]
+        #     context_parts.append(
+        #         f"[Source {i}] (relevance: {score:.2f})\n{text}"
+        #     )
+        # context = "\n\n".join(context_parts)
+        
+        # This modification for contextual compression improvement 
+        COMPRESSION_THRESHOLD = 2000  # characters
         context_parts = []
+        compressed_sources = []
+        raw_context_parts = []  # for evaluation
+
         for i, result in enumerate(filtered_results, 1):
             text = result["payload"].get("text", "")
             score = result["score"]
-            context_parts.append(
-                f"[Source {i}] (relevance: {score:.2f})\n{text}"
-            )
-        context = "\n\n".join(context_parts)
+            raw_context_parts.append(text)
 
+            # Apply compression only for large chunks
+            if len(text) > COMPRESSION_THRESHOLD:
+                compressed_text = self.compress_context(text, question)
+            else:
+                compressed_text = text
+            compressed_sources.append(compressed_text)
+            context_parts.append(
+                f"[Source {i}] (relevance: {score:.2f})\n{compressed_text}"
+            )
+
+        # Final contexts
+        context = "\n\n".join(context_parts)
+        raw_context = "\n\n".join(raw_context_parts)
+   
         # ═══════════════════════════════════════════════════════
         # STEP 6: System prompt + generate final answer
         # ═══════════════════════════════════════════════════════
@@ -260,8 +304,7 @@ class NLPController(BaseController):
         4. Never invent facts, formulas, or explanations not present in the context.
         5. When possible, refer to which source your answer comes from (e.g. "According to Source 1...")."""
 
-        user_prompt = f"""Context from uploaded study materials:
-
+        user_prompt = f"""Context from uploaded study materials: 
     {context}
 
     Student question: {question}
@@ -279,6 +322,11 @@ class NLPController(BaseController):
             "sources": [r["payload"].get("text", "") for r in filtered_results],
             "scores": [r["score"] for r in filtered_results],
             "num_sources": len(filtered_results),
-            "hyde_used": True  # useful for evaluation later
-        }
+            "hyde_used": True , # useful for evaluation later
+            
+            # for evaluation purposes, to compare with compressed context
+            "context_before_compression": raw_context,
+            "context_after_compression": context,
+            # "compressed_sources": compressed_sources,       
+            }
 
