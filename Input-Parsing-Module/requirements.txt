@@ -1,7 +1,9 @@
 fastapi
 uvicorn
 pydantic
+python-dotenv
 python-multipart
+requests>=2.32.5
 PyMuPDF
 pytesseract
 Pillow
@@ -13,3 +15,4 @@ google-genai
 paddleocr
 transformers
 torch
+chardet<6
