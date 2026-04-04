@@ -81,6 +81,12 @@ class LocalProvider(LLMInterface):
 
         return self.embedding_model.encode(text).tolist()
 
+    def embed_texts_batch(self, texts: list, document_type: str) -> list:
+        if not self.embedding_model:
+            self.logger.error("Embedding model not initialized")
+            return []
+        return self.embedding_model.encode(texts).tolist()
+
     # ================= HELPERS =================
 
     def process_text(self, text: str):

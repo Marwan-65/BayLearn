@@ -26,6 +26,20 @@ class Settings(BaseSettings):
     VECTOR_DB_BACKEND: Optional[str] = None
     VECTOR_DB_PATH: Optional[str] = None
     VECTOR_DB_DISTANCE_METHOD: Optional[str] = None
+
+    # Contextual Compression
+    COMPRESSION_ENABLED: Optional[bool] = True
+    COMPRESSION_SIMILARITY_THRESHOLD: Optional[float] = 0.3
+    COMPRESSION_MIN_KEEP_RATIO: Optional[float] = 0.4
+    COMPRESSION_MIN_CHUNK_LENGTH: Optional[int] = 200
+    COMPRESSION_SKIP_SINGLE_CHUNK: Optional[bool] = True
+    COMPRESSION_RETRIEVAL_MULTIPLIER: Optional[int] = 2
+    
+    # Reranker
+    RERANKER_ENABLED: Optional[bool] = False
+    RERANKER_BACKEND: Optional[str] = "CROSS_ENCODER"
+    RERANKER_MODEL_ID: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    RERANKER_OVER_RETRIEVAL_MULTIPLIER: Optional[int] = 3
     
 # here we load the .env file to get the environment variables defined in it
     class Config:
