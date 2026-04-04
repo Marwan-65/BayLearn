@@ -1,4 +1,4 @@
-import os, json, logging, asyncio, concurrent.futures, numpy as np
+import os, json, logging, asyncio, numpy as np
 from typing import List, Dict, Any
 from langchain_community.embeddings import HuggingFaceEmbeddings
 logger = logging.getLogger(__name__)
@@ -6,7 +6,7 @@ from langchain_groq import ChatGroq
 from .chatgroqfixed import GroqChatFixed  # A custom wrapper to fix OpenAI shim issues in RAGAS
 
 class RAGASEvaluator:
-    def __init__(self, groq_api_key: str, timeout: int = 300):
+    def __init__(self, groq_api_key: str, timeout: int = 600):
         self.groq_api_key = groq_api_key
         self.timeout = timeout
 
@@ -57,7 +57,7 @@ class RAGASEvaluator:
 
             dataset = Dataset.from_list(test_cases)
 
-            run_config.timeout = 120.0
+            run_config.timeout = 300.0
             run_config.max_workers = 1
 
             return ragas_evaluate(
@@ -70,41 +70,92 @@ class RAGASEvaluator:
                 ],
                 llm=ragas_llm,
                 embeddings=ragas_embeddings,
-                raise_exceptions=True,
+                raise_exceptions=False,
             )
 
-
-        # ✅ THIS is the critical fix
-        loop = asyncio.get_running_loop()
-        results = await loop.run_in_executor(None, run_ragas)
-
-        return self._extract_scores(results)
+        try:
+            loop = asyncio.get_running_loop()
+            results = await asyncio.wait_for(
+                loop.run_in_executor(None, run_ragas),
+                timeout=self.timeout
+            )
+            return self._extract_scores(results)
+        except TimeoutError:
+            logger.error(f"RAGAS evaluation timed out after {self.timeout}s")
+            return {
+                "Faithfulness": 0.0, "AnswerRelevancy": 0.0,
+                "ContextPrecision": 0.0, "ContextRecall": 0.0,
+                "overall": 0.0, "error": "timeout"
+            }
+        except Exception as e:
+            logger.error(f"RAGAS evaluation failed: {e}")
+            return {
+                "Faithfulness": 0.0, "AnswerRelevancy": 0.0,
+                "ContextPrecision": 0.0, "ContextRecall": 0.0,
+                "overall": 0.0, "error": str(e)
+            }
         
     def _extract_scores(self, results) -> Dict[str, float]:
         df = results.to_pandas()
         logger.info(f"\n=== Per-row RAGAS scores ===\n{df.to_string()}")
-        metrics = ["Faithfulness", "AnswerRelevancy", "ContextPrecision", "ContextRecall"]
+        logger.info(f"RAGAS DataFrame columns: {list(df.columns)}")
+
+        # Map both PascalCase and snake_case column names (varies by RAGAS version)
+        metric_aliases = {
+            "Faithfulness": ["Faithfulness", "faithfulness"],
+            "AnswerRelevancy": ["AnswerRelevancy", "answer_relevancy"],
+            "ContextPrecision": ["ContextPrecision", "context_precision"],
+            "ContextRecall": ["ContextRecall", "context_recall"],
+        }
+
         scores = {}
-        for metric in metrics:
-            if metric in df.columns:
-                valid = df[metric].dropna()
-                scores[metric] = round(float(valid.mean()), 3) if len(valid) > 0 else 0.0
-            else:
-                scores[metric] = 0.0
+        for metric_name, aliases in metric_aliases.items():
+            found = False
+            for alias in aliases:
+                if alias in df.columns:
+                    valid = df[alias].dropna()
+                    scores[metric_name] = round(float(valid.mean()), 3) if len(valid) > 0 else 0.0
+                    found = True
+                    break
+            if not found:
+                logger.warning(f"Metric '{metric_name}' not found in columns: {list(df.columns)}")
+                scores[metric_name] = 0.0
+
         scores["overall"] = round(float(np.mean(list(scores.values()))), 3)
         logger.info(f"Final scores: {scores}")
         return scores
 
-    def save_results(self, scores, output_path="evaluation_results.json"):
+    def save_results(self, scores, test_details=None, label=None,
+                     output_path="evaluation_results.json"):
         import datetime
-        data = {
+
+        entry = {
+            "label": label or "evaluation",
             "scores": scores,
             "metadata": {
                 "timestamp": datetime.datetime.now().isoformat(),
                 "evaluator": "RAGAS (fixed - native Groq)",
                 "llm": "llama3-70b-8192 via langchain-groq",
                 "embeddings": "BAAI/bge-small-en-v1.5"
-            }
+            },
         }
+        if test_details:
+            entry["test_details"] = test_details
+
+        # Append mode — preserve evaluation history for thesis comparison
+        history = []
+        if os.path.exists(output_path):
+            try:
+                with open(output_path, "r") as f:
+                    existing = json.load(f)
+                # Handle old format (single dict) by wrapping in list
+                if isinstance(existing, dict):
+                    history = [existing]
+                elif isinstance(existing, list):
+                    history = existing
+            except (json.JSONDecodeError, Exception):
+                history = []
+
+        history.append(entry)
         with open(output_path, "w") as f:
-            json.dump(data, f, indent=2)
+            json.dump(history, f, indent=2)

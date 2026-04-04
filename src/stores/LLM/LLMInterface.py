@@ -22,8 +22,12 @@ class LLMInterface(ABC):
         pass
     @abstractmethod
     # the embed_text method is used to convert text into a vector representation that can be stored in a vector database and used for similarity search and other operations.
-    def embed_text(self,text:str,document_type:str):    
+    def embed_text(self,text:str,document_type:str):
         pass
+
+    def embed_texts_batch(self, texts: list, document_type: str) -> list:
+        """Embed multiple texts at once. Providers can override for true batch encoding."""
+        return [self.embed_text(t, document_type) for t in texts]
     @abstractmethod
     # the construct_prompt method is used to construct a prompt for generating a response based on the input prompt and the role of the user (e.g., system, user, assistant). This method can be used to format the prompt in a way that is suitable for the specific LLM being used.
     def construct_prompt(self,prompt: str, role: str):
