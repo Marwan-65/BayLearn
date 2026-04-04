@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Round Robin Scheduler · Modular</title>
+    <title>Scheduler Visualizer</title>
     <link rel="stylesheet" href="css/style.css">
     <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
@@ -10,7 +10,8 @@
     <div class="dashboard">
         <div class="top-bar">
             <div class="title">
-                Round Robin Scheduling · Gantt Chart View
+                <span id="algoTitle">Scheduler Visualization</span>
+                <span class="badge" id="algoBadge">RR</span>
                 <span class="badge" id="quantumBadge">Quantum = <span id="quantumValue">3</span></span>
             </div>
             <div style="display: flex; align-items: center;">
@@ -34,7 +35,7 @@
         <!-- Main visualization -->
         <div class="viz-section">
             <div class="gantt-header">
-                <div class="gantt-title">📊 Process Execution Timeline</div>
+                <div class="gantt-title" id="ganttTitle">📊 Process Execution Timeline</div>
                 <div class="time-indicator" id="currentTimeLabel">Time: 0</div>
             </div>
             <div id="chart"></div>

@@ -28,6 +28,8 @@ export class Visualizer {
     }
     
     init() {
+        const accent = (getComputedStyle(document.body).getPropertyValue('--accent') || '#3b82f6').trim();
+
         // Calculate width based on container
         const container = document.getElementById(this.containerId);
         this.width = container.clientWidth - this.margin.left - this.margin.right - 48;
@@ -124,11 +126,11 @@ export class Visualizer {
             .attr("x2", 0)
             .attr("y1", 0)
             .attr("y2", this.height)
-            .attr("stroke", "#3b82f6")
+            .attr("stroke", accent)
             .attr("stroke-width", 3)
             .attr("stroke-dasharray", "6,4")
             .style("opacity", 0)
-            .style("filter", "drop-shadow(0 0 4px #3b82f6)")
+            .style("filter", `drop-shadow(0 0 6px ${accent})`)
             .style("transition", "x1 0.5s cubic-bezier(0.4, 0, 0.2, 1), x2 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s");
     }
     
@@ -161,7 +163,9 @@ export class Visualizer {
                 bar.transition()
                     .duration(800)
                     .attr("width", this.xScale(this.sequence[i].end) - this.xScale(this.sequence[i].start))
-                    .style("opacity", 1);
+                    .style("opacity", i === step ? 1 : 0.82)
+                    .attr("stroke", i === step ? "#ffffff" : "none")
+                    .attr("stroke-width", i === step ? 1.2 : 0);
             } else {
                 bar.transition()
                     .duration(600)

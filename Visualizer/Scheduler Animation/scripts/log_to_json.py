@@ -11,7 +11,7 @@ Defaults:
 
 Typical workflow:
     make run                                 # runs the C scheduler
-    python3 log_to_json.py -q 3             # generates the visualizer JSON
+    python3 log_to_json.py -q 3 -sch 2      # generates the visualizer JSON
     # then open visualizer/index.html in a browser
 """
 
@@ -24,6 +24,13 @@ COLORS = [
     '#4285F4', '#0F9D58', '#F4B400', '#DB4437',
     '#AA46BB', '#FF6D00', '#00ACC1', '#E91E63',
 ]
+
+ALGORITHM_BY_FLAG = {
+    0: { 'key': 'sjf',        'name': 'Shortest Job First',      'shortName': 'SJF' },
+    1: { 'key': 'hpf',        'name': 'Highest Priority First',  'shortName': 'HPF' },
+    2: { 'key': 'rr',         'name': 'Round Robin',             'shortName': 'RR' },
+    3: { 'key': 'multiqueue', 'name': 'Multilevel Queue',        'shortName': 'MLQ' },
+}
 
 
 def parse_processes(path):
@@ -161,6 +168,7 @@ def parse_perf(path):
 
 def main():
     quantum         = 3
+    sch_flag        = 2
     output_path     = 'visualizer/data/processes.json'
     processes_file  = 'scheduler/processes.txt'
     log_file        = 'scheduler/Scheduler_log.txt'
@@ -171,6 +179,9 @@ def main():
         arg = sys.argv[i]
         if arg == '-q' and i + 1 < len(sys.argv):
             quantum = int(sys.argv[i + 1])
+            i += 2
+        elif arg == '-sch' and i + 1 < len(sys.argv):
+            sch_flag = int(sys.argv[i + 1])
             i += 2
         elif arg == '-o' and i + 1 < len(sys.argv):
             output_path = sys.argv[i + 1]
@@ -195,9 +206,17 @@ def main():
         seg['color']     = color_map.get(seg['id'], '#4285F4')
         seg['endReason'] = reason_map.get((seg['id'], seg['end']), None)
 
+    algorithm = ALGORITHM_BY_FLAG.get(sch_flag, {
+        'key': 'unknown',
+        'name': f'Unknown Algorithm ({sch_flag})',
+        'shortName': f'SCH {sch_flag}',
+    })
+
     # --- assemble output -----------------------------------------------------
     data = {
         'quantum':   quantum,
+        'algorithm': algorithm,
+        'schFlag':   sch_flag,
         'processes': processes,
         'sequence':  sequence,
         'stats':     stats,

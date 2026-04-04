@@ -22,14 +22,13 @@ class SchedulerApp {
     
     init() {
         // Load the pre-computed output from the C scheduler.
-        this.dataLoader.loadFromUrl('../data/processes.json', (data) => {
+        this.dataLoader.loadFromUrl('./data/processes.json', (data) => {
             this.initializeWithData(data);
         });
     }
     
     initializeWithData(data) {
-        // Update quantum display
-        document.getElementById('quantumValue').textContent = data.quantum;
+        this.applyAlgorithmDisplay(data.algorithm, data.quantum);
         
         // Use the pre-computed sequence produced by log_to_json.py.
         this.sequence = data.sequence || [];
@@ -54,6 +53,33 @@ class SchedulerApp {
         // Reset state
         this.currentStep = -1;
         this.animateToStep(-1);
+    }
+
+    applyAlgorithmDisplay(algorithm, quantum) {
+        const algo = algorithm || { key: 'rr', name: 'Round Robin', shortName: 'RR' };
+        const algoKey = (algo.key || 'rr').toLowerCase();
+
+        document.body.dataset.algorithm = algoKey;
+
+        const titleEl = document.getElementById('algoTitle');
+        const badgeEl = document.getElementById('algoBadge');
+        const ganttTitleEl = document.getElementById('ganttTitle');
+        const quantumBadgeEl = document.getElementById('quantumBadge');
+        const quantumValueEl = document.getElementById('quantumValue');
+
+        titleEl.textContent = `${algo.name} Scheduling · Gantt Chart View`;
+        badgeEl.textContent = algo.shortName || algo.name;
+        if (ganttTitleEl) {
+            ganttTitleEl.textContent = `📊 ${algo.shortName || algo.name} Execution Timeline`;
+        }
+
+        document.title = `${algo.shortName || algo.name} Scheduler Visualizer`;
+
+        const usesQuantum = algoKey === 'rr' || algoKey === 'multiqueue';
+        quantumBadgeEl.style.display = usesQuantum ? 'inline-flex' : 'none';
+        if (usesQuantum) {
+            quantumValueEl.textContent = quantum;
+        }
     }
     
     setupEventListeners() {

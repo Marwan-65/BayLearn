@@ -36,9 +36,14 @@ export class DataLoader {
         if (!data.processes || !Array.isArray(data.processes)) {
             throw new Error('Data must contain a "processes" array');
         }
-        
-        if (!data.quantum || typeof data.quantum !== 'number') {
-            throw new Error('Data must contain a "quantum" number');
+
+        // Quantum is required for RR/MLQ runs, optional otherwise.
+        if (data.quantum !== undefined && typeof data.quantum !== 'number') {
+            throw new Error('If provided, "quantum" must be a number');
+        }
+
+        if (!data.algorithm || typeof data.algorithm !== 'object') {
+            data.algorithm = { key: 'rr', name: 'Round Robin', shortName: 'RR' };
         }
         
         // Validate each process
@@ -54,6 +59,10 @@ export class DataLoader {
                 p.color = colors[index % colors.length];
             }
         });
+
+        if (data.quantum === undefined) {
+            data.quantum = 0;
+        }
         
         return data;
     }

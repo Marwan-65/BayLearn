@@ -13,7 +13,7 @@ clean:
 all: clean build
 
 run:
-	cd $(SRC) && touch keyfile && ./process_generator.out processes.txt -sch 2 -q 3
+	cd $(SRC) && touch keyfile && ./process_generator.out processes.txt -sch $(SCH) -q $(Q)
 
 stop:
 	-pkill -9 -f "process_generator.out|scheduler.out|clk.out|process.out"
@@ -24,5 +24,6 @@ stop:
 # Run this after `make run` completes.
 # Pass Q=<value> to override the quantum (default 3).
 Q ?= 3
+SCH ?= 2
 translate:
-	python3 scripts/log_to_json.py -q $(Q)
+	python3 scripts/log_to_json.py -q $(Q) -sch $(SCH)
