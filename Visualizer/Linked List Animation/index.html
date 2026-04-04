@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linked List Visualizer</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- D3 loaded as a regular script so it's available as window.d3 -->
+<!-- app.js passes window.d3 into AnimationLayer's constructor    -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+
+<style>
+/* ══════════════════════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════════════════════ */
+:root {
+  --bg:          #080c17;
+  --surface:     #0f1623;
+  --surface2:    #151d2e;
+  --border:      #1e2d45;
+  --border2:     #253347;
+  --text:        #e2e8f0;
+  --text-muted:  #64748b;
+  --text-dim:    #334155;
+  --accent:      #6366f1;
+  --accent2:     #818cf8;
+  --green:       #22c55e;
+  --green-bg:    #052e16;
+  --yellow:      #eab308;
+  --yellow-bg:   #1c1a08;
+  --red:         #ef4444;
+  --red-bg:      #2d0a0a;
+  --purple:      #a855f7;
+  --blue:        #3b82f6;
+  --mono:        "JetBrains Mono", "Fira Code", monospace;
+  --sans:        "Syne", system-ui, sans-serif;
+  --radius:      6px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   RESET
+══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); overflow: hidden; }
+
+/* ══════════════════════════════════════════════════════════
+   LAYOUT GRID
+══════════════════════════════════════════════════════════ */
+body {
+  font-family: var(--sans);
+  display: grid;
+  grid-template-rows: 56px 1fr;
+  grid-template-columns: 1fr 390px;
+  grid-template-areas:
+    "topbar topbar"
+    "canvas sidebar";
+}
+
+/* ══════════════════════════════════════════════════════════
+   TOP BAR
+══════════════════════════════════════════════════════════ */
+#topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent2);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.logo span { color: var(--text-muted); font-weight: 400; }
+
+.vsep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+
+/* Inputs */
+#op-form { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: nowrap; }
+
+select, input[type=text], input[type=number] {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 5px 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+  transition: border-color .15s;
+}
+select:focus, input:focus { border-color: var(--accent); }
+select { cursor: pointer; }
+input[type=text]   { width: 150px; }
+input[type=number] { width: 68px; }
+
+label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+/* Buttons */
+.btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 13px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.btn:hover    { border-color: var(--accent); color: var(--accent2); }
+.btn.primary  { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: var(--accent2); border-color: var(--accent2); }
+
+/* Status badge */
+#status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text-muted); margin-left: auto; flex-shrink: 0;
+}
+#status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-dim); transition: background .2s;
+}
+#status-dot.playing { background: var(--green); animation: pulse 1.2s infinite; }
+#status-dot.paused  { background: var(--yellow); }
+#status-dot.done    { background: var(--accent2); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ══════════════════════════════════════════════════════════
+   CANVAS
+══════════════════════════════════════════════════════════ */
+#canvas {
+  grid-area: canvas;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: -1px -1px;
+}
+#viz-svg { width: 100%; height: 100%; display: block; }
+
+/* Key-step banner */
+#keystep-banner {
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 4px 14px;
+  font-family: var(--mono); font-size: 11px; color: var(--accent2);
+  opacity: 0; pointer-events: none; white-space: nowrap;
+  transition: opacity .25s;
+}
+#keystep-banner.show { opacity: 1; }
+
+/* ── Playback control bar ── */
+#playback {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 5px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 7px 10px;
+  box-shadow: 0 8px 28px #00000070;
+}
+.pb-btn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 7px; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text);
+  cursor: pointer; font-size: 13px; flex-shrink: 0;
+  transition: border-color .12s, color .12s;
+}
+.pb-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.pb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+
+/* Progress bar */
+#progress-wrap { display: flex; align-items: center; gap: 7px; padding: 0 3px; }
+#progress-track {
+  width: 150px; height: 4px; background: var(--border);
+  border-radius: 2px; cursor: pointer; position: relative;
+}
+#progress-fill {
+  height: 100%; border-radius: 2px; background: var(--accent);
+  transition: width .15s; pointer-events: none;
+}
+#step-counter {
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text-muted); white-space: nowrap; min-width: 50px; text-align: right;
+}
+
+/* Speed control */
+#speed-label { font-family: var(--mono); font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+#speed-range {
+  -webkit-appearance: none; width: 60px; height: 3px;
+  border-radius: 2px; background: var(--border2); outline: none; cursor: pointer;
+}
+#speed-range::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 11px; height: 11px;
+  border-radius: 50%; background: var(--accent2); cursor: pointer;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════════════════ */
+#sidebar {
+  grid-area: sidebar;
+  display: flex; flex-direction: column;
+  background: var(--surface); border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sidebar-section {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-section.grow { flex: 1; overflow-y: auto; }
+
+.section-title {
+  font-size: 9px; font-weight: 700; letter-spacing: .12em;
+  color: var(--text-muted); text-transform: uppercase;
+  margin-bottom: 10px; font-family: var(--mono);
+}
+
+/* ── Complexity panel ── */
+.cx-row { display: flex; gap: 12px; margin-bottom: 8px; }
+.cx-item { display: flex; align-items: center; gap: 7px; }
+.cx-label { font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+.cx-badge {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px; border: 1px solid;
+}
+.cx-badge-fast { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+.cx-badge-slow { color: var(--yellow); border-color: var(--yellow); background: var(--yellow-bg); }
+.cx-note  { font-size: 11px; color: var(--text-muted); line-height: 1.5; font-family: var(--sans); }
+.cx-empty { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+
+/* ── Pseudocode panel ── */
+#code-lines { display: flex; flex-direction: column; gap: 1px; max-height: 200px; overflow-y: auto; }
+
+.code-line {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 3px 6px; border-radius: 4px; border-left: 2px solid transparent;
+  transition: background .2s, border-color .2s;
+}
+.code-line.active {
+  background: #1e2d4560; border-left-color: var(--accent);
+}
+.line-num {
+  font-family: var(--mono); font-size: 9px; color: var(--text-dim);
+  min-width: 14px; text-align: right; padding-top: 1px; flex-shrink: 0;
+}
+.line-code {
+  font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+  white-space: pre; line-height: 1.6;
+  transition: color .2s;
+}
+.code-line.active .line-code { color: var(--text); }
+
+/* Pseudocode syntax tokens */
+.kw    { color: #c084fc; }                  /* purple  — WHILE, IF, RETURN */
+.op    { color: #38bdf8; }                  /* sky     — ←  ≠  =  < > */
+.param { color: #fb923c; }                  /* orange  — (value) */
+.prop  { color: #94a3b8; }
+.prop2 { color: #e2e8f0; }
+.dot   { color: var(--text-dim); }
+.num   { color: #f472b6; }                  /* pink    — numbers */
+.comment { color: #475569; font-style: italic; }
+
+/* ── Explanation panel ── */
+#explanation-text {
+  font-size: 12.5px; line-height: 1.7; color: var(--text);
+  font-family: var(--sans); min-height: 50px;
+}
+
+/* Explanation rich-text tokens */
+.exp-warning { background: #2a200060; color: #fde68a; border-radius: 3px; padding: 1px 2px; }
+.exp-error   { background: #2d0a0a80; color: #fca5a5; border-radius: 3px; padding: 1px 2px; }
+.exp-success { background: #05200f80; color: #86efac; border-radius: 3px; padding: 1px 2px; }
+.exp-prop    { font-family: var(--mono); font-size: 11px; color: #fbbf24; background: #1c180060; border-radius: 3px; padding: 0 3px; }
+.exp-dot     { color: var(--text-dim); }
+.exp-arrow   { color: #38bdf8; font-family: var(--mono); }
+.exp-value   { color: #f472b6; font-family: var(--mono); font-size: 11px; }
+.exp-complexity { color: var(--yellow); font-family: var(--mono); font-size: 11px; }
+.exp-inline-code { font-family: var(--mono); font-size: 11px; color: var(--accent2); background: #1e1b4b60; border-radius: 3px; padding: 0 3px; }
+
+/* ── Variable inspector ── */
+#var-list { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+
+.var-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-family: var(--mono); font-size: 11px;
+}
+.var-name  { color: var(--text-muted); }
+.var-eq    { color: var(--text-dim); }
+.var-val   { color: var(--yellow); font-weight: 600; }
+.var-changed-dot { color: var(--green); font-size: 8px; margin-left: 2px; }
+.var-empty { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+
+/* Colour roles for variable chips */
+.var-role-amber  { border-color: #92400e; background: var(--yellow-bg); }
+.var-role-amber  .var-name { color: var(--yellow); }
+.var-role-purple { border-color: #5b21b6; background: #160d2b; }
+.var-role-purple .var-name { color: var(--purple); }
+.var-role-green  { border-color: #14532d; background: var(--green-bg); }
+.var-role-green  .var-name { color: var(--green); }
+.var-role-blue   { border-color: #1e3a5f; background: #0c1f3d; }
+.var-role-blue   .var-name { color: var(--blue); }
+.var-role-dim    .var-name { color: var(--text-dim); }
+
+/* Changed flash animation */
+.var-changed { animation: var-flash .6s ease-out forwards; }
+@keyframes var-flash {
+  0%   { box-shadow: 0 0 0 2px #22c55e80; }
+  100% { box-shadow: 0 0 0 0px #22c55e00; }
+}
+
+/* ── Legend ── */
+.legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+.legend-dot  { width: 11px; height: 11px; border-radius: 2px; border: 1.5px solid; flex-shrink: 0; }
+
+/* Scrollbars */
+::-webkit-scrollbar       { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     TOP BAR
+══════════════════════════════════════════════════════════ -->
+<header id="topbar">
+  <div class="logo">list<span>.</span>viz</div>
+  <div class="vsep"></div>
+
+  <form id="op-form" onsubmit="return false">
+    <label>List</label>
+    <input type="text" id="input-list" value="10, 20, 30, 40" placeholder="1, 2, 3, …">
+
+    <div class="vsep"></div>
+
+    <label>Operation</label>
+    <select id="op-select">
+      <optgroup label="Traverse">
+        <option value="traverse">traverse()</option>
+      </optgroup>
+      <optgroup label="Insert">
+        <option value="insertAtHead">insertAtHead(value)</option>
+        <option value="insertAtTail">insertAtTail(value)</option>
+        <option value="insertAtIndex">insertAtIndex(value, index)</option>
+      </optgroup>
+      <optgroup label="Delete">
+        <option value="deleteAtHead">deleteAtHead()</option>
+        <option value="deleteAtTail">deleteAtTail()</option>
+        <option value="deleteByValue">deleteByValue(value)</option>
+        <option value="deleteAtIndex">deleteAtIndex(index)</option>
+      </optgroup>
+      <optgroup label="Search">
+        <option value="searchByValue">searchByValue(value)</option>
+      </optgroup>
+      <optgroup label="Reverse">
+        <option value="reverse">reverse()</option>
+      </optgroup>
+    </select>
+
+    <input type="number" id="param-value" placeholder="value"  value="5">
+    <input type="number" id="param-index" placeholder="index"  value="1" style="display:none">
+
+    <button class="btn primary" onclick="runOperation()">▶ Run</button>
+  </form>
+
+  <div id="status-badge">
+    <div id="status-dot"></div>
+    <span id="status-text">idle</span>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     CANVAS
+══════════════════════════════════════════════════════════ -->
+<main id="canvas">
+  <svg id="viz-svg"></svg>
+
+  <div id="keystep-banner">⚑ Key step — pause and read</div>
+
+  <nav id="playback">
+    <button class="pb-btn" title="Rewind"         onclick="ctrlRewind()">⟨⟨</button>
+    <button class="pb-btn" title="Prev key step"  onclick="ctrlPrevKey()">⟨</button>
+    <button class="pb-btn" title="Step back"      onclick="ctrlStepBack()">‹</button>
+    <div class="pb-sep"></div>
+    <button class="pb-btn" id="btn-play" title="Play / Pause" onclick="ctrlPlay()">▶</button>
+    <div class="pb-sep"></div>
+    <button class="pb-btn" title="Step forward"   onclick="ctrlStepFwd()">›</button>
+    <button class="pb-btn" title="Next key step"  onclick="ctrlNextKey()">⟩</button>
+    <button class="pb-btn" title="Jump to end"    onclick="ctrlJumpEnd()">⟩⟩</button>
+    <div class="pb-sep"></div>
+    <div id="progress-wrap">
+      <div id="progress-track" onclick="scrubTo(event)">
+        <div id="progress-fill" style="width:0%"></div>
+      </div>
+      <span id="step-counter">1 / 1</span>
+    </div>
+    <div class="pb-sep"></div>
+    <span id="speed-label">2.0×</span>
+    <input type="range" id="speed-range" min="1" max="10" value="5"
+           oninput="onSpeedChange(this.value)">
+  </nav>
+</main>
+
+<!-- ══════════════════════════════════════════════════════════
+     SIDEBAR  — narrative layer target elements
+══════════════════════════════════════════════════════════ -->
+<aside id="sidebar">
+
+  <!-- ComplexityPanel renders into this div -->
+  <div class="sidebar-section">
+    <div class="section-title">Complexity</div>
+    <div id="complexity-panel"></div>
+  </div>
+
+  <!-- PseudocodePanel renders into this div -->
+  <div class="sidebar-section">
+    <div class="section-title">Pseudocode</div>
+    <div id="code-lines"></div>
+  </div>
+
+  <!-- ExplanationPanel renders into this div -->
+  <div class="sidebar-section">
+    <div class="section-title">What's happening</div>
+    <p id="explanation-text">Run an operation to begin.</p>
+  </div>
+
+  <!-- VariableInspector renders into this div -->
+  <div class="sidebar-section">
+    <div class="section-title">Live variables</div>
+    <div id="var-list"></div>
+  </div>
+
+  <!-- Static legend — no JS needed -->
+  <div class="sidebar-section grow">
+    <div class="section-title">Color legend</div>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#eab308;background:#1c1a08"></div>visiting
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#22c55e;background:#052e16"></div>inserting
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#ef4444;background:#2d0a0a"></div>deleting
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#3b82f6;background:#0c1f3d"></div>found
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#8b5cf6;background:#160d2b"></div>prev ptr
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#a855f7;background:#1a1025"></div>comparing
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#6366f1;background:#111827"></div>head node
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="border-color:#4ade80;background:#052e16"></div>new node
+      </div>
+    </div>
+  </div>
+
+</aside>
+
+<!--
+  app.js is loaded as an ES module.
+  It imports from src/ using relative paths.
+  D3 is already on window from the <script> tag above.
+-->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
