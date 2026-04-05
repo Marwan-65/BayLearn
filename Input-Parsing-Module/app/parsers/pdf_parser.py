@@ -490,6 +490,160 @@ class PDFParser(BaseParser):
         return img.convert("RGB") if img.mode != "RGB" else img
 
     # ─────────────────────────────────────────────────────────────
+    # TILE DETECTION & STITCHING
+    # ─────────────────────────────────────────────────────────────
+    def stitch_page_tiles(self, page, collected: list) -> list:
+        """
+        Many PDFs store large images as a grid of small tiles (e.g. 256x256px)
+        or horizontal strips. PyMuPDF extracts each tile separately, producing
+        dozens of tiny images instead of one coherent picture.
+
+        This method:
+          1. Gets the actual bbox of every image on the page from PyMuPDF
+          2. Groups images whose bboxes are adjacent (within TILE_GAP pt)
+          3. Stitches each group by re-rendering the union region from the page
+          4. Returns a new list — tile groups replaced by one stitched image,
+             non-tile images kept as-is
+
+        `collected` items are dicts:
+            {"pil": PIL.Image, "bbox": tuple|None, "xref": int|None}
+        """
+        TILE_GAP = float(os.environ.get("TILE_STITCH_GAP_PT", "8"))
+        MIN_TILES = int(os.environ.get("TILE_MIN_COUNT", "2"))
+        # Square tiles: both dims must be under this
+        MAX_TILE_DIM = int(os.environ.get("TILE_MAX_SINGLE_DIM_PX", "512"))
+        # Strips: short in ONE dimension (height for h-strips, width for v-strips)
+        MAX_STRIP_SHORT_DIM = int(os.environ.get("TILE_MAX_STRIP_SHORT_DIM_PX", "300"))
+
+        # Build xref->bbox map from page image info
+        xref_to_bbox: dict = {}
+        try:
+            for info in page.get_image_info(xrefs=True):
+                xref = info.get("xref", 0)
+                bbox = info.get("bbox")
+                if xref and bbox:
+                    xref_to_bbox[xref] = tuple(bbox)
+        except Exception:
+            return collected
+
+        for item in collected:
+            if item.get("bbox") is None and item.get("xref"):
+                item["bbox"] = xref_to_bbox.get(item["xref"])
+
+        # Log what we see so you can tune thresholds
+        for item in collected:
+            img = item["pil"]
+            bbox = item.get("bbox")
+            logger.debug(
+                f"  image xref={item.get('xref')} "
+                f"pixels={img.width}x{img.height} "
+                f"bbox={tuple(round(v,1) for v in bbox) if bbox else None}"
+            )
+
+        def is_tile_or_strip(item) -> bool:
+            """
+            Returns True if this image looks like part of a tiled/stripped image:
+              - Square tile:     both width and height <= MAX_TILE_DIM
+              - Horizontal strip: height <= MAX_STRIP_SHORT_DIM (any width)
+              - Vertical strip:   width  <= MAX_STRIP_SHORT_DIM (any height)
+            Must also have a known bbox so we can cluster by position.
+            """
+            if item.get("bbox") is None:
+                return False
+            img = item["pil"]
+            w, h = img.width, img.height
+            is_square_tile = w <= MAX_TILE_DIM and h <= MAX_TILE_DIM
+            is_h_strip = h <= MAX_STRIP_SHORT_DIM          # wide but short
+            is_v_strip = w <= MAX_STRIP_SHORT_DIM          # tall but narrow
+            return is_square_tile or is_h_strip or is_v_strip
+
+        # Split into tile/strip candidates vs definite whole images
+        candidates = []
+        non_tiles = []
+        for item in collected:
+            if is_tile_or_strip(item):
+                candidates.append(item)
+            else:
+                non_tiles.append(item)
+
+        logger.debug(
+            f"Page tile detection: {len(candidates)} candidates, "
+            f"{len(non_tiles)} whole images, gap={TILE_GAP}pt"
+        )
+
+        if len(candidates) < MIN_TILES:
+            # Not enough fragments — treat everything as whole images
+            return collected
+
+        # Cluster candidates whose bboxes are spatially adjacent.
+        # "Adjacent" means the bboxes touch or overlap when each is expanded by TILE_GAP.
+        def adjacent(a, b, gap):
+            return (
+                a[0] - gap <= b[2] and a[2] + gap >= b[0]
+                and a[1] - gap <= b[3] and a[3] + gap >= b[1]
+            )
+
+        clusters: list = []
+        used = [False] * len(candidates)
+        for i, item in enumerate(candidates):
+            if used[i]:
+                continue
+            cluster = [item]
+            used[i] = True
+            # Keep expanding cluster until no new neighbours found
+            changed = True
+            while changed:
+                changed = False
+                for j in range(len(candidates)):
+                    if used[j]:
+                        continue
+                    if any(adjacent(m["bbox"], candidates[j]["bbox"], TILE_GAP)
+                           for m in cluster):
+                        cluster.append(candidates[j])
+                        used[j] = True
+                        changed = True
+            clusters.append(cluster)
+
+        result = list(non_tiles)
+
+        for cluster in clusters:
+            if len(cluster) < MIN_TILES:
+                result.extend(cluster)
+                continue
+
+            # Union bbox of the entire cluster
+            xs0 = min(item["bbox"][0] for item in cluster)
+            ys0 = min(item["bbox"][1] for item in cluster)
+            xs1 = max(item["bbox"][2] for item in cluster)
+            ys1 = max(item["bbox"][3] for item in cluster)
+
+            try:
+                # Re-render the union region from the page at 2x for quality
+                clip_pix = page.get_pixmap(
+                    matrix=fitz.Matrix(2, 2),
+                    clip=fitz.Rect(xs0, ys0, xs1, ys1),
+                    alpha=False,
+                )
+                stitched = Image.frombytes(
+                    "RGB", [clip_pix.width, clip_pix.height], clip_pix.samples
+                )
+                logger.debug(
+                    f"Stitched {len(cluster)} tiles into "
+                    f"{stitched.width}x{stitched.height}px image"
+                )
+                result.append({
+                    "pil": stitched,
+                    "bbox": (xs0, ys0, xs1, ys1),
+                    "xref": None,
+                    "stitched": True,
+                })
+            except Exception as e:
+                logger.warning(f"Tile stitching failed ({len(cluster)} tiles): {e}")
+                result.extend(cluster)
+
+        return result
+
+    # ─────────────────────────────────────────────────────────────
     # TABLE HELPERS
     # ─────────────────────────────────────────────────────────────
     def convert_table_to_markdown(self, table) -> str:
@@ -597,35 +751,12 @@ class PDFParser(BaseParser):
                             "bbox": block["bbox"],
                         })
 
-            # ── EMBEDDED IMAGES → PaddleOCR ──────────────────────
-            # Runs on ALL pages (digital and scanned).
-            # Digital page images → PaddleOCR only (free, local)
-            # Scanned page images → PaddleOCR, Gemini fallback if empty
+            # ── EMBEDDED IMAGES → collect → stitch → PaddleOCR ──
+            # Step 1: collect all raw images from the page (no OCR yet)
+            # Step 2: stitch tiled images back into whole images
+            # Step 3: save + queue OCR jobs
             img_counter = 0
-
-            def _handle_image(pix, bbox=None):
-                nonlocal img_counter
-                if self.is_garbage_image(pix):
-                    return
-                image_bytes = pix.tobytes("png")
-                if self.is_duplicate_image(image_bytes, seen_hashes):
-                    return
-                image_path = f"extracted_images/page{page_number}_{img_counter}.png"
-                with open(image_path, "wb") as f:
-                    f.write(image_bytes)
-                img_counter += 1
-                fallback = f"Image on page {page_number}"
-                block = {
-                    "id": str(uuid.uuid4()),
-                    "type": "image",
-                    "content": fallback,
-                    "embedding_ready_text": fallback,
-                    "image_path": image_path,
-                    "bbox": bbox,
-                }
-                blocks.append(block)
-                if ocr_embedded_images:
-                    ocr_jobs.append((block, self._pixmap_to_pil(pix), is_scanned, fallback))
+            raw_collected: list = []  # {"pil", "bbox", "xref"}
 
             # Pass 1: resource images
             for img in page.get_images(full=True):
@@ -634,11 +765,18 @@ class PDFParser(BaseParser):
                     continue
                 extracted_xrefs.add(xref)
                 try:
-                    _handle_image(self._extract_pixmap(doc, img))
+                    pix = self._extract_pixmap(doc, img)
+                    if self.is_garbage_image(pix):
+                        continue
+                    raw_collected.append({
+                        "pil": self._pixmap_to_pil(pix),
+                        "bbox": None,  # filled by stitch_page_tiles via image_info
+                        "xref": xref,
+                    })
                 except Exception:
                     continue
 
-            # Pass 2: inline images
+            # Pass 2: inline images (catches anything missed by pass 1)
             for info in page.get_image_info(xrefs=True):
                 xref = info.get("xref", 0)
                 if xref == 0 or xref in extracted_xrefs:
@@ -650,9 +788,42 @@ class PDFParser(BaseParser):
                         pix = fitz.Pixmap(fitz.csRGB, pix)
                     if pix.alpha:
                         pix = fitz.Pixmap(fitz.csRGB, pix, 0)
-                    _handle_image(pix, bbox=info.get("bbox"))
+                    if self.is_garbage_image(pix):
+                        continue
+                    raw_collected.append({
+                        "pil": self._pixmap_to_pil(pix),
+                        "bbox": info.get("bbox"),
+                        "xref": xref,
+                    })
                 except Exception:
                     continue
+
+            # Step 2: stitch tiles — replaces clusters of small adjacent images
+            # with a single re-rendered image of their combined region
+            stitched_collected = self.stitch_page_tiles(page, raw_collected)
+
+            # Step 3: dedup, save, queue OCR
+            for item in stitched_collected:
+                pil_img = item["pil"]
+                bbox = item.get("bbox")
+                image_bytes = pil_img.tobytes()  # raw bytes for dedup
+                if self.is_duplicate_image(image_bytes, seen_hashes):
+                    continue
+                image_path = f"extracted_images/page{page_number}_{img_counter}.png"
+                pil_img.save(image_path, format="PNG")
+                img_counter += 1
+                fallback = f"Image on page {page_number}"
+                block = {
+                    "id": str(uuid.uuid4()),
+                    "type": "image",
+                    "content": fallback,
+                    "embedding_ready_text": fallback,
+                    "image_path": image_path,
+                    "bbox": list(bbox) if bbox else None,
+                }
+                blocks.append(block)
+                if ocr_embedded_images:
+                    ocr_jobs.append((block, pil_img, is_scanned, fallback))
 
             # ── VECTOR DIAGRAMS → PaddleOCR ──────────────────────
             # Only on digital pages — scanned pages are already handled as
