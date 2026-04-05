@@ -83,9 +83,9 @@ class PaddleOCREngine:
             with cls._lock:
                 if cls._instance is None:
                     from paddleocr import PaddleOCR
-                    # v3 API: no use_angle_cls / lang at init time
-                    # those are now set via predict() or config
-                    cls._instance = PaddleOCR()
+                    # PP-OCRv4 uses lightweight mobile det+rec models
+                    # vs the default PP-OCRv5_server which is slow on CPU
+                    cls._instance = PaddleOCR(ocr_version="PP-OCRv4")
         return cls._instance
 
     @classmethod
@@ -344,24 +344,30 @@ class PDFParser(BaseParser):
         """
         Route embedded image/diagram OCR to the right engine:
 
-          Digital page  →  PaddleOCR (local, unlimited, great for printed text)
-          Scanned page  →  PaddleOCR first (free), Gemini only if Paddle returns nothing
-                           (avoids wasting quota on images already inside a scanned page
-                            where the full-page Gemini call already captured most content)
+          Digital page  ->  PaddleOCR only (local, free, fast for printed text)
+          Scanned page  ->  Gemini first (handles handwriting/math),
+                            PaddleOCR as fallback if Gemini quota is exhausted
         """
+        page_type = "SCANNED" if page_is_scanned else "DIGITAL"
         if not page_is_scanned:
-            # Digital page: always PaddleOCR, never touch Gemini quota
-            return PaddleOCREngine.ocr_image(image)
-        else:
-            # Scanned page: try Paddle first, Gemini as last resort
+            print(f"[OCR]   embedded image ({page_type}) -> PADDLEOCR")
             result = PaddleOCREngine.ocr_image(image)
-            if result:
-                return result
+            print(f"[OCR]   PaddleOCR result: {len(result)} chars" if result else "[OCR]   PaddleOCR: no text found")
+            return result
+        else:
             if not GeminiOCR.is_quota_blocked():
-                return GeminiOCR.ocr_image(image)
-            return ""
+                print(f"[OCR]   embedded image ({page_type}) -> GEMINI first")
+                result = GeminiOCR.ocr_image(image)
+                if result:
+                    print(f"[OCR]   Gemini result: {len(result)} chars")
+                    return result
+                print("[OCR]   Gemini returned nothing -> falling back to PADDLEOCR")
+            else:
+                print(f"[OCR]   embedded image ({page_type}) -> GEMINI BLOCKED -> PADDLEOCR")
+            result = PaddleOCREngine.ocr_image(image)
+            print(f"[OCR]   PaddleOCR fallback result: {len(result)} chars" if result else "[OCR]   PaddleOCR fallback: no text found")
+            return result
 
-    # ─────────────────────────────────────────────────────────────
     # TEXT CLEANING
     # ─────────────────────────────────────────────────────────────
     def clean_text(self, text: str) -> str:
@@ -705,33 +711,46 @@ class PDFParser(BaseParser):
             blocks = []
             ocr_jobs: list = []  # (block, pil_image, page_is_scanned, fallback_text)
             is_scanned = self.is_scanned_page(page)
+            print(f"[PDF] Page {page_number}/{len(doc)} -> "
+                  f"{'SCANNED/HANDWRITTEN' if is_scanned else 'DIGITAL'}")
 
-            # ── SCANNED / HANDWRITTEN PAGE → Gemini ──────────────
+            # ── SCANNED / HANDWRITTEN PAGE → Gemini, PaddleOCR fallback ──
             if is_scanned:
+                text = ""
+                image = self.render_page(page, zoom=scanned_page_zoom)
+
                 if can_call_gemini():
                     charge_gemini()
-                    image = self.render_page(page, zoom=scanned_page_zoom)
+                    print(f"[OCR]   Page {page_number}: full page -> GEMINI "
+                          f"(call {gemini_state['calls']}/{max_gemini_calls or 'unlimited'})")
                     text = GeminiOCR.ocr_image(image)
                     if text:
-                        blocks.append({
-                            "id": str(uuid.uuid4()),
-                            "type": "text",
-                            "content": text,
-                            "embedding_ready_text": text,
-                            "bbox": None,
-                        })
+                        print(f"[OCR]   Page {page_number}: Gemini OK - {len(text)} chars")
                     else:
-                        logger.warning(
-                            f"Page {page_number}: scanned page Gemini OCR returned nothing "
-                            f"(quota_blocked={GeminiOCR.is_quota_blocked()}, "
-                            f"calls={gemini_state['calls']})"
-                        )
+                        print(f"[OCR]   Page {page_number}: Gemini returned nothing -> falling back to PADDLEOCR")
                 else:
-                    logger.warning(
-                        f"Page {page_number}: scanned page skipped — "
-                        f"Gemini quota exhausted (calls={gemini_state['calls']})"
-                    )
+                    print(f"[OCR]   Page {page_number}: GEMINI SKIPPED - quota exhausted "
+                          f"(calls={gemini_state['calls']}/{max_gemini_calls}, "
+                          f"blocked={GeminiOCR.is_quota_blocked()}) -> falling back to PADDLEOCR")
 
+                # Fallback: PaddleOCR on the full rendered page
+                if not text:
+                    print(f"[OCR]   Page {page_number}: full page -> PADDLEOCR (fallback)")
+                    text = PaddleOCREngine.ocr_image(image)
+                    if text:
+                        print(f"[OCR]   Page {page_number}: PaddleOCR OK - {len(text)} chars")
+                    else:
+                        print(f"[OCR]   Page {page_number}: PaddleOCR also returned nothing")
+                        logger.warning(f"Page {page_number}: both Gemini and PaddleOCR returned nothing")
+
+                if text:
+                    blocks.append({
+                        "id": str(uuid.uuid4()),
+                        "type": "text",
+                        "content": text,
+                        "embedding_ready_text": text,
+                        "bbox": None,
+                    })
             # ── DIGITAL PAGE → PyMuPDF direct text ───────────────
             else:
                 for block in page.get_text("dict")["blocks"]:
@@ -801,17 +820,36 @@ class PDFParser(BaseParser):
             # Step 2: stitch tiles — replaces clusters of small adjacent images
             # with a single re-rendered image of their combined region
             stitched_collected = self.stitch_page_tiles(page, raw_collected)
+            print(f"[IMG]   Page {page_number}: {len(raw_collected)} raw images -> "
+                  f"{len(stitched_collected)} after stitch (OCR queued: {ocr_embedded_images})")
 
             # Step 3: dedup, save, queue OCR
+            page_area = page.rect.width * page.rect.height
             for item in stitched_collected:
                 pil_img = item["pil"]
                 bbox = item.get("bbox")
                 image_bytes = pil_img.tobytes()  # raw bytes for dedup
                 if self.is_duplicate_image(image_bytes, seen_hashes):
                     continue
+
+                # Skip saving the image block if this is a scanned page AND
+                # the image covers most of the page — it IS the scanned page,
+                # already fully OCR'd by Gemini as a text chunk above.
+                # Saving it would produce a duplicate image chunk with no extra value.
+                if is_scanned and bbox is not None:
+                    bw = bbox[2] - bbox[0]
+                    bh = bbox[3] - bbox[1]
+                    if page_area > 0 and (bw * bh) / page_area > 0.4:
+                        print(f"[IMG]   Skipping full-page scan image on page {page_number} "
+                              f"({pil_img.width}x{pil_img.height}px) — already in text chunk")
+                        continue
+
                 image_path = f"extracted_images/page{page_number}_{img_counter}.png"
                 pil_img.save(image_path, format="PNG")
                 img_counter += 1
+                print(f"[IMG]   Saved {image_path} "
+                      f"({pil_img.width}x{pil_img.height}px, "
+                      f"stitched={item.get('stitched', False)})")
                 fallback = f"Image on page {page_number}"
                 block = {
                     "id": str(uuid.uuid4()),
@@ -822,8 +860,15 @@ class PDFParser(BaseParser):
                     "bbox": list(bbox) if bbox else None,
                 }
                 blocks.append(block)
-                if ocr_embedded_images:
+                if ocr_embedded_images and not is_scanned:
+                    # SCANNED pages: skip — the full-page Gemini call already
+                    # extracted all text. The embedded image IS the page itself,
+                    # so OCR-ing it again is a duplicate that burns quota.
+                    # DIGITAL pages: queue PaddleOCR for embedded images.
                     ocr_jobs.append((block, pil_img, is_scanned, fallback))
+                elif is_scanned:
+                    print(f"[OCR]   Skipping embedded image OCR on scanned page "
+                          f"(already covered by full-page Gemini call)")
 
             # ── VECTOR DIAGRAMS → PaddleOCR ──────────────────────
             # Only on digital pages — scanned pages are already handled as
