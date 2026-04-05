@@ -218,6 +218,141 @@ def _render_solution_assignments(text):
             _render_math_equation(left_text, right_text)
 
 
+def _render_math_expression(text):
+    """Render mathematical expressions as LaTeX when possible."""
+    text = text.strip()
+    
+    # Skip empty text
+    if not text:
+        return
+    
+    # Skip non-mathematical text (basic heuristics)
+    non_math_indicators = [
+        "Step ", "Method:", "Process:", "Note:", "Example:", "Given", "Formula:",
+        "The ", "For ", "Use ", "Apply", "Method", "Result computed", "Why ",
+        "This ", "Each ", "When ", "Where ", "Since ", "Because ", "However ",
+        "Therefore ", "Hence ", "Thus ", "Also ", "Additionally ", "Furthermore ",
+        "Direction:", "Variable:", "Expression:", "Order:", "Expansion point",
+        "Differentiate with respect to:", "Variable of integration:",
+        "Approaching:", "Variables:", "Differentiating with respect to:",
+        "Treat other variables", "From Eq", "Solution ", "Compute derivatives",
+        "We need to find", "This is called", "For this type", "Check if the",
+        "Form the characteristic", "Find the", "Build the solution", 
+        "Use appropriate", "SymPy automatically", "This general solution",
+        "Why arbitrary constants", "To find ONE", "Example: Given"
+    ]
+    
+    if any(text.startswith(indicator) for indicator in non_math_indicators):
+        st.write(text)
+        return
+    
+    # Check if it contains mathematical notation
+    math_indicators = [
+        "=", "+", "-", "*", "/", "^", "sqrt", "sin", "cos", "tan", "log", "ln", "exp",
+        "∫", "∑", "∏", "∂", "Δ", "λ", "π", "∞", "≤", "≥", "≠", "±", "×", "÷",
+        "dx", "dy", "dz", "frac", "\\", "$"
+    ]
+    
+    # More sophisticated math detection - avoid false positives
+    has_math = any(indicator in text for indicator in math_indicators)
+    
+    # Additional check: if it only contains single letters like "x", "y", "z" 
+    # but no operators or mathematical symbols, it's likely not a math expression
+    if not has_math:
+        # Check for single variables that might indicate math (but be more careful)
+        single_vars = re.findall(r'\b[a-z]\b', text.lower())
+        if single_vars and any(op in text for op in ["=", "+", "-", "*", "/", "^", "("]):
+            has_math = True
+    
+    if has_math and text.startswith("$") and text.endswith("$"):
+        # Already wrapped in $ signs, validate and render
+        latex_content = text[1:-1]  # Remove $ wrapping
+        if _is_valid_latex(latex_content):
+            try:
+                st.latex(latex_content)
+                return
+            except:
+                pass  # Fall through to text rendering
+    elif has_math:
+        try:
+            # Try to parse as SymPy expression and convert to LaTeX
+            expr = _to_sympy_expr(text)
+            latex_str = sp.latex(expr)
+            if _is_valid_latex(latex_str):
+                st.latex(latex_str)
+                return
+        except:
+            pass  # Continue to manual formatting
+        
+        # Try simple formatting improvements
+        formatted_text = text
+        formatted_text = formatted_text.replace("**", "^")
+        formatted_text = formatted_text.replace("sqrt(", "\\sqrt{")
+        formatted_text = formatted_text.replace("pi", "\\pi")
+        formatted_text = formatted_text.replace("inf", "\\infty")
+        
+        # Only try LaTeX if it passes validation
+        if _is_valid_latex(formatted_text):
+            try:
+                st.latex(formatted_text)
+                return
+            except:
+                pass  # Fall through
+    
+    # Default: render as text
+    st.write(text)
+
+
+def _render_math_equation(left_text, right_text):
+    """Render mathematical equations in LaTeX format."""
+    try:
+        left_expr = _to_sympy_expr(left_text.strip())
+        right_expr = _to_sympy_expr(right_text.strip())
+        left_latex = sp.latex(left_expr)
+        right_latex = sp.latex(right_expr)
+        
+        # Validate LaTeX before rendering
+        equation_latex = f"{left_latex} = {right_latex}"
+        if _is_valid_latex(equation_latex):
+            st.latex(equation_latex)
+        else:
+            # Fallback to simple formatting
+            left_clean = left_text.strip().replace("**", "^")
+            right_clean = right_text.strip().replace("**", "^")
+            if _is_valid_latex(f"{left_clean} = {right_clean}"):
+                st.latex(f"{left_clean} = {right_clean}")
+            else:
+                st.write(f"{left_text.strip()} = {right_text.strip()}")
+    except Exception:
+        # Final fallback: display as text
+        st.write(f"{left_text.strip()} = {right_text.strip()}")
+
+
+def _is_valid_latex(latex_str):
+    """Check if a LaTeX string is valid for rendering."""
+    if not latex_str:
+        return False
+    
+    # Check for balanced braces
+    if latex_str.count('{') != latex_str.count('}'):
+        return False
+    
+    # Check for balanced parentheses
+    if latex_str.count('(') != latex_str.count(')'):
+        return False
+    
+    # Check for problematic patterns
+    problematic = ['\\left\\left', '\\right\\right', '{{{{', '}}}}', '}{', '}$', '$}']
+    if any(pattern in latex_str for pattern in problematic):
+        return False
+    
+    # Check reasonable length
+    if len(latex_str) > 500:
+        return False
+    
+    return True
+
+
 def render_solver_output(output_text):
     final_match = re.search(r"Final Result:\s*(.+)$", output_text, flags=re.S)
     steps_text = output_text.strip()
@@ -237,36 +372,74 @@ def render_solver_output(output_text):
                 if line.startswith("Step "):
                     st.markdown(f"**{line}**")
                     continue
-
-                if ":" in line and "=" in line:
-                    prefix, expression_part = line.split(":", 1)
-                    left_text, right_text = expression_part.split("=", 1)
-                    st.write(prefix.strip())
-                    _render_math_equation(left_text, right_text)
+                
+                # Handle LaTeX matrix display
+                if line.startswith("LATEX_MATRIX:"):
+                    latex_code = line.replace("LATEX_MATRIX:", "").strip()
+                    st.latex(latex_code)
                     continue
 
+                # Handle equations with colons
+                if ":" in line and "=" in line and not line.startswith(("Method:", "Process:", "Note:", "Formula:")):
+                    prefix, expression_part = line.split(":", 1)
+                    if "=" in expression_part:
+                        st.write(prefix.strip() + ":")
+                        left_text, right_text = expression_part.split("=", 1)
+                        _render_math_equation(left_text, right_text)
+                        continue
+
+                # Handle direct equations
                 if line.startswith("Eq") and "=" in line:
                     left_text, right_text = line.split("=", 1)
                     _render_math_equation(left_text, right_text)
                     continue
 
-                if " = " in line:
+                if " = " in line and not any(word in line for word in ["Step", "Method", "Note", "Example", "Formula"]):
                     left_text, right_text = line.split("=", 1)
                     _render_math_equation(left_text, right_text)
                     continue
 
-                st.write(line)
+                # For lines with mathematical expressions but no equals sign
+                _render_math_expression(line)
 
     if final_text:
         st.markdown("### Final Result")
-        if "=" in final_text and not final_text.startswith("[") and not final_text.startswith("("):
+        
+        # Check if this contains LaTeX matrices
+        if "LATEX_MATRIX:" in final_text:
+            lines = final_text.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Render LaTeX matrices
+                if line.startswith("LATEX_MATRIX:"):
+                    latex_code = line.replace("LATEX_MATRIX:", "").strip()
+                    st.latex(latex_code)
+                    continue
+                
+                # Check for simple key-value pairs
+                if " = " in line and not "LATEX_MATRIX" in line:
+                    parts = line.split(" = ", 1)
+                    if len(parts) == 2:
+                        key, value = parts
+                        st.markdown(f"**{key.strip()}**")
+                        _render_math_expression(value.strip())
+                        continue
+                
+                # Other text
+                _render_math_expression(line)
+        
+        elif "=" in final_text and not final_text.startswith("[") and not final_text.startswith("("):
             _render_solution_assignments(final_text)
         else:
+            # Try to render as math expression first
             try:
                 final_expr = _to_sympy_expr(final_text)
                 st.latex(sp.latex(final_expr))
             except Exception:
-                st.write(final_text)
+                _render_math_expression(final_text)
 
 
 def _extract_graph_functions(ai_translation):
@@ -276,6 +449,46 @@ def _extract_graph_functions(ai_translation):
     if not ai_translation:
         return parsed
 
+    # Handle derivative and integral operations specially
+    operation = ai_translation.get("operation", "")
+    if operation in ["derive", "integrate"]:
+        try:
+            # Extract the original expression from equations
+            original_expr = _parse_math_expr(str(ai_translation["equations"][0]["lhs"]))
+            target_var = sp.Symbol(ai_translation["target_variables"][0])
+            
+            # Add original function
+            parsed.append({
+                "label": "Original function",
+                "equation": sp.Eq(y_symbol, original_expr),
+                "expression": sp.simplify(original_expr),
+                "equation_text": f"y = {original_expr}",
+            })
+            
+            if operation == "derive":
+                # Add derivative function
+                derivative = sp.diff(original_expr, target_var)
+                parsed.append({
+                    "label": "Derivative",
+                    "equation": sp.Eq(y_symbol, derivative),
+                    "expression": sp.simplify(derivative),
+                    "equation_text": f"y' = {derivative}",
+                })
+            elif operation == "integrate":
+                # Add integral function (without +C for plotting)
+                integral = sp.integrate(original_expr, target_var)
+                parsed.append({
+                    "label": "Integral",
+                    "equation": sp.Eq(y_symbol, integral),
+                    "expression": sp.simplify(integral),
+                    "equation_text": f"∫f(x)dx = {integral}",
+                })
+            
+            return parsed
+        except Exception:
+            pass  # Fall through to regular equation processing
+
+    # Regular equation processing for other operations
     for equation_index, eq_data in enumerate(ai_translation.get("equations", []), start=1):
         lhs_text = str(eq_data.get("lhs", "")).strip()
         rhs_text = str(eq_data.get("rhs", "")).strip()
@@ -389,6 +602,18 @@ with tab_solver:
         "Derivative": "what is the derivative of e^-2x sin(3x) with respect to x",
         "Integral": "integrate x^2 * exp(x) with respect to x",
         "Quadratic": "solve y = x^2 - 4x + 1",
+        "Differential Equation": "Solve the differential equation dy/dx = 2*x with respect to y",
+        "Matrix Determinant": "Find the determinant of [[1, 2], [3, 4]]",
+        "Matrix Inverse": "Calculate the inverse of [[2, 1], [1, 3]]",
+        "Matrix Eigenvalues": "Find eigenvalues of [[4, -2], [1, 1]]",
+        "Limit": "Find the limit of (x^2 - 1)/(x - 1) as x approaches 1",
+        "Limit at Infinity": "Limit of (2x + 1)/(x - 3) as x approaches infinity",
+        "Taylor Series": "Taylor series of sin(x) at x=0 up to order 5",
+        "Simplify": "Simplify (x^2 - 9)/(x - 3)",
+        "Partial Derivative": "Find the partial derivative of x^2*y + y^3 with respect to x",
+        "Derivative (Trigonometric)": "Find the derivative of sin(x) with respect to x",
+        "Integral (Polynomial)": "Integrate x^2 with respect to x",
+        "Derivative (Exponential)": "Find the derivative of e^(2x) with respect to x",
     }
 
     col_example, col_toggle = st.columns([1.2, 1])
@@ -440,13 +665,34 @@ with tab_solver:
         status_col1, status_col2 = st.columns(2)
         with status_col1:
             op_display = operation.upper()
-            if operation == "dsolve":
-                st.success(f"Operation: {op_display} (Differential Equation)")
+            # Add friendly names for operations
+            operation_names = {
+                "dsolve": "DSOLVE (Differential Equation)",
+                "matrix_ops": "MATRIX OPERATIONS",
+                "limit": "LIMIT",
+                "series": "SERIES EXPANSION",
+                "simplify": "SIMPLIFY",
+                "partial_derivative": "PARTIAL DERIVATIVE",
+                "derive": "DERIVATIVE",
+                "integrate": "INTEGRAL",
+                "solve": "SOLVE EQUATION",
+                "solve_system": "SYSTEM OF EQUATIONS"
+            }
+            friendly_name = operation_names.get(operation, op_display)
+            
+            if operation in ["matrix_ops", "simplify", "limit", "series", "partial_derivative"]:
+                st.success(f"Operation: {friendly_name}")
+            elif operation == "dsolve":
+                st.success(f"Operation: {friendly_name}")
             else:
-                st.info(f"Detected operation: {op_display}")
+                st.info(f"Detected operation: {friendly_name}")
         with status_col2:
             if operation == "dsolve":
                 st.caption("Graphing: View general solution in Graphing tab")
+            elif operation in ["matrix_ops", "limit", "series", "simplify", "partial_derivative"]:
+                st.caption("This operation produces a non-graphable result")
+            elif operation in ["derive", "integrate"]:
+                st.success(f"Graphable result: Plot the {operation}!")
             elif graphable_count > 0:
                 st.success(f"Graphable equations: {graphable_count}")
             else:
