@@ -29,6 +29,7 @@ import csv
 import shutil
 import hashlib
 import logging
+import base64
 import time
 import threading
 import math
@@ -89,14 +90,34 @@ class PaddleOCREngine:
         return cls._instance
 
     @classmethod
-    def ocr_image(cls, image: Image.Image) -> str:
+    def _preprocess(cls, image: Image.Image) -> Image.Image:
+        """
+        Upscale to minimum long edge for PaddleOCR.
+        PaddleOCR needs enough pixels to detect text regions accurately.
+        No contrast/denoise filtering — those hurt handwritten content.
+        """
+        MIN_LONG_EDGE = int(os.environ.get("PADDLE_MIN_LONG_EDGE_PX", "2400"))
+        w, h = image.size
+        long_edge = max(w, h)
+        if long_edge < MIN_LONG_EDGE:
+            scale = MIN_LONG_EDGE / long_edge
+            image = image.resize(
+                (int(w * scale), int(h * scale)), Image.LANCZOS
+            )
+        return image
+
+    @classmethod
+    def ocr_image(cls, image: Image.Image, preprocess: bool = True) -> str:
         """Run PaddleOCR on a PIL image. Returns "" if unavailable or fails."""
         if not cls._is_available():
             return ""
         try:
+            if preprocess:
+                image = cls._preprocess(image)
+
             ocr = cls._get_instance()
             arr = np.array(image.convert("RGB"))
-            min_conf = float(os.environ.get("PADDLE_MIN_CONFIDENCE", "0.6"))
+            min_conf = float(os.environ.get("PADDLE_MIN_CONFIDENCE", "0.5"))
 
             # PaddleOCR v3: use predict() — ocr(cls=True) is removed
             result = ocr.predict(arr)
@@ -155,12 +176,14 @@ class GeminiOCR:
     """Gemini API OCR — reserved for scanned/handwritten pages to protect quota."""
 
     _client = None
-    _cache: dict = {}
+    _mem_cache: dict = {}          # fast in-memory layer
     _cache_lock = threading.Lock()
     _quota_blocked_until: float = 0.0
     _quota_error_logged: bool = False
     _rate_lock = threading.Lock()
     _next_request_time: float = 0.0
+
+
 
     @classmethod
     def _image_hash(cls, image_bytes: bytes) -> str:
@@ -226,9 +249,12 @@ class GeminiOCR:
             f"{model}:{cls._image_hash(image_bytes)}"
             f":{hashlib.sha1(prompt.encode()).hexdigest()}"
         )
+
+        # Memory cache
         with cls._cache_lock:
-            if cache_key in cls._cache:
-                return cls._cache[cache_key]
+            if cache_key in cls._mem_cache:
+                print(f"[OCR]   Cache HIT (memory) — skipping Gemini call")
+                return cls._mem_cache[cache_key]
 
         from google.genai import types
         try:
@@ -247,7 +273,7 @@ class GeminiOCR:
             )
             text = (response.text or "").strip()
             with cls._cache_lock:
-                cls._cache[cache_key] = text
+                cls._mem_cache[cache_key] = text
             cls._quota_error_logged = False
             return text
         except RuntimeError:
@@ -263,6 +289,163 @@ class GeminiOCR:
                 logger.error(f"Gemini model not found: {e}")
             else:
                 logger.error(f"Gemini OCR error: {e}")
+            return ""
+
+
+# ═══════════════════════════════════════════════════════════════════
+# GROQ OCR ENGINE  (~14,400 req/day free on Llama-4-Scout-17B-16E)
+# ═══════════════════════════════════════════════════════════════════
+
+GROQ_OCR_PROMPT = """You are an expert OCR system for academic documents and handwritten notes.
+Extract ALL text from this image exactly as written.
+
+Rules:
+- Preserve mathematical notation using ASCII math: V(s), sum, pi, gamma, alpha, theta
+- Use underscore/caret for sub/superscripts: V_i, Q^*, s_{t+1}
+- Keep arrows as ->
+- Preserve line breaks and section structure
+- For Greek letters write the name: gamma, pi, alpha, theta, epsilon
+- Do NOT add explanations — output ONLY the extracted text
+- Ignore watermarks like "Scanned with CamScanner"
+"""
+
+
+class GroqOCR:
+    """
+    Groq vision API — high-quota fallback for scanned/handwritten pages.
+
+    Free tier (as of 2025):
+      meta-llama/llama-4-scout-17b-16e-instruct  — 500 req/day, 30 req/min
+      meta-llama/llama-4-maverick-17b-128e-instruct — 1000 req/day
+
+    Install:  pip install groq
+    API key:  https://console.groq.com  (free, no credit card)
+    Env var:  GROQ_API_KEY=your_key
+    """
+
+    _client = None
+    _client_lock = threading.Lock()
+    _available: Optional[bool] = None
+    _quota_blocked_until: float = 0.0
+    _rate_blocked_until: float = 0.0
+    _quota_error_logged: bool = False
+    _cache_lock = threading.Lock()
+    _mem_cache: dict = {}
+
+    @classmethod
+    def _is_available(cls) -> bool:
+        if cls._available is None:
+            if not os.environ.get("GROQ_API_KEY", ""):
+                logger.info("GROQ_API_KEY not set — Groq OCR disabled")
+                cls._available = False
+                return False
+            try:
+                import groq  # noqa: F401
+                cls._available = True
+            except ImportError:
+                logger.warning("groq not installed — run: pip install groq")
+                cls._available = False
+        return cls._available
+
+    @classmethod
+    def is_quota_blocked(cls) -> bool:
+        now = time.monotonic()
+        return now < cls._quota_blocked_until or now < cls._rate_blocked_until
+
+    @classmethod
+    def _get_client(cls):
+        if cls._client is None:
+            with cls._client_lock:
+                if cls._client is None:
+                    from groq import Groq
+                    cls._client = Groq(api_key=os.environ["GROQ_API_KEY"])
+        return cls._client
+
+    @classmethod
+    def _image_hash(cls, image_bytes: bytes) -> str:
+        return hashlib.sha256(image_bytes).hexdigest()
+
+
+    @classmethod
+    def ocr_image(cls, image: Image.Image) -> str:
+        """
+        Send image to Groq vision model for OCR.
+        Returns extracted text or "" on failure.
+        """
+        if not cls._is_available() or cls.is_quota_blocked():
+            return ""
+
+        model = os.environ.get(
+            "GROQ_VISION_MODEL",
+            "meta-llama/llama-4-scout-17b-16e-instruct"
+        )
+
+        # Resize image before sending — Groq has a 4MB base64 limit
+        # and smaller images are faster. 1600px long edge is plenty for OCR.
+        MAX_LONG_EDGE = int(os.environ.get("GROQ_MAX_LONG_EDGE_PX", "1600"))
+        w, h = image.size
+        long_edge = max(w, h)
+        if long_edge > MAX_LONG_EDGE:
+            scale = MAX_LONG_EDGE / long_edge
+            image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+        buf = BytesIO()
+        image.convert("RGB").save(buf, format="JPEG", quality=85, optimize=True)
+        image_bytes = buf.getvalue()
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        cache_key = f"{model}:{cls._image_hash(image_bytes)}"
+
+        # Memory cache
+        with cls._cache_lock:
+            if cache_key in cls._mem_cache:
+                print("[OCR]   Cache HIT (memory) — skipping Groq call")
+                return cls._mem_cache[cache_key]
+
+        try:
+            client = cls._get_client()
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{b64}"
+                                },
+                            },
+                            {
+                                "type": "text",
+                                "text": GROQ_OCR_PROMPT,
+                            },
+                        ],
+                    }
+                ],
+                max_tokens=4096,
+                temperature=0.0,   # deterministic — we want exact transcription
+            )
+            text = (response.choices[0].message.content or "").strip()
+
+            with cls._cache_lock:
+                cls._mem_cache[cache_key] = text
+            cls._quota_error_logged = False
+            return text
+
+        except Exception as e:
+            err = str(e).lower()
+            if "429" in err or "rate" in err or "too many" in err:
+                # Rate limit (per-minute) — short block
+                cls._rate_blocked_until = time.monotonic() + 65
+                if not cls._quota_error_logged:
+                    logger.warning(f"Groq rate limit hit — pausing 65s: {e}")
+                    cls._quota_error_logged = True
+            elif "quota" in err or "exceeded" in err or "limit" in err:
+                # Daily quota exhausted — block for the rest of the day
+                cls._quota_blocked_until = time.monotonic() + 3600
+                logger.warning(f"Groq daily quota exhausted: {e}")
+            else:
+                logger.error(f"Groq OCR error: {e}")
             return ""
 
 
@@ -355,17 +538,24 @@ class PDFParser(BaseParser):
             print(f"[OCR]   PaddleOCR result: {len(result)} chars" if result else "[OCR]   PaddleOCR: no text found")
             return result
         else:
+            # Scanned page embedded image: Gemini → Groq → Mistral → PaddleOCR
             if not GeminiOCR.is_quota_blocked():
-                print(f"[OCR]   embedded image ({page_type}) -> GEMINI first")
+                print(f"[OCR]   embedded image ({page_type}) -> GEMINI")
                 result = GeminiOCR.ocr_image(image)
                 if result:
                     print(f"[OCR]   Gemini result: {len(result)} chars")
                     return result
-                print("[OCR]   Gemini returned nothing -> falling back to PADDLEOCR")
-            else:
-                print(f"[OCR]   embedded image ({page_type}) -> GEMINI BLOCKED -> PADDLEOCR")
+                print("[OCR]   Gemini returned nothing -> trying Groq")
+            if GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
+                print(f"[OCR]   embedded image ({page_type}) -> GROQ")
+                result = GroqOCR.ocr_image(image)
+                if result:
+                    print(f"[OCR]   Groq result: {len(result)} chars")
+                    return result
+                print("[OCR]   Groq returned nothing -> trying Mistral")
+            print(f"[OCR]   embedded image ({page_type}) -> PADDLEOCR (last resort)")
             result = PaddleOCREngine.ocr_image(image)
-            print(f"[OCR]   PaddleOCR fallback result: {len(result)} chars" if result else "[OCR]   PaddleOCR fallback: no text found")
+            print(f"[OCR]   PaddleOCR result: {len(result)} chars" if result else "[OCR]   PaddleOCR: no text found")
             return result
 
     # TEXT CLEANING
@@ -714,11 +904,13 @@ class PDFParser(BaseParser):
             print(f"[PDF] Page {page_number}/{len(doc)} -> "
                   f"{'SCANNED/HANDWRITTEN' if is_scanned else 'DIGITAL'}")
 
-            # ── SCANNED / HANDWRITTEN PAGE → Gemini, PaddleOCR fallback ──
+            # ── SCANNED / HANDWRITTEN PAGE → Mistral → Gemini → PaddleOCR ──
             if is_scanned:
                 text = ""
+                # Standard zoom for API engines (smaller = faster upload)
                 image = self.render_page(page, zoom=scanned_page_zoom)
 
+                # 1. Gemini — 20 req/day free, best for handwriting/math
                 if can_call_gemini():
                     charge_gemini()
                     print(f"[OCR]   Page {page_number}: full page -> GEMINI "
@@ -727,21 +919,36 @@ class PDFParser(BaseParser):
                     if text:
                         print(f"[OCR]   Page {page_number}: Gemini OK - {len(text)} chars")
                     else:
-                        print(f"[OCR]   Page {page_number}: Gemini returned nothing -> falling back to PADDLEOCR")
+                        print(f"[OCR]   Page {page_number}: Gemini returned nothing -> trying Groq")
                 else:
-                    print(f"[OCR]   Page {page_number}: GEMINI SKIPPED - quota exhausted "
-                          f"(calls={gemini_state['calls']}/{max_gemini_calls}, "
-                          f"blocked={GeminiOCR.is_quota_blocked()}) -> falling back to PADDLEOCR")
+                    print(f"[OCR]   Page {page_number}: Gemini skipped "
+                          f"(blocked={GeminiOCR.is_quota_blocked()}, "
+                          f"calls={gemini_state['calls']}/{max_gemini_calls}) -> trying Groq")
 
-                # Fallback: PaddleOCR on the full rendered page
+                # 2. Groq — ~1000 req/day free, Llama 4 vision
+                if not text and GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
+                    print(f"[OCR]   Page {page_number}: full page -> GROQ")
+                    text = GroqOCR.ocr_image(image)
+                    if text:
+                        print(f"[OCR]   Page {page_number}: Groq OK - {len(text)} chars")
+                    else:
+                        print(f"[OCR]   Page {page_number}: Groq returned nothing -> trying PaddleOCR")
+                elif not text:
+                    print(f"[OCR]   Page {page_number}: Groq skipped "
+                          f"(available={GroqOCR._is_available()}, "
+                          f"blocked={GroqOCR.is_quota_blocked()})")
+
+                # 3. PaddleOCR — local, unlimited, last resort
+                # Re-render at higher zoom: PaddleOCR needs more pixels for handwriting
                 if not text:
-                    print(f"[OCR]   Page {page_number}: full page -> PADDLEOCR (fallback)")
-                    text = PaddleOCREngine.ocr_image(image)
+                    print(f"[OCR]   Page {page_number}: full page -> PADDLEOCR (last resort)")
+                    paddle_image = self.render_page(page, zoom=3.0)
+                    text = PaddleOCREngine.ocr_image(paddle_image, preprocess=True)
                     if text:
                         print(f"[OCR]   Page {page_number}: PaddleOCR OK - {len(text)} chars")
                     else:
-                        print(f"[OCR]   Page {page_number}: PaddleOCR also returned nothing")
-                        logger.warning(f"Page {page_number}: both Gemini and PaddleOCR returned nothing")
+                        print(f"[OCR]   Page {page_number}: all OCR engines returned nothing")
+                        logger.warning(f"Page {page_number}: Gemini + Groq + PaddleOCR all returned nothing")
 
                 if text:
                     blocks.append({
