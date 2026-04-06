@@ -1,0 +1,3 @@
+CPU utilization = 99.009901
+Avg WTA = 6.174041
+Avg Waiting = 53.125000

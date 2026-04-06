@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scheduler Visualizer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="top-bar">
+            <div class="title">
+                <span id="algoTitle">Scheduler Visualization</span>
+                <span class="badge" id="algoBadge">RR</span>
+                <span class="badge" id="quantumBadge">Quantum = <span id="quantumValue">3</span></span>
+            </div>
+            <div style="display: flex; align-items: center;">
+                <div class="file-input-container">
+                    <label for="fileInput" class="btn">📂 Load JSON</label>
+                    <input type="file" id="fileInput" accept=".json" style="display: none;">
+                </div>
+                <div class="controls">
+                    <button class="btn" id="resetBtn">↺ Reset</button>
+                    <button class="btn" id="stepBtn">⏵ Step</button>
+                    <button class="btn btn-primary" id="playBtn">▶ Play</button>
+                </div>
+                <div class="speed-control">
+                    <span>🐢</span>
+                    <input type="range" id="speedSlider" min="0.5" max="3" step="0.5" value="1">
+                    <span>🐇</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main visualization -->
+        <div class="viz-section">
+            <div class="gantt-header">
+                <div class="gantt-title" id="ganttTitle">📊 Process Execution Timeline</div>
+                <div class="time-indicator" id="currentTimeLabel">Time: 0</div>
+            </div>
+            <div id="chart"></div>
+
+            <!-- Ready Queue -->
+            <div class="queue-panel">
+                <div class="queue-label">📋 Ready Queue</div>
+                <div id="queueContainer" class="queue-items"></div>
+            </div>
+        </div>
+
+        <!-- Stats cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Average Wait</div>
+                <div><span class="stat-number" id="avgWait">0.0</span><span class="stat-unit">ms</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Average Turnaround</div>
+                <div><span class="stat-number" id="avgTurnaround">0.0</span><span class="stat-unit">ms</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Context Switches</div>
+                <div><span class="stat-number" id="contextSwitches">0</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">CPU Utilization</div>
+                <div><span class="stat-number" id="cpuUtil">0</span><span class="stat-unit">%</span></div>
+            </div>
+        </div>
+
+        <!-- Process table -->
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Process</th>
+                        <th>Arrival</th>
+                        <th>Burst</th>
+                        <th>Remaining</th>
+                        <th>Wait Time</th>
+                        <th>Turnaround</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="processTable"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
