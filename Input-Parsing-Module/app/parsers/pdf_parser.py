@@ -157,19 +157,37 @@ class PaddleOCREngine:
 # GEMINI OCR ENGINE  (API, for handwritten / scanned pages ONLY)
 # ═══════════════════════════════════════════════════════════════════
 
-OCR_PROMPT = """You are an expert OCR system for academic handwritten notes.
-Extract ALL text from this image exactly as written.
+OCR_PROMPT = """You are an expert OCR system for academic handwritten notes and documents.
+Your job is to extract and reconstruct ALL content from this image as accurately and completely as possible.
 
-Rules:
-- Preserve mathematical notation: use standard ASCII math (e.g., V(s) = sum pi(a|s) * P(s'|s,a) * [R(s,a) + gamma * V(s')])
-- For Greek letters write the name: gamma, pi, alpha, theta, epsilon
-- For summation write "sum", for product write "prod"
-- Preserve subscripts/superscripts using underscore/caret: V_i, Q^*, s_t+1
-- Keep arrows as ->
-- Preserve line breaks and section structure
-- If text is unclear, give your best reading — do NOT skip it
-- Do NOT add explanations — output ONLY the extracted text
-- Ignore any "Scanned with CamScanner" watermarks"""
+TEXT EXTRACTION RULES:
+- Extract ALL text exactly as written, preserving the original structure
+- Preserve mathematical notation in ASCII math:
+  * Subscripts/superscripts: V_i, Q^*, s_{t+1}, gamma^k
+  * Arrows: -> (right), <- (left), <-> (both), => (implies)
+  * Greek letters spelled out: gamma, pi, alpha, theta, epsilon, lambda, delta
+  * Summation: sum_{i=0}^{n}, product: prod, expectation: E[...]
+  * Fractions: (num)/(denom)
+- Preserve line breaks, indentation, and section hierarchy
+- If a word is unclear, write your best guess followed by (?) — never skip content
+
+TABLE RULES:
+- If you see a table or grid, reconstruct it as a markdown table
+- For checkmarks and symbols in table cells use ONLY these representations:
+  * Any checkmark, tick, filled dot, filled box, bullet, or check symbol -> [x]
+  * Any empty box, empty circle, or blank cell -> [ ]
+  * Any dash, minus, or explicit "none" -> [-]
+  * Be consistent — pick one and use it throughout
+- Always include row headers and column headers
+
+STRUCTURE RULES:
+- Use >, >>, >>> for indentation levels
+- Keep section headers on their own line
+- Separate sections with a blank line
+- Do NOT confuse diagram boxes/nodes/flowchart shapes with checkboxes
+
+OUTPUT: extracted content only — no commentary, no explanations, no meta-statements.
+Ignore watermarks like "Scanned with CamScanner"."""
 
 
 class GeminiOCR:
@@ -296,18 +314,37 @@ class GeminiOCR:
 # GROQ OCR ENGINE  (~14,400 req/day free on Llama-4-Scout-17B-16E)
 # ═══════════════════════════════════════════════════════════════════
 
-GROQ_OCR_PROMPT = """You are an expert OCR system for academic documents and handwritten notes.
-Extract ALL text from this image exactly as written.
+GROQ_OCR_PROMPT = """You are an expert OCR system for academic handwritten notes and documents.
+Your job is to extract and reconstruct ALL content from this image as accurately and completely as possible.
 
-Rules:
-- Preserve mathematical notation using ASCII math: V(s), sum, pi, gamma, alpha, theta
-- Use underscore/caret for sub/superscripts: V_i, Q^*, s_{t+1}
-- Keep arrows as ->
-- Preserve line breaks and section structure
-- For Greek letters write the name: gamma, pi, alpha, theta, epsilon
-- Do NOT add explanations — output ONLY the extracted text
-- Ignore watermarks like "Scanned with CamScanner"
-"""
+TEXT EXTRACTION RULES:
+- Extract ALL text exactly as written, preserving the original structure
+- Preserve mathematical notation in ASCII math:
+  * Subscripts/superscripts: V_i, Q^*, s_{t+1}, gamma^k
+  * Arrows: -> (right), <- (left), <-> (both), => (implies)
+  * Greek letters spelled out: gamma, pi, alpha, theta, epsilon, lambda, delta
+  * Summation: sum_{i=0}^{n}, product: prod, expectation: E[...]
+  * Fractions: (num)/(denom)
+- Preserve line breaks, indentation, and section hierarchy
+- If a word is unclear, write your best guess followed by (?) — never skip content
+
+TABLE RULES:
+- If you see a table or grid, reconstruct it as a markdown table
+- For checkmarks and symbols in table cells use ONLY these representations:
+  * Any checkmark, tick, filled dot, filled box, bullet, or check symbol -> [x]
+  * Any empty box, empty circle, or blank cell -> [ ]
+  * Any dash, minus, or explicit "none" -> [-]
+  * Be consistent — pick one and use it throughout
+- Always include row headers and column headers
+
+STRUCTURE RULES:
+- Use >, >>, >>> for indentation levels
+- Keep section headers on their own line
+- Separate sections with a blank line
+- Do NOT confuse diagram boxes/nodes/flowchart shapes with checkboxes
+
+OUTPUT: extracted content only — no commentary, no explanations, no meta-statements.
+Ignore watermarks like "Scanned with CamScanner"."""
 
 
 class GroqOCR:
@@ -524,17 +561,24 @@ class PDFParser(BaseParser):
     # OCR QUALITY SCORING
     # ─────────────────────────────────────────────────────────────
     _VISION_DESCRIBE_PROMPT = """You are analyzing an image from an academic document.
-Describe what you see concisely and factually in under 150 words.
+Extract and describe ALL content you see, completely and factually.
+
+Start with [TYPE: diagram|chart|table|graph|photo|text|mixed]
+
+Then:
+- If it contains TEXT: extract it exactly as written
+- If it is a TABLE or GRID:
+  * Reconstruct as markdown table
+  * For checkmarks/ticks/filled boxes -> [x], empty boxes -> [ ], dashes -> [-]
+  * Include all row and column headers
+- If it is a DIAGRAM or CHART: describe type, labels, axes, flow, key relationships
+- If it is a PHOTO: describe the subject plainly
+- If MIXED (text + visual): extract text first, then describe the visual
 
 Rules:
-- Start with [TYPE: diagram|chart|graph|photo|text|mixed]
-- If it is a diagram or chart: describe the type, what it shows, labels, axes, flow, and key relationships
-- If it contains text: extract the text exactly as written
-- If it is a photo or illustration: describe the subject plainly (e.g. "a car on a road", "a circuit board")
-- If text and visuals both exist: extract the text first, then describe the visual
-- Be direct and factual — no commentary, no apologies, no meta-statements
-- If the image is blank or unreadable, output only: [TYPE: empty]
-- Never say you cannot see the image or that no text was provided"""
+- Be direct and factual — no commentary, no apologies
+- If the image is blank or unreadable: [TYPE: empty]
+- Never say you cannot see the image"""
 
     _HALLUCINATION_PATTERNS = [
         r"i('m| am) ready to",
@@ -1334,19 +1378,53 @@ Rules:
         stripped = text.strip()
         if not stripped:
             return True
-        # Pure number (page numbers like "1", "2", "3", "10")
         if re.fullmatch(r'\d{1,3}', stripped):
             return True
-        # Single char or symbol
         if len(stripped) <= 2:
             return True
-        # Under minimum length
         if len(stripped) < MIN_CHARS:
             return True
-        # Unfilled fallback placeholder
         if stripped.startswith("Image on page"):
             return True
         return False
+
+    def _tokenize(self, text: str) -> set:
+        """Extract lowercase alphanumeric tokens for overlap comparison."""
+        return set(re.findall(r'[a-z0-9]+', text.lower()))
+
+    def _image_duplicates_page_text(
+        self, image_text: str, page_text_pool: set, threshold: float = 0.7
+    ) -> bool:
+        """
+        Returns True if the image's OCR text is largely covered by text already
+        extracted from the same page via PyMuPDF.
+
+        This catches the common digital PDF pattern where an image is just a
+        screenshot of content that PyMuPDF already extracted perfectly as text
+        (e.g. a table screenshot, a formula screenshot, a text block rendered
+        as an image by the PDF authoring tool).
+
+        Uses token-level Jaccard-style overlap:
+          overlap = |image_tokens ∩ page_tokens| / |image_tokens|
+        If >= threshold of the image's tokens already exist in the page text → duplicate.
+        """
+        # Vision descriptions are not duplicates — they add semantic info
+        # that PyMuPDF text extraction never produces
+        if re.search(r'\[TYPE:\s*(diagram|chart|graph|photo|mixed)\]',
+                     image_text, re.IGNORECASE):
+            return False
+
+        img_tokens = self._tokenize(image_text)
+        if len(img_tokens) < 5:
+            # Too short to make a meaningful comparison — let noise filter handle it
+            return False
+
+        overlap = len(img_tokens & page_text_pool) / len(img_tokens)
+        is_dup = overlap >= threshold
+        if is_dup:
+            print(f"[RAG]   Dropped duplicate image chunk "
+                  f"(overlap={overlap:.0%} with page text)")
+        return is_dup
 
     def _merge_text_blocks(self, blocks: list) -> list:
         """
@@ -1407,24 +1485,44 @@ Rules:
         chunk_counter = 0
         total_chunks = 0
 
+        img_dedup_threshold = float(
+            os.environ.get("IMAGE_DEDUP_THRESHOLD", "0.7")
+        )
+
         for section in raw_data["sections"]:
-            # Merge short consecutive text blocks before structuring
             blocks = self._merge_text_blocks(section["blocks"])
+
+            # Build a token pool from all text and table blocks on this page.
+            # Used to detect image chunks that duplicate already-extracted content.
+            page_text_pool: set = set()
+            for block in blocks:
+                if block["type"] in ("text", "table"):
+                    page_text_pool |= self._tokenize(
+                        block.get("embedding_ready_text", "")
+                    )
 
             chunks = []
             for block in blocks:
                 raw_text = block["embedding_ready_text"]
 
-                # Clean image content: strip [TYPE: ...] prefix
                 if block["type"] == "image":
                     content = self._clean_image_content(raw_text)
+                    # Skip if noise
+                    if self._is_noise_chunk(content):
+                        print(f"[RAG]   Dropped noise image chunk: "
+                              f"{repr(content[:50])}")
+                        continue
+                    # Skip if it just duplicates page text (digital PDF screenshots)
+                    if self._image_duplicates_page_text(
+                        content, page_text_pool, threshold=img_dedup_threshold
+                    ):
+                        continue
                 else:
                     content = raw_text
-
-                # Skip noise chunks
-                if self._is_noise_chunk(content):
-                    print(f"[RAG]   Dropped noise chunk: {repr(content[:50])}")
-                    continue
+                    if self._is_noise_chunk(content):
+                        print(f"[RAG]   Dropped noise chunk: "
+                              f"{repr(content[:50])}")
+                        continue
 
                 chunks.append(
                     Chunk(
@@ -1436,7 +1534,8 @@ Rules:
                             "chunk_type": block["type"],
                             **(
                                 {"image_path": block["image_path"]}
-                                if block["type"] == "image" and "image_path" in block
+                                if block["type"] == "image"
+                                and "image_path" in block
                                 else {}
                             ),
                         },
