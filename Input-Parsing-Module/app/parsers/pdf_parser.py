@@ -1313,6 +1313,91 @@ Rules:
         return {"sections": sections, "metadata": doc.metadata}
 
     # ─────────────────────────────────────────────────────────────
+    # RAG POST-PROCESSING
+    # ─────────────────────────────────────────────────────────────
+    # Regex to strip [TYPE: ...] prefix from vision descriptions
+    _TYPE_PREFIX_RE = re.compile(r'^\[TYPE:\s*\w+\]\s*\n?', re.IGNORECASE)
+
+    def _clean_image_content(self, text: str) -> str:
+        """Strip [TYPE: ...] prefix — keep only the semantic content for RAG."""
+        return self._TYPE_PREFIX_RE.sub('', text).strip()
+
+    def _is_noise_chunk(self, text: str) -> bool:
+        """
+        Returns True for chunks that add no value to a RAG pipeline:
+          - Empty or whitespace only
+          - Single characters or digits (page numbers, bullet markers)
+          - Very short fragments under MIN_CHUNK_CHARS
+          - Fallback placeholder text
+        """
+        MIN_CHARS = int(os.environ.get("MIN_CHUNK_CHARS", "8"))
+        stripped = text.strip()
+        if not stripped:
+            return True
+        # Pure number (page numbers like "1", "2", "3", "10")
+        if re.fullmatch(r'\d{1,3}', stripped):
+            return True
+        # Single char or symbol
+        if len(stripped) <= 2:
+            return True
+        # Under minimum length
+        if len(stripped) < MIN_CHARS:
+            return True
+        # Unfilled fallback placeholder
+        if stripped.startswith("Image on page"):
+            return True
+        return False
+
+    def _merge_text_blocks(self, blocks: list) -> list:
+        """
+        Merge consecutive short text blocks on the same page into one chunk.
+        This prevents scattered diagram labels (each on their own line from
+        PyMuPDF) from becoming dozens of useless single-word chunks.
+
+        A block is a merge candidate if it's a text block under MERGE_THRESHOLD chars.
+        Image and table blocks are never merged.
+        """
+        MERGE_THRESHOLD = int(os.environ.get("TEXT_MERGE_THRESHOLD", "60"))
+
+        merged = []
+        pending_texts = []
+
+        def flush_pending():
+            if not pending_texts:
+                return
+            combined = " ".join(t.strip() for t in pending_texts if t.strip())
+            if combined and not self._is_noise_chunk(combined):
+                merged.append({
+                    **pending_texts_meta[0],
+                    "content": combined,
+                    "embedding_ready_text": combined,
+                })
+            pending_texts.clear()
+            pending_texts_meta.clear()
+
+        pending_texts_meta = []
+
+        for block in blocks:
+            if block["type"] != "text":
+                flush_pending()
+                merged.append(block)
+                continue
+
+            text = block.get("embedding_ready_text", "").strip()
+
+            if len(text) >= MERGE_THRESHOLD:
+                # Long enough to stand alone — flush pending first
+                flush_pending()
+                merged.append(block)
+            else:
+                # Short — accumulate for merging
+                pending_texts.append(text)
+                pending_texts_meta.append(block)
+
+        flush_pending()
+        return merged
+
+    # ─────────────────────────────────────────────────────────────
     # STRUCTURE
     # ─────────────────────────────────────────────────────────────
     def structure(self, raw_data):
@@ -1323,12 +1408,28 @@ Rules:
         total_chunks = 0
 
         for section in raw_data["sections"]:
+            # Merge short consecutive text blocks before structuring
+            blocks = self._merge_text_blocks(section["blocks"])
+
             chunks = []
-            for block in section["blocks"]:
+            for block in blocks:
+                raw_text = block["embedding_ready_text"]
+
+                # Clean image content: strip [TYPE: ...] prefix
+                if block["type"] == "image":
+                    content = self._clean_image_content(raw_text)
+                else:
+                    content = raw_text
+
+                # Skip noise chunks
+                if self._is_noise_chunk(content):
+                    print(f"[RAG]   Dropped noise chunk: {repr(content[:50])}")
+                    continue
+
                 chunks.append(
                     Chunk(
                         id=str(uuid.uuid4()),
-                        content=block["embedding_ready_text"],
+                        content=content,
                         chunk_index=chunk_counter,
                         metadata={
                             "page": section["page"],
@@ -1343,15 +1444,16 @@ Rules:
                 )
                 chunk_counter += 1
 
-            sections.append(
-                Section(
-                    id=str(uuid.uuid4()),
-                    heading=section["heading"],
-                    page=section["page"],
-                    chunks=chunks,
+            if chunks:
+                sections.append(
+                    Section(
+                        id=str(uuid.uuid4()),
+                        heading=section["heading"],
+                        page=section["page"],
+                        chunks=chunks,
+                    )
                 )
-            )
-            total_chunks += len(chunks)
+                total_chunks += len(chunks)
 
         return ParsedContent(
             source_type="pdf",
