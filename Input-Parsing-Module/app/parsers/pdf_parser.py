@@ -1342,9 +1342,10 @@ Rules:
                     "csv_path": csv_path,
                 })
 
+            heading = self._detect_section_heading(blocks, page_number)
             sections.append({
                 "id": str(uuid.uuid4()),
-                "heading": f"Page {page_number}",
+                "heading": heading,
                 "page": page_number,
                 "blocks": blocks,
             })
@@ -1355,6 +1356,105 @@ Rules:
             f"Embedded OCR (PaddleOCR): {'on' if ocr_embedded_images else 'off'}"
         )
         return {"sections": sections, "metadata": doc.metadata}
+
+    # ─────────────────────────────────────────────────────────────
+    # SECTION HEADING DETECTION
+    # ─────────────────────────────────────────────────────────────
+
+    # Patterns that strongly indicate a section heading, in priority order.
+    # Each is (compiled_regex, format_string).
+    # format_string uses match.group(0) if None, or named groups otherwise.
+    _HEADING_PATTERNS = [
+        # "Chapter 3", "Chapter 3:", "Chapter 3 - Title"
+        re.compile(
+            r'^(chapter|section|part|unit|module|lecture|lab|week)\s*\d+[\s:\-–—]*(.*)',
+            re.IGNORECASE
+        ),
+        # "Question 1", "Q1", "Problem 2", "Exercise 3"
+        re.compile(
+            r'^(question|problem|exercise|task|q\.?)\s*\d+[\s:\-–—]*(.*)',
+            re.IGNORECASE
+        ),
+        # "1. Introduction", "1.2 Background", "2) Methods"
+        re.compile(
+            r'^(\d+[\.\)]\d*[\.\)]?\s+)([A-Z][^\n]{3,60})',
+            re.IGNORECASE
+        ),
+        # Common academic section keywords standing alone
+        re.compile(
+            r'^(introduction|summary|conclusion|abstract|overview|'
+            r'background|motivation|methodology|results|discussion|'
+            r'references|appendix|notation|definition|theorem|proof)[\s:]*$',
+            re.IGNORECASE
+        ),
+        # ALL CAPS short heading: "MODEL BASED RL", "MCTS"
+        re.compile(
+            r'^([A-Z][A-Z\s\-]{2,50})$'
+        ),
+        # Title-case short line (3-10 words, starts with capital, no sentence punctuation)
+        # Catches slide titles like "Model-Based Design in Industry"
+        re.compile(
+            r'^([A-Z][a-zA-Z\-]+(?:\s+[a-zA-Z\-]+){2,9})$'
+        ),
+    ]
+
+    def _detect_section_heading(self, blocks: list, page_number: int) -> str:
+        """
+        Detect a meaningful section heading from the page's text blocks.
+
+        Strategy:
+          1. Look at the first 1-3 text blocks for heading-pattern matches
+          2. Use font-size heuristic if bbox info is available (larger = heading)
+          3. Fall back to "Page N" if nothing matches
+
+        Returns a heading string like "Question 1", "Chapter 2: Model-Based RL",
+        or "Page 3" as fallback.
+        """
+        text_blocks = [b for b in blocks if b.get("type") == "text"]
+        if not text_blocks:
+            return f"Page {page_number}"
+
+        # Check the first few text blocks for heading patterns
+        candidates = []
+        for block in text_blocks[:4]:
+            text = block.get("embedding_ready_text", "").strip()
+            if not text:
+                continue
+
+            # Only look at the first line of each block
+            first_line = text.split('\n')[0].strip()
+            if not first_line or len(first_line) > 120:
+                continue
+
+            for pattern in self._HEADING_PATTERNS:
+                m = pattern.match(first_line)
+                if m:
+                    # Clean up the matched heading
+                    heading = first_line.rstrip('.:')
+                    # Collapse multiple spaces
+                    heading = re.sub(r'\s+', ' ', heading).strip()
+                    candidates.append((heading, block))
+                    break
+
+        if not candidates:
+            return f"Page {page_number}"
+
+        # If multiple candidates, prefer the one with the largest font
+        # (bbox top coord is smaller = higher on page = likely a title)
+        if len(candidates) == 1:
+            return candidates[0][0]
+
+        # Pick the candidate that appears earliest (smallest bbox y0)
+        def bbox_y0(candidate):
+            bbox = candidate[1].get("bbox")
+            if bbox and len(bbox) >= 2:
+                return bbox[1]
+            return float('inf')
+
+        candidates.sort(key=bbox_y0)
+        heading = candidates[0][0]
+        print(f"[HEADING] Page {page_number}: detected '{heading}'")
+        return heading
 
     # ─────────────────────────────────────────────────────────────
     # RAG POST-PROCESSING
@@ -1531,6 +1631,7 @@ Rules:
                         chunk_index=chunk_counter,
                         metadata={
                             "page": section["page"],
+                            "section_heading": section["heading"],
                             "chunk_type": block["type"],
                             **(
                                 {"image_path": block["image_path"]}
