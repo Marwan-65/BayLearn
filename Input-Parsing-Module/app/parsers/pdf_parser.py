@@ -367,7 +367,7 @@ class GroqOCR:
 
 
     @classmethod
-    def ocr_image(cls, image: Image.Image) -> str:
+    def ocr_image(cls, image: Image.Image, prompt: str = GROQ_OCR_PROMPT) -> str:
         """
         Send image to Groq vision model for OCR.
         Returns extracted text or "" on failure.
@@ -393,7 +393,7 @@ class GroqOCR:
         image.convert("RGB").save(buf, format="JPEG", quality=85, optimize=True)
         image_bytes = buf.getvalue()
         b64 = base64.b64encode(image_bytes).decode("utf-8")
-        cache_key = f"{model}:{cls._image_hash(image_bytes)}"
+        cache_key = f"{model}:{cls._image_hash(image_bytes)}:{hashlib.sha1(prompt.encode()).hexdigest()}"
 
         # Memory cache
         with cls._cache_lock:
@@ -417,7 +417,7 @@ class GroqOCR:
                             },
                             {
                                 "type": "text",
-                                "text": GROQ_OCR_PROMPT,
+                                "text": prompt,
                             },
                         ],
                     }
@@ -521,24 +521,157 @@ class PDFParser(BaseParser):
         return Image.frombytes(mode, [pix.width, pix.height], pix.samples)
 
     # ─────────────────────────────────────────────────────────────
-    # DUAL OCR ROUTING
+    # OCR QUALITY SCORING
+    # ─────────────────────────────────────────────────────────────
+    _VISION_DESCRIBE_PROMPT = """You are analyzing an image from an academic document.
+Describe what you see concisely and factually in under 150 words.
+
+Rules:
+- Start with [TYPE: diagram|chart|graph|photo|text|mixed]
+- If it is a diagram or chart: describe the type, what it shows, labels, axes, flow, and key relationships
+- If it contains text: extract the text exactly as written
+- If it is a photo or illustration: describe the subject plainly (e.g. "a car on a road", "a circuit board")
+- If text and visuals both exist: extract the text first, then describe the visual
+- Be direct and factual — no commentary, no apologies, no meta-statements
+- If the image is blank or unreadable, output only: [TYPE: empty]
+- Never say you cannot see the image or that no text was provided"""
+
+    _HALLUCINATION_PATTERNS = [
+        r"i('m| am) ready to",
+        r"please provide",
+        r"i don't see any",
+        r"no (text|image) (was |is |)(provided|given|present)",
+        r"i cannot (see|extract|read)",
+        r"unfortunately",
+        r"i('ll| will) be happy to help",
+        r"if you (can|could) provide",
+        r"there is no text in the image",
+        r"i do not have access",
+    ]
+    _HALLUCINATION_RE = re.compile(
+        "|".join(_HALLUCINATION_PATTERNS), re.IGNORECASE
+    )
+
+    def _ocr_quality_score(self, text: str) -> float:
+        """
+        Score OCR output quality from 0.0 (garbage) to 1.0 (good).
+
+        Low scores indicate: empty output, hallucinated CJK characters,
+        single characters, or suspiciously short/fragmented text from
+        what is likely a diagram or figure.
+        """
+        if not text or not text.strip():
+            return 0.0
+
+        stripped = text.strip()
+
+        # Single character or just a number — almost certainly noise
+        if len(stripped) <= 2:
+            return 0.1
+
+        # Count CJK characters (PaddleOCR hallucinates these on diagrams)
+        cjk = sum(1 for c in stripped if '\u4e00' <= c <= '\u9fff')
+        if len(stripped) > 0 and cjk / len(stripped) > 0.3:
+            return 0.1  # >30% CJK in a non-CJK doc = hallucination
+
+        # Count real English words (crude but effective)
+        words = re.findall(r'[a-zA-Z]{2,}', stripped)
+        total_tokens = len(stripped.split())
+
+        if total_tokens == 0:
+            return 0.1
+
+        word_ratio = len(words) / max(total_tokens, 1)
+
+        # Very few real words — likely noise or scattered diagram labels
+        if word_ratio < 0.2 and len(stripped) < 30:
+            return 0.2
+
+        # Short but has real words — could be a label, acceptable
+        if len(words) >= 2:
+            return 0.8
+
+        return 0.5
+
+    def _needs_vision_description(self, paddle_text: str) -> bool:
+        """
+        Returns True if PaddleOCR output is low quality and we should
+        escalate to a vision API for a semantic description.
+        """
+        threshold = float(os.environ.get("OCR_QUALITY_THRESHOLD", "0.4"))
+        score = self._ocr_quality_score(paddle_text)
+        print(f"[OCR]   PaddleOCR quality score: {score:.2f} "
+              f"(threshold={threshold}, escalate={score < threshold})")
+        return score < threshold
+
+    def _get_vision_description(self, image: Image.Image) -> str:
+        """
+        Use Gemini or Groq to get a concise semantic description of an image
+        that PaddleOCR failed on. Filters hallucinated/meta responses.
+        Only called when quota is available.
+        """
+        def is_hallucination(text: str) -> bool:
+            return bool(self._HALLUCINATION_RE.search(text))
+
+        # Try Gemini first
+        if not GeminiOCR.is_quota_blocked():
+            print("[OCR]   Escalating to GEMINI for semantic description")
+            result = GeminiOCR.ocr_image(image, prompt=self._VISION_DESCRIBE_PROMPT)
+            if result and not is_hallucination(result) and "[TYPE: empty]" not in result:
+                print(f"[OCR]   Gemini description: {len(result)} chars")
+                return result
+            print("[OCR]   Gemini description unusable -> trying Groq")
+
+        # Groq fallback — override its default OCR prompt with the describe prompt
+        if GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
+            print("[OCR]   Escalating to GROQ for semantic description")
+            result = GroqOCR.ocr_image(image, prompt=self._VISION_DESCRIBE_PROMPT)
+            if result and not is_hallucination(result) and "[TYPE: empty]" not in result:
+                print(f"[OCR]   Groq description: {len(result)} chars")
+                return result
+            print("[OCR]   Groq description unusable")
+
+        return ""
+
+    # ─────────────────────────────────────────────────────────────
+    # DUAL OCR ROUTING  (PaddleOCR + quality-gated vision escalation)
     # ─────────────────────────────────────────────────────────────
     def ocr_embedded_content(self, image: Image.Image, page_is_scanned: bool) -> str:
         """
-        Route embedded image/diagram OCR to the right engine:
+        Hybrid OCR routing for embedded images and diagrams:
 
-          Digital page  ->  PaddleOCR only (local, free, fast for printed text)
-          Scanned page  ->  Gemini first (handles handwriting/math),
-                            PaddleOCR as fallback if Gemini quota is exhausted
+        DIGITAL page images:
+          1. PaddleOCR (free, local, fast for printed text)
+          2. Quality check — if output is garbage/empty/hallucinated:
+             escalate to Gemini/Groq for semantic description (quota-gated)
+
+        SCANNED page images:
+          1. Gemini (best for handwriting/math)
+          2. Groq fallback
+          3. PaddleOCR + quality check + escalation if still bad
         """
         page_type = "SCANNED" if page_is_scanned else "DIGITAL"
+
         if not page_is_scanned:
+            # ── Digital page: PaddleOCR first ────────────────────
             print(f"[OCR]   embedded image ({page_type}) -> PADDLEOCR")
-            result = PaddleOCREngine.ocr_image(image)
-            print(f"[OCR]   PaddleOCR result: {len(result)} chars" if result else "[OCR]   PaddleOCR: no text found")
-            return result
+            paddle_result = PaddleOCREngine.ocr_image(image)
+            print(f"[OCR]   PaddleOCR: {len(paddle_result)} chars" if paddle_result
+                  else "[OCR]   PaddleOCR: no text found")
+
+            # Quality gate — escalate bad/empty results to vision API
+            if self._needs_vision_description(paddle_result):
+                vision_result = self._get_vision_description(image)
+                if vision_result:
+                    return vision_result
+                # Vision also failed — return whatever Paddle got (even if bad)
+                # so the chunk isn't completely empty
+                return paddle_result
+
+            return paddle_result
+
         else:
-            # Scanned page embedded image: Gemini → Groq → Mistral → PaddleOCR
+            # ── Scanned page: API engines first ──────────────────
             if not GeminiOCR.is_quota_blocked():
                 print(f"[OCR]   embedded image ({page_type}) -> GEMINI")
                 result = GeminiOCR.ocr_image(image)
@@ -546,17 +679,27 @@ class PDFParser(BaseParser):
                     print(f"[OCR]   Gemini result: {len(result)} chars")
                     return result
                 print("[OCR]   Gemini returned nothing -> trying Groq")
+
             if GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
                 print(f"[OCR]   embedded image ({page_type}) -> GROQ")
                 result = GroqOCR.ocr_image(image)
                 if result:
                     print(f"[OCR]   Groq result: {len(result)} chars")
                     return result
-                print("[OCR]   Groq returned nothing -> trying Mistral")
+                print("[OCR]   Groq returned nothing -> PADDLEOCR")
+
             print(f"[OCR]   embedded image ({page_type}) -> PADDLEOCR (last resort)")
-            result = PaddleOCREngine.ocr_image(image)
-            print(f"[OCR]   PaddleOCR result: {len(result)} chars" if result else "[OCR]   PaddleOCR: no text found")
-            return result
+            paddle_result = PaddleOCREngine.ocr_image(image)
+            print(f"[OCR]   PaddleOCR: {len(paddle_result)} chars" if paddle_result
+                  else "[OCR]   PaddleOCR: no text found")
+
+            # Even on scanned pages, quality-check PaddleOCR output
+            if self._needs_vision_description(paddle_result):
+                vision_result = self._get_vision_description(image)
+                if vision_result:
+                    return vision_result
+
+            return paddle_result
 
     # TEXT CLEANING
     # ─────────────────────────────────────────────────────────────
