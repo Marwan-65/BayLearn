@@ -4,6 +4,7 @@ pydantic
 python-dotenv
 python-multipart
 requests>=2.32.5
+numpy
 PyMuPDF
 pytesseract
 Pillow
@@ -12,6 +13,7 @@ opencv-python
 ffmpeg-python
 img2table
 google-genai
+groq
 paddleocr
 transformers
 torch
