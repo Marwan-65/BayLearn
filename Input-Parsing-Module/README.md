@@ -72,9 +72,10 @@ Open:
 - Content type: `multipart/form-data`
 - Field: `file` (binary)
 
-### Response Shape (ParsedContent)
+### Response Shape (PDF / image uploads)
 
-The API returns structured content based on `app/models/unified_content_schema.py`:
+For PDF and handwritten/image parsing, the API returns `ParsedContent` from `app/models/unified_content_schema.py`.
+The current PDF parser emits chunk metadata with `page`, `section_heading`, `chunk_type`, and optional `image_path`.
 
 ```json
 {
@@ -82,23 +83,35 @@ The API returns structured content based on `app/models/unified_content_schema.p
 	"title": "PDF Document",
 	"sections": [
 		{
-			"id": "string",
+			"id": "2f7f14a4-2a2a-4ea4-9ef6-17cd7f9e06d4",
 			"heading": "Page 1",
 			"page": 1,
 			"chunks": [
 				{
-					"id": "string",
-					"content": "string",
+					"id": "1be43347-2de6-46a6-9f02-cf35afb4117a",
+					"content": "Introduction to reinforcement learning...",
 					"chunk_index": 0,
 					"metadata": {
 						"page": 1,
+						"section_heading": "Page 1",
 						"chunk_type": "text"
+					}
+				},
+				{
+					"id": "ecef2a06-a657-48e6-a68c-cc70171ee891",
+					"content": "Flowchart showing policy iteration...",
+					"chunk_index": 1,
+					"metadata": {
+						"page": 1,
+						"section_heading": "Page 1",
+						"chunk_type": "image",
+						"image_path": "extracted_images/page1_0.png"
 					}
 				}
 			]
 		}
 	],
-	"total_chunks": 1
+	"total_chunks": 2
 }
 ```
 
@@ -121,6 +134,31 @@ The API returns structured content based on `app/models/unified_content_schema.p
 	- `content: string`
 	- `chunk_index: number`
 	- `metadata: object`
+
+### Chunk Metadata (current PDF parser)
+
+- `page: number`
+- `section_heading: string | null`
+- `chunk_type: "text" | "image" | "table"`
+- `image_path?: string` (present for image chunks)
+
+### Current Video Response Shape
+
+For video uploads, the current parser returns a legacy structure:
+
+```json
+{
+	"source_type": "video",
+	"title": "Video Transcript",
+	"sections": [
+		{
+			"heading": "Transcript",
+			"content": "...",
+			"page": null
+		}
+	]
+}
+```
 
 ## Quick Test
 
