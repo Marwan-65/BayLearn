@@ -1053,3 +1053,111 @@ if __name__ == "__main__":
     # Test partial derivative
     print("=== Partial Derivative ===")
     print(level_2_solver("Find the partial derivative of x^2*y + y^3 with respect to x and then y", show_translation=True))
+    
+    
+# ============ API HELPER FUNCTIONS ============
+
+def _extract_graphable_functions(operation, ai_data, solver_output):
+    """
+    Extract graphable functions from solver output.
+    
+    Returns: list of dicts with {name, expr, var, type}
+    """
+    graphable = []
+    
+    try:
+        if operation == "derive":
+            # Original expr in lhs
+            original_expr = str(ai_data["equations"][0]["lhs"])
+            var = ai_data["target_variables"][0]
+            
+            # Parse and get derivative
+            expr_obj = parse_expr(original_expr)
+            derivative_obj = sp.diff(expr_obj, sp.Symbol(var))
+            
+            graphable.append({
+                "name": "Original Function",
+                "expr": str(expr_obj),
+                "var": var,
+                "type": "original"
+            })
+            graphable.append({
+                "name": "Derivative",
+                "expr": str(derivative_obj),
+                "var": var,
+                "type": "derivative"
+            })
+        
+        elif operation == "integrate":
+            original_expr = str(ai_data["equations"][0]["lhs"])
+            var = ai_data["target_variables"][0]
+            
+            expr_obj = parse_expr(original_expr)
+            integral_obj = sp.integrate(expr_obj, sp.Symbol(var))
+            
+            graphable.append({
+                "name": "Original Function",
+                "expr": str(expr_obj),
+                "var": var,
+                "type": "original"
+            })
+            graphable.append({
+                "name": "Integral (+ C)",
+                "expr": str(integral_obj),
+                "var": var,
+                "type": "integral"
+            })
+        
+        elif operation == "simplify":
+            original_expr = str(ai_data["equations"][0]["lhs"])
+            simplified = sp.simplify(parse_expr(original_expr))
+            var = ai_data["target_variables"][0] if ai_data.get("target_variables") else "x"
+            
+            graphable.append({
+                "name": "Original",
+                "expr": original_expr,
+                "var": var,
+                "type": "original"
+            })
+            graphable.append({
+                "name": "Simplified",
+                "expr": str(simplified),
+                "var": var,
+                "type": "simplified"
+            })
+        
+        elif operation == "limit":
+            expr_str = str(ai_data["equations"][0]["lhs"])
+            var = ai_data["target_variables"][0]
+            
+            graphable.append({
+                "name": "Function",
+                "expr": expr_str,
+                "var": var,
+                "type": "limit"
+            })
+        
+        elif operation == "series":
+            expr_str = str(ai_data["equations"][0]["lhs"])
+            var = ai_data["target_variables"][0]
+            
+            graphable.append({
+                "name": "Original",
+                "expr": expr_str,
+                "var": var,
+                "type": "original"
+            })
+        
+        elif operation == "dsolve":
+            # For differential equations, skip complex rendering with arbitrary constants
+            pass
+        
+        elif operation in ["solve", "solve_system", "matrix_ops"]:
+            # Not graphable
+            pass
+        
+    except Exception as e:
+        # Return empty list if something fails
+        pass
+    
+    return graphable

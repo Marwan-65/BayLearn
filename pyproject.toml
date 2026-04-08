@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=67.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "baylearn-solver"
+version = "1.0.0"
+description = "Math equation solver API for RAG pipeline integration"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "SalmaNasser", email = "salma.naser1020@gmail.com"}]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "sympy>=1.12",
+    "groq>=0.4.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0"
+]
+
+[project.urls]
+Repository = "https://github.com/yourusername/baylearn"
+
+[tool.setuptools]
+packages = ["baylearn"]
