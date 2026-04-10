@@ -49,7 +49,7 @@ class AdaptiveContextualCompressor:
 
         Args:
             chunks: list of dicts with keys "text", "score", "metadata"
-            query_embedding: pre-computed embedding of the HyDE output
+            query_embedding: pre-computed embedding of the original question
 
         Returns:
             Same structure with text potentially compressed.

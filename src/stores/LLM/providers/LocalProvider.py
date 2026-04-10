@@ -44,7 +44,8 @@ class LocalProvider(LLMInterface):
     def generate_text(self, prompt: str,
                       chat_history: list = [],
                       max_output_tokens: int = None,
-                      temperature: float = None):
+                      temperature: float = None,
+                      response_format: dict = None):
 
         if not self.llm:
             self.logger.error("Local LLM not initialized")

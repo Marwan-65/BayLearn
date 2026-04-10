@@ -8,7 +8,7 @@ import os
 from models import Response_Signal
 import logging
 from services.processing_service import ProcessingService
-
+from src.models.enums.Response import Response_Signal
 logger = logging.getLogger("uvicorn.error")
 data_router = APIRouter(
     prefix="/api/v1",
@@ -37,7 +37,7 @@ async def upload_file(project_id: str, file: UploadFile , app_settings: Settings
         logger.error(f"Error occurred while uploading file: {e}")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"message": Response_Signal.FILE_UPLOAD_FAILED.value}
+            content={"message": Response_Signal.FILE_UPLOAD_FAILURE.value}
         )
     
     return JSONResponse(

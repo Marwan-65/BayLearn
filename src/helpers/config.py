@@ -1,12 +1,13 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
-# define data specs to some validation on it as you will not make it manually 
+
+
 class Settings(BaseSettings):
-    APP_NAME:str
-    APP_VERSION:str
-    FILE_ALLOWED_EXTENSIONS:list
-    FILE_MAX_SIZE:int
-    FILE_CHUNK_SIZE:int
+    APP_NAME: str
+    APP_VERSION: str
+    FILE_ALLOWED_EXTENSIONS: list
+    FILE_MAX_SIZE: int
+    FILE_CHUNK_SIZE: int
 
     # Generation / Embedding backends
     GENERATION_BACKEND: str
@@ -18,9 +19,9 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL_SIZE: Optional[int] = None
 
     # Character / token defaults
-    INPUT_DEFAULT_MAX_CHARACTERS: Optional[int] = None
-    GENERATION_DEFAULT_MAX_TOKENS: Optional[int] = None
-    GENERATION_DEFAULT_TEMPERATURE: Optional[float] = None
+    INPUT_DEFAULT_MAX_CHARACTERS: Optional[int] = 10000
+    GENERATION_DEFAULT_MAX_TOKENS: Optional[int] = 1024
+    GENERATION_DEFAULT_TEMPERATURE: Optional[float] = 0.1
 
     # Vector DB
     VECTOR_DB_BACKEND: Optional[str] = None
@@ -34,15 +35,40 @@ class Settings(BaseSettings):
     COMPRESSION_MIN_CHUNK_LENGTH: Optional[int] = 200
     COMPRESSION_SKIP_SINGLE_CHUNK: Optional[bool] = True
     COMPRESSION_RETRIEVAL_MULTIPLIER: Optional[int] = 2
-    
+
     # Reranker
     RERANKER_ENABLED: Optional[bool] = False
     RERANKER_BACKEND: Optional[str] = "CROSS_ENCODER"
     RERANKER_MODEL_ID: Optional[str] = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     RERANKER_OVER_RETRIEVAL_MULTIPLIER: Optional[int] = 3
-    
-# here we load the .env file to get the environment variables defined in it
+
+    # Multi-Query (RAG-Fusion)
+    MULTI_QUERY_ENABLED: Optional[bool] = True
+    MULTI_QUERY_COUNT: Optional[int] = 3
+
+    # Contextual Retrieval (Anthropic 2024)
+    CONTEXTUAL_RETRIEVAL_ENABLED: Optional[bool] = True
+    CONTEXTUAL_RETRIEVAL_MAX_TOKENS: Optional[int] = 100
+
+    # Teammate Module URLs (for orchestrator proxy)
+    EQUATION_MODULE_URL: Optional[str] = None
+    ANIMATION_MODULE_URL: Optional[str] = None
+
+    # Phase 5: Input Parsing Module URL
+    INPUT_PARSING_MODULE_URL: Optional[str] = None
+
+    # BM25 + RRF Hybrid Retrieval
+    BM25_ENABLED: Optional[bool] = True
+    BM25_BACKEND: Optional[str] = "IN_MEMORY"
+    BM25_INDEX_DIR: Optional[str] = "bm25_db"
+    BM25_K1: Optional[float] = 1.5
+    BM25_B: Optional[float] = 0.75
+    RRF_K: Optional[int] = 60
+    HYBRID_OVER_RETRIEVAL_MULTIPLIER: Optional[int] = 2
+
     class Config:
         env_file = ".env"
+
+
 def get_settings():
     return Settings()

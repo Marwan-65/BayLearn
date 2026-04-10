@@ -43,7 +43,8 @@ class GroqProvider(LLMInterface):
         self.logger.info(f"Groq client initialized with model: {model_id}")
 
     def generate_text(self, prompt: str, chat_history: list = [],
-                      max_output_tokens: int = None, temperature: float = None):
+                      max_output_tokens: int = None, temperature: float = None,
+                      response_format: dict = None):
 
         if not self.groq_client:
             self.logger.error("Groq client not initialized.")
@@ -56,13 +57,17 @@ class GroqProvider(LLMInterface):
             {"role": "user", "content": prompt}
         ]
 
+        kwargs = dict(
+            model=self.generation_model_id,
+            messages=messages,
+            max_tokens=max_output_tokens,
+            temperature=temperature,
+        )
+        if response_format is not None:
+            kwargs["response_format"] = response_format
+
         try:
-            response = self.groq_client.chat.completions.create(
-                model=self.generation_model_id,
-                messages=messages,
-                max_tokens=max_output_tokens,
-                temperature=temperature
-            )
+            response = self.groq_client.chat.completions.create(**kwargs)
             return response.choices[0].message.content
 
         except Exception as e:

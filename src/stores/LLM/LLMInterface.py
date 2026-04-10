@@ -18,7 +18,7 @@ class LLMInterface(ABC):
     @abstractmethod
     # the generate_text method is used to generate a response based on the input prompt, the maximum number of tokens to generate, and an optional temperature parameter that controls the randomness of the generated text.
     # after this function prompt will be sent to construct prompt to be formatted in a way that is suitable for the specific LLM being used and then the formatted prompt will be sent to the generate function of the LLM to generate the response based on the input prompt and the specified parameters.
-    def generate_text(self,prompt:str,chat_history:list=[],max_output_tokens:int=None,temperature:float = None):
+    def generate_text(self,prompt:str,chat_history:list=[],max_output_tokens:int=None,temperature:float = None, response_format:dict=None):
         pass
     @abstractmethod
     # the embed_text method is used to convert text into a vector representation that can be stored in a vector database and used for similarity search and other operations.
