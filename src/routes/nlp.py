@@ -34,13 +34,10 @@ def _build_controller(request: Request) -> NLPController:
 
 
 # ═════════════════════════════════════════════════════════════
-# Phase 1: Intent-First Orchestration
+# Intent-First Orchestration
 # ═════════════════════════════════════════════════════════════
-# OLD FLOW:  question -> RAG answer -> classify intent -> maybe call module
-# NEW FLOW:  question -> classify intent -> route to correct pipeline
-#
+# FLOW:  question -> classify intent -> route to correct pipeline
 # This saves an LLM generation call when user wants equation/animation,
-# and ensures module inputs come from REAL retrieved sources (Phase 2).
 # ═════════════════════════════════════════════════════════════
 
 async def _handle_rag_only(
@@ -200,8 +197,8 @@ async def _handle_animation_from_context(
     confidence: float,
 ) -> dict:
     """
-    Phase 1+2: Retrieve sources, extract animation parameters from
-    REAL sources (not just classifier guesses), return animation spec.
+    Retrieve sources, extract animation parameters from REAL sources, 
+    return animation spec.
     """
     retrieval = controller.retrieve_sources(
         project_id=project_id,
@@ -230,7 +227,7 @@ async def _handle_animation_from_context(
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
 
-    # Phase 2: Extract animation params from REAL sources + classifier hints
+    # Extract animation params from REAL sources + classifier hints
     t0 = time.time()
     animation_spec = controller.extract_animation_params_from_sources(
         filtered_results=filtered_results,
@@ -368,7 +365,7 @@ async def search(
 
 
 # ---------------------------------------------------------
-# COLLECTION INFO
+# COLLECTION INFO : get stats about vector DB collection for a project so when you ask a question we can see the different thresholds and chunks retrieved for that question
 # ---------------------------------------------------------
 @nlp_router.get("/index/info/{project_id}")
 async def get_nlp_index_info(project_id: str, request: Request):
@@ -393,7 +390,7 @@ async def get_nlp_index_info(project_id: str, request: Request):
 
 
 # ---------------------------------------------------------
-# ASK — main RAG endpoint (Phase 1: Intent-First Routing)
+# ASK — main RAG endpoint : Intent-First Routing
 # ---------------------------------------------------------
 @nlp_router.post("/ask/{project_id}")
 @limiter.limit("20/minute")
@@ -414,14 +411,14 @@ async def ask_question(
     question = search_request.text
     limit = search_request.limit
 
-    # Phase 6: Security — enforce input length limit
+    # Security — enforce input length limit
     from helpers.config import get_settings
     settings = get_settings()
     max_chars = getattr(settings, "INPUT_DEFAULT_MAX_CHARACTERS", 10000)
     if len(question) > max_chars:
         question = question[:max_chars]
 
-    # ─── Phase 1: Classify intent FIRST ───────────────────────
+    # ─── Classify intent FIRST ───────────────────────
     intent_router = getattr(request.app, "intent_router", None)
     intent = "rag_only"
     confidence = 0.0
@@ -488,7 +485,6 @@ async def ask_question(
 
 # ---------------------------------------------------------
 # ASK COMPARE — A/B test compression ON vs OFF
-# (Backward-compatible, uses old single-call interface)
 # ---------------------------------------------------------
 @nlp_router.post("/ask/compare/{project_id}")
 @limiter.limit("10/minute")
