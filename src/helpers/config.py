@@ -46,23 +46,25 @@ class Settings(BaseSettings):
     MULTI_QUERY_ENABLED: Optional[bool] = True
     MULTI_QUERY_COUNT: Optional[int] = 3
 
-    # Contextual Retrieval (Anthropic 2024)
+    # Contextual Retrieval (Anthropic 2024) helps model understand chunk better.
     CONTEXTUAL_RETRIEVAL_ENABLED: Optional[bool] = True
     CONTEXTUAL_RETRIEVAL_MAX_TOKENS: Optional[int] = 100
 
-    # Teammate Module URLs (for orchestrator proxy)
+    # Other Modules' URLs (for orchestrator proxy)
     EQUATION_MODULE_URL: Optional[str] = None
     ANIMATION_MODULE_URL: Optional[str] = None
 
-    # Phase 5: Input Parsing Module URL
+    # Input Parsing Module URL
     INPUT_PARSING_MODULE_URL: Optional[str] = None
 
     # BM25 + RRF Hybrid Retrieval
     BM25_ENABLED: Optional[bool] = True
     BM25_BACKEND: Optional[str] = "IN_MEMORY"
     BM25_INDEX_DIR: Optional[str] = "bm25_db"
+    # K1 → term frequency importance , Higher → repeated words matter more
     BM25_K1: Optional[float] = 1.5
     BM25_B: Optional[float] = 0.75
+    # Small k → top ranks dominate , Large k → smoother ranking
     RRF_K: Optional[int] = 60
     HYBRID_OVER_RETRIEVAL_MULTIPLIER: Optional[int] = 2
 

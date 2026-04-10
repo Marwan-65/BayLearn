@@ -227,7 +227,7 @@ search retrieval. Output ONLY the description."""
           - filtered_results, query_vector, query_variants, timings, metadata
           - or {"error": "..."} if nothing found
 
-        The `intent` parameter enables intent-aware retrieval (Phase 3):
+        The `intent` parameter enables intent-aware retrieval:
           - "equation_from_context": skips compression on equation/table chunks
           - "animation_from_context": standard retrieval
           - "rag_only": standard behavior
@@ -479,7 +479,7 @@ search retrieval. Output ONLY the description."""
                 ),
             )
 
-            # Phase 3: Intent-aware compression — protect equation/table
+            # Intent-aware compression — protect equation/table
             # chunks from compression when the user wants to solve math
             chunks_for_compression = []
             protected_indices = set()
@@ -544,7 +544,7 @@ search retrieval. Output ONLY the description."""
         }
 
     # ---------------------------------------------------------
-    # HELPER: Detect math-heavy content in a chunk (Phase 3)
+    # HELPER: Detect math-heavy content in a chunk
     # ---------------------------------------------------------
 
     @staticmethod
@@ -627,7 +627,7 @@ search retrieval. Output ONLY the description."""
 
     # ═════════════════════════════════════════════════════════════
     # EXTRACT — pull equations/algorithms from retrieved sources
-    # Phase 2: Source-grounded extraction
+    # Source-grounded extraction
     # ═════════════════════════════════════════════════════════════
 
     def extract_equation_from_sources(
@@ -692,7 +692,6 @@ search retrieval. Output ONLY the description."""
     ) -> dict:
         """
         Build animation spec from actual retrieved content + classifier hints.
-        Phase 2: Source-grounded, not purely from classifier hallucination.
         """
         data_structure = classifier_params.get("data_structure", "linked_list")
         operation = classifier_params.get("operation")
@@ -701,7 +700,7 @@ search retrieval. Output ONLY the description."""
         all_source_text = "\n\n".join(
             r["payload"].get("text", "") for r in filtered_results[:3]
         )
-
+        ### to be modified after marwan sends the requiremnets for the animation parameters
         extraction_prompt = (
             "From the following study material, extract animation parameters "
             "for the student's request.\n\n"
