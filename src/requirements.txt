@@ -11,3 +11,5 @@ huggingface-hub==0.23.4
 sentence-transformers==5.2.3
 faiss-cpu==1.13.2
 qdrant-client==1.17.0
+rank_bm25==0.2.2
+httpx==0.28.1
