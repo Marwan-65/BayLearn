@@ -1,292 +1,56 @@
-from fastapi import APIRouter, Request, status
-from fastapi.responses import JSONResponse
-from routes.schemes.nlp import pushRequest, searchRequest
-from models import Response_Signal
-from controllers import NLPController
-from controllers.intent_router import IntentRouter
-import httpx
+"""
+NLP router
+==========
+
+Endpoint definitions for the RAG module. All handler logic lives in
+routes/_nlp_handlers.py to keep this file focused on URL patterns and
+HTTP response shaping.
+
+Endpoints:
+  POST /index/push/{project_id}        - build embeddings + BM25 index
+  POST /index/search/{project_id}      - raw dense search (debugging)
+  GET  /index/info/{project_id}        - collection stats
+  POST /ask/{project_id}               - intent-first RAG
+  POST /evaluate/{project_id}          - RAGAS on a batch (single config)
+  POST /evaluate/ablation/{project_id} - ablation study across configs
+
+The old /ask/compare and /evaluate/compare endpoints have been
+replaced by /evaluate/ablation, which accepts an arbitrary list of
+technique-flag combinations so the thesis can measure the contribution
+of EVERY layer (multi_query, hybrid, reranker, compression) rather
+than just compression on/off.
+"""
+
 import logging
 import time
+from typing import List, Optional
 
-from evaluation.ragas_evaluator import RAGASEvaluator
-from evaluation.test_set import TEST_CASES
+from fastapi import APIRouter, Request, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
 from core.limiter import limiter
+from evaluation.ragas_evaluator import RAGASEvaluator
+from models import Response_Signal
+from routes.schemes.nlp import pushRequest, searchRequest
+from routes._nlp_handlers import (
+    _build_controller,
+    _handle_animation_from_context,
+    _handle_equation_from_context,
+    _handle_rag_only,
+    _run_batch,
+    _avg_latency,
+)
 
 logger = logging.getLogger("uvicorn.error")
 
-nlp_router = APIRouter(
-    prefix="/api/v1/nlp",
-)
+nlp_router = APIRouter(prefix="/api/v1/nlp")
 
 
-# ---------------------------------------------------------
-# Helper: build NLPController with all clients
-# ---------------------------------------------------------
-def _build_controller(request: Request) -> NLPController:
-    return NLPController(
-        vectordb_client=request.app.vectordb_client,
-        generation_client=request.app.generation_client,
-        embedding_client=request.app.embedding_client,
-        chunk_repository=request.app.chunk_repository,
-        reranker_client=getattr(request.app, "reranker_client", None),
-        bm25_client=getattr(request.app, "bm25_client", None),
-    )
+# =====================================================================
+# Indexing / search / info
+# =====================================================================
 
-
-# ═════════════════════════════════════════════════════════════
-# Intent-First Orchestration
-# ═════════════════════════════════════════════════════════════
-# FLOW:  question -> classify intent -> route to correct pipeline
-# This saves an LLM generation call when user wants equation/animation,
-# ═════════════════════════════════════════════════════════════
-
-async def _handle_rag_only(
-    controller: NLPController,
-    project_id: str,
-    question: str,
-    limit: int,
-) -> dict:
-    """Standard RAG pipeline: retrieve + generate answer."""
-    retrieval = controller.retrieve_sources(
-        project_id=project_id,
-        question=question,
-        limit=limit,
-        intent="rag_only",
-    )
-
-    if "error" in retrieval:
-        if retrieval["error"] == "no_relevant_sources":
-            return {
-                "intent": "rag_only",
-                "query": question,
-                "answer": (
-                    "I could not find relevant information in the "
-                    "uploaded materials to answer this question."
-                ),
-                "sources": [],
-                "scores": [],
-                "num_sources": 0,
-                **_retrieval_metadata(retrieval),
-            }
-        return {"intent": "rag_only", **retrieval}
-
-    filtered_results = retrieval["filtered_results"]
-    timings = retrieval["timings"]
-
-    answer = controller.generate_answer_from_sources(
-        question=question,
-        filtered_results=filtered_results,
-        timings=timings,
-    )
-
-    timings["total_ms"] = sum(timings.values())
-
-    return {
-        "intent": "rag_only",
-        "query": question,
-        "answer": answer,
-        **_sources_payload(filtered_results, controller),
-        **_retrieval_metadata(retrieval),
-    }
-
-
-async def _handle_equation_from_context(
-    controller: NLPController,
-    project_id: str,
-    question: str,
-    limit: int,
-    extracted_params: dict,
-    confidence: float,
-) -> dict:
-    """
-    Phase 1+2: Retrieve sources with intent-aware compression,
-    extract equation from REAL sources, call equation module.
-    Also generates a RAG explanation alongside the equation solution.
-    """
-    from helpers.config import get_settings
-    settings = get_settings()
-
-    retrieval = controller.retrieve_sources(
-        project_id=project_id,
-        question=question,
-        limit=limit,
-        intent="equation_from_context",
-    )
-
-    if "error" in retrieval:
-        if retrieval["error"] == "no_relevant_sources":
-            return {
-                "intent": "equation_from_context",
-                "query": question,
-                "answer": (
-                    "I could not find relevant equations in the "
-                    "uploaded materials for this question."
-                ),
-                "equation_result": None,
-                "sources": [],
-                "scores": [],
-                "num_sources": 0,
-                **_retrieval_metadata(retrieval),
-            }
-        return {"intent": "equation_from_context", **retrieval}
-
-    filtered_results = retrieval["filtered_results"]
-    timings = retrieval["timings"]
-
-    # Phase 2: Extract equation from REAL retrieved sources
-    t0 = time.time()
-    equation_text = controller.extract_equation_from_sources(
-        filtered_results=filtered_results,
-        question=question,
-    )
-    timings["equation_extraction_ms"] = round((time.time() - t0) * 1000)
-
-    # Call equation module
-    equation_result = None
-    base_url = getattr(settings, "EQUATION_MODULE_URL", None)
-    if base_url:
-        t0 = time.time()
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                resp = await client.post(
-                    f"{base_url.rstrip('/')}/run",
-                    json={"query": equation_text},
-                )
-                if resp.status_code == 200:
-                    equation_result = resp.json()
-                else:
-                    logger.warning(
-                        f"Equation module returned {resp.status_code}: "
-                        f"{resp.text[:200]}"
-                    )
-        except httpx.ConnectError:
-            logger.warning(f"Equation module not running at {base_url}")
-        except Exception as e:
-            logger.warning(f"Equation module call failed: {e}")
-        timings["equation_module_ms"] = round((time.time() - t0) * 1000)
-    else:
-        logger.warning("EQUATION_MODULE_URL not configured")
-
-    # Also generate a RAG explanation for context
-    answer = controller.generate_answer_from_sources(
-        question=question,
-        filtered_results=filtered_results,
-        timings=timings,
-    )
-
-    timings["total_ms"] = sum(timings.values())
-
-    return {
-        "intent": "equation_from_context",
-        "intent_confidence": confidence,
-        "query": question,
-        "answer": answer,
-        "equation_text_sent": equation_text,
-        "equation_result": equation_result,
-        **_sources_payload(filtered_results, controller),
-        **_retrieval_metadata(retrieval),
-    }
-
-
-async def _handle_animation_from_context(
-    controller: NLPController,
-    project_id: str,
-    question: str,
-    limit: int,
-    extracted_params: dict,
-    confidence: float,
-) -> dict:
-    """
-    Retrieve sources, extract animation parameters from REAL sources, 
-    return animation spec.
-    """
-    retrieval = controller.retrieve_sources(
-        project_id=project_id,
-        question=question,
-        limit=limit,
-        intent="animation_from_context",
-    )
-
-    if "error" in retrieval:
-        if retrieval["error"] == "no_relevant_sources":
-            return {
-                "intent": "animation_from_context",
-                "query": question,
-                "answer": (
-                    "I could not find relevant content in the "
-                    "uploaded materials to build an animation."
-                ),
-                "animation_spec": None,
-                "sources": [],
-                "scores": [],
-                "num_sources": 0,
-                **_retrieval_metadata(retrieval),
-            }
-        return {"intent": "animation_from_context", **retrieval}
-
-    filtered_results = retrieval["filtered_results"]
-    timings = retrieval["timings"]
-
-    # Extract animation params from REAL sources + classifier hints
-    t0 = time.time()
-    animation_spec = controller.extract_animation_params_from_sources(
-        filtered_results=filtered_results,
-        question=question,
-        classifier_params=extracted_params,
-    )
-    timings["animation_extraction_ms"] = round((time.time() - t0) * 1000)
-
-    # Generate a brief RAG explanation alongside the animation
-    answer = controller.generate_answer_from_sources(
-        question=question,
-        filtered_results=filtered_results,
-        timings=timings,
-    )
-
-    timings["total_ms"] = sum(timings.values())
-
-    return {
-        "intent": "animation_from_context",
-        "intent_confidence": confidence,
-        "query": question,
-        "answer": answer,
-        "animation_spec": animation_spec,
-        **_sources_payload(filtered_results, controller),
-        **_retrieval_metadata(retrieval),
-    }
-
-
-def _sources_payload(filtered_results: list, controller: NLPController) -> dict:
-    """Build the sources portion of the response."""
-    return {
-        "sources": [r["payload"].get("text", "") for r in filtered_results],
-        "scores": [r["score"] for r in filtered_results],
-        "rerank_scores": (
-            [r.get("rerank_score") for r in filtered_results]
-            if controller.reranker_client is not None else []
-        ),
-        "num_sources": len(filtered_results),
-    }
-
-
-def _retrieval_metadata(retrieval: dict) -> dict:
-    """Extract common retrieval metadata for the response."""
-    return {
-        "multi_query_used": retrieval.get("multi_query_used", False),
-        "query_variants": retrieval.get("query_variants", []),
-        "reranker_used": retrieval.get("reranker_used", False),
-        "hybrid_used": retrieval.get("hybrid_used", False),
-        "bm25_count": retrieval.get("bm25_count", 0),
-        "fusion_sources": retrieval.get("fuse_labels", []),
-        "compression_used": retrieval.get("compression_used", False),
-        "compression_ratios": retrieval.get("compression_ratios", []),
-        "timings": retrieval.get("timings", {}),
-    }
-
-
-# ---------------------------------------------------------
-# INDEX PROJECT
-# ---------------------------------------------------------
 @nlp_router.post("/index/push/{project_id}")
 async def index_project(
     project_id: str,
@@ -294,7 +58,6 @@ async def index_project(
     push_request: pushRequest,
 ):
     controller = _build_controller(request)
-
     project = await controller.validate_project(project_id)
     if not project:
         return JSONResponse(
@@ -302,12 +65,11 @@ async def index_project(
             content={"signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value},
         )
 
-    inserted_items_count = await controller.index_project(
+    inserted = await controller.index_project(
         project_id=project_id,
         do_reset=push_request.do_reset,
     )
-
-    if inserted_items_count == 0:
+    if inserted == 0:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"signal": Response_Signal.INSERT_INTO_VECTORDB_ERROR.value},
@@ -317,14 +79,11 @@ async def index_project(
         status_code=status.HTTP_200_OK,
         content={
             "signal": Response_Signal.INSERT_INTO_VECTORDB_SUCCESS.value,
-            "inserted_items_count": inserted_items_count,
+            "inserted_items_count": inserted,
         },
     )
 
 
-# ---------------------------------------------------------
-# SEARCH PROJECT
-# ---------------------------------------------------------
 @nlp_router.post("/index/search/{project_id}")
 async def search(
     project_id: str,
@@ -332,7 +91,6 @@ async def search(
     search_request: searchRequest,
 ):
     controller = _build_controller(request)
-
     project = await controller.validate_project(project_id)
     if not project:
         return JSONResponse(
@@ -345,7 +103,6 @@ async def search(
         query=search_request.text,
         limit=search_request.limit,
     )
-
     if not top_results:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -354,7 +111,6 @@ async def search(
                 "top_results": [],
             },
         )
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
@@ -364,34 +120,30 @@ async def search(
     )
 
 
-# ---------------------------------------------------------
-# COLLECTION INFO : get stats about vector DB collection for a project so when you ask a question we can see the different thresholds and chunks retrieved for that question
-# ---------------------------------------------------------
 @nlp_router.get("/index/info/{project_id}")
 async def get_nlp_index_info(project_id: str, request: Request):
     controller = _build_controller(request)
-
     project = await controller.validate_project(project_id)
     if not project:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value},
         )
-
-    collection_info = controller.get_vector_db_collection_info(project_id=project_id)
-
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "signal": Response_Signal.GET_VECTORDB_COLLECTION_INFO_SUCCESS.value,
-            "collection_info": collection_info,
+            "collection_info": controller.get_vector_db_collection_info(
+                project_id=project_id
+            ),
         },
     )
 
 
-# ---------------------------------------------------------
-# ASK — main RAG endpoint : Intent-First Routing
-# ---------------------------------------------------------
+# =====================================================================
+# /ask — main RAG endpoint (intent-first routing)
+# =====================================================================
+
 @nlp_router.post("/ask/{project_id}")
 @limiter.limit("20/minute")
 async def ask_question(
@@ -399,6 +151,7 @@ async def ask_question(
     request: Request,
     search_request: searchRequest,
 ):
+    endpoint_t0 = time.time()
     controller = _build_controller(request)
 
     project = await controller.validate_project(project_id)
@@ -408,25 +161,21 @@ async def ask_question(
             content={"signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value},
         )
 
+    # Length enforcement is in pydantic (searchRequest.max_length=5000).
     question = search_request.text
     limit = search_request.limit
 
-    # Security — enforce input length limit
-    from helpers.config import get_settings
-    settings = get_settings()
-    max_chars = getattr(settings, "INPUT_DEFAULT_MAX_CHARACTERS", 10000)
-    if len(question) > max_chars:
-        question = question[:max_chars]
-
-    # ─── Classify intent FIRST ───────────────────────
+    # ── Classify intent FIRST ──
     intent_router = getattr(request.app, "intent_router", None)
     intent = "rag_only"
     confidence = 0.0
     extracted_params = {}
+    intent_ms = 0
 
     if intent_router:
-        t0 = time.time()
+        t_intent = time.time()
         classification = intent_router.classify(question)
+        intent_ms = round((time.time() - t_intent) * 1000)
         intent = classification["intent"]
         confidence = classification["confidence"]
         extracted_params = classification.get("extracted_params", {})
@@ -435,44 +184,37 @@ async def ask_question(
             f"for question: {question[:80]}..."
         )
 
-    # ─── Route to correct pipeline based on intent ────────────
+    # ── Route based on intent ──
     if intent == "equation_from_context":
         response = await _handle_equation_from_context(
-            controller=controller,
-            project_id=project_id,
-            question=question,
-            limit=limit,
-            extracted_params=extracted_params,
-            confidence=confidence,
+            controller, project_id, question, limit, extracted_params, confidence
         )
     elif intent == "animation_from_context":
         response = await _handle_animation_from_context(
-            controller=controller,
-            project_id=project_id,
-            question=question,
-            limit=limit,
-            extracted_params=extracted_params,
-            confidence=confidence,
+            controller, project_id, question, limit, extracted_params, confidence
         )
     else:
         response = await _handle_rag_only(
-            controller=controller,
-            project_id=project_id,
-            question=question,
-            limit=limit,
+            controller, project_id, question, limit
         )
+        response["intent"] = "rag_only"
 
     if not response:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"signal": Response_Signal.AUGMENTED_ANSWER_FAILURE.value},
         )
-
     if "error" in response and response["error"] != "no_relevant_sources":
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"signal": response["error"]},
         )
+
+    response.setdefault("timings", {})
+    response["timings"]["intent_classification_ms"] = intent_ms
+    response["timings"]["endpoint_total_ms"] = round(
+        (time.time() - endpoint_t0) * 1000
+    )
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -483,151 +225,65 @@ async def ask_question(
     )
 
 
-# ---------------------------------------------------------
-# ASK COMPARE — A/B test compression ON vs OFF
-# ---------------------------------------------------------
-@nlp_router.post("/ask/compare/{project_id}")
-@limiter.limit("10/minute")
-async def ask_compare(
-    project_id: str,
-    request: Request,
-    search_request: searchRequest,
-):
-    controller = _build_controller(request)
+# =====================================================================
+# /evaluate — single-config RAGAS run
+# =====================================================================
 
-    project = await controller.validate_project(project_id)
-    if not project:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value},
-        )
-
-    # Run WITHOUT compression
-    t0 = time.time()
-    response_without = controller.generate_augmented_answer(
-        project_id=project_id,
-        question=search_request.text,
-        limit=search_request.limit,
-        enable_compression=False,
-    )
-    latency_without = round(time.time() - t0, 3)
-
-    # Run WITH compression
-    t0 = time.time()
-    response_with = controller.generate_augmented_answer(
-        project_id=project_id,
-        question=search_request.text,
-        limit=search_request.limit,
-        enable_compression=True,
-    )
-    latency_with = round(time.time() - t0, 3)
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={
-            "signal": "A/B comparison completed",
-            "question": search_request.text,
-            "without_compression": {
-                "answer": response_without.get("answer", ""),
-                "sources": response_without.get("sources", []),
-                "scores": response_without.get("scores", []),
-                "rerank_scores": response_without.get("rerank_scores", []),
-                "num_sources": response_without.get("num_sources", 0),
-                "timings": response_without.get("timings", {}),
-                "latency_seconds": latency_without,
-            },
-            "with_compression": {
-                "answer": response_with.get("answer", ""),
-                "sources": response_with.get("sources", []),
-                "scores": response_with.get("scores", []),
-                "rerank_scores": response_with.get("rerank_scores", []),
-                "num_sources": response_with.get("num_sources", 0),
-                "compression_ratios": response_with.get("compression_ratios", []),
-                "timings": response_with.get("timings", {}),
-                "latency_seconds": latency_with,
-            },
-        },
-    )
-
-
-# ---------------------------------------------------------
-# EVALUATE — run RAGAS on a batch of test cases
-# ---------------------------------------------------------
 @nlp_router.post("/evaluate/{project_id}")
 async def evaluate_rag(
     project_id: str,
     request: Request,
     batch_start: int = 0,
     batch_size: int = 5,
-    enable_compression: bool = None,
+    enable_multi_query: Optional[bool] = None,
+    enable_hybrid: Optional[bool] = None,
+    enable_reranker: Optional[bool] = None,
+    enable_compression: Optional[bool] = None,
     dataset: str = "cv",
-    levels: str = None,
+    levels: Optional[str] = None,
 ):
-    controller = _build_controller(request)
+    """
+    Run RAGAS on a batch of test cases with a single technique config.
 
+    Each enable_* query param accepts true/false/omitted:
+      - true  = force the technique on
+      - false = force it off
+      - omit  = use config default
+    """
+    controller = _build_controller(request)
     from evaluation.test_set import get_test_cases
 
     level_filter = None
     if levels:
-        level_filter = [int(l.strip()) for l in levels.split(",")]
+        level_filter = [int(x.strip()) for x in levels.split(",")]
 
     all_cases = get_test_cases(dataset=dataset, levels=level_filter)
     cases_to_evaluate = (
-        all_cases[batch_start : batch_start + batch_size]
-        if batch_size > 0
-        else all_cases
+        all_cases[batch_start: batch_start + batch_size]
+        if batch_size > 0 else all_cases
     )
 
-    test_cases = []
-    test_details = []
-
-    for case in cases_to_evaluate:
-        rag_response = controller.generate_augmented_answer(
-            project_id=project_id,
-            question=case["question"],
-            limit=5,
-            enable_compression=enable_compression,
-        )
-        logger.info(f"Question: {case['question']}")
-        logger.info(f"Full RAG response: {rag_response}")
-
-        sources = rag_response.get("sources", [])
-        if isinstance(sources, str):
-            sources = [sources]
-        elif not isinstance(sources, list):
-            sources = []
-
-        test_cases.append({
-            "question": case["question"],
-            "answer": rag_response.get("answer", ""),
-            "contexts": sources,
-            "ground_truth": case["ground_truth"],
-        })
-
-        test_details.append({
-            "question": case["question"],
-            "level": case.get("level"),
-            "answer": rag_response.get("answer", "")[:200],
-            "num_contexts": len(sources),
-            "timings": rag_response.get("timings", {}),
-            "rerank_scores": rag_response.get("rerank_scores", []),
-            "compression_ratios": rag_response.get("compression_ratios", []),
-        })
+    test_cases, test_details = _run_batch(
+        controller=controller,
+        project_id=project_id,
+        cases=cases_to_evaluate,
+        enable_multi_query=enable_multi_query,
+        enable_hybrid=enable_hybrid,
+        enable_reranker=enable_reranker,
+        enable_compression=enable_compression,
+    )
 
     evaluator = RAGASEvaluator(
         groq_api_key=request.app.generation_client.api_key
     )
     scores = await evaluator.evaluate(test_cases)
+    avg_latency = _avg_latency(test_details)
 
-    all_timings = [d["timings"] for d in test_details if d["timings"]]
-    avg_latency = {}
-    if all_timings:
-        for key in all_timings[0]:
-            avg_latency[key] = round(
-                sum(t.get(key, 0) for t in all_timings) / len(all_timings)
-            )
-
-    label = f"eval_{dataset}_compression={'on' if enable_compression else 'off'}"
+    label = (
+        f"eval_{dataset}"
+        f"_mq={enable_multi_query}_hy={enable_hybrid}"
+        f"_rr={enable_reranker}_cp={enable_compression}"
+    )
     evaluator.save_results(scores, test_details=test_details, label=label)
 
     return JSONResponse(
@@ -637,95 +293,112 @@ async def evaluate_rag(
             "scores": scores,
             "avg_latency_ms": avg_latency,
             "num_test_cases": len(test_cases),
-            "compression_enabled": enable_compression,
+            "flags": {
+                "multi_query": enable_multi_query,
+                "hybrid": enable_hybrid,
+                "reranker": enable_reranker,
+                "compression": enable_compression,
+            },
             "dataset": dataset,
             "test_details": test_details,
         },
     )
 
 
-# ---------------------------------------------------------
-# EVALUATE COMPARE — A/B RAGAS scores compression ON vs OFF
-# ---------------------------------------------------------
-@nlp_router.post("/evaluate/compare/{project_id}")
-async def evaluate_compare(
+# =====================================================================
+# /evaluate/ablation — multi-run ablation study (thesis-grade)
+# =====================================================================
+
+class AblationRun(BaseModel):
+    """One row in the ablation study."""
+    name: str = Field(..., description="Human-readable label for this run")
+    enable_multi_query: Optional[bool] = None
+    enable_hybrid: Optional[bool] = None
+    enable_reranker: Optional[bool] = None
+    enable_compression: Optional[bool] = None
+
+
+class AblationRequest(BaseModel):
+    runs: List[AblationRun] = Field(
+        ...,
+        description=(
+            "List of technique combinations to evaluate. Each run is "
+            "executed on the same batch of test cases and compared."
+        ),
+    )
+    batch_start: int = 0
+    batch_size: int = 5
+    dataset: str = "cv"
+    levels: Optional[str] = None
+
+
+@nlp_router.post("/evaluate/ablation/{project_id}")
+async def evaluate_ablation(
     project_id: str,
     request: Request,
-    batch_start: int = 0,
-    batch_size: int = 5,
-    dataset: str = "cv",
-    levels: str = None,
+    body: AblationRequest,
 ):
-    controller = _build_controller(request)
+    """
+    Run an ablation study: the same batch of test cases is evaluated under
+    multiple technique combinations, then RAGAS is computed for each run
+    so you can compare them side by side.
 
+    Example body:
+        {
+          "runs": [
+            {"name": "baseline",     "enable_multi_query": false, "enable_hybrid": false, "enable_reranker": false, "enable_compression": false},
+            {"name": "+multi_query", "enable_multi_query": true,  "enable_hybrid": false, "enable_reranker": false, "enable_compression": false},
+            {"name": "+hybrid",      "enable_multi_query": true,  "enable_hybrid": true,  "enable_reranker": false, "enable_compression": false},
+            {"name": "+reranker",    "enable_multi_query": true,  "enable_hybrid": true,  "enable_reranker": true,  "enable_compression": false},
+            {"name": "+compression", "enable_multi_query": true,  "enable_hybrid": true,  "enable_reranker": true,  "enable_compression": true}
+          ],
+          "batch_size": 20,
+          "dataset": "cv"
+        }
+
+    Replaces the old /ask/compare and /evaluate/compare (compression-only)
+    endpoints with a general technique-ablation harness.
+    """
+    controller = _build_controller(request)
     from evaluation.test_set import get_test_cases
 
     level_filter = None
-    if levels:
-        level_filter = [int(l.strip()) for l in levels.split(",")]
+    if body.levels:
+        level_filter = [int(x.strip()) for x in body.levels.split(",")]
 
-    all_cases = get_test_cases(dataset=dataset, levels=level_filter)
+    all_cases = get_test_cases(dataset=body.dataset, levels=level_filter)
     cases_to_evaluate = (
-        all_cases[batch_start : batch_start + batch_size]
-        if batch_size > 0
-        else all_cases
+        all_cases[body.batch_start: body.batch_start + body.batch_size]
+        if body.batch_size > 0 else all_cases
     )
 
     results = {}
-    for mode, compression_flag in [
-        ("without_compression", False),
-        ("with_compression", True),
-    ]:
-        test_cases = []
-        test_details = []
-
-        for case in cases_to_evaluate:
-            rag_response = controller.generate_augmented_answer(
-                project_id=project_id,
-                question=case["question"],
-                limit=5,
-                enable_compression=compression_flag,
-            )
-
-            sources = rag_response.get("sources", [])
-            if isinstance(sources, str):
-                sources = [sources]
-            elif not isinstance(sources, list):
-                sources = []
-
-            test_cases.append({
-                "question": case["question"],
-                "answer": rag_response.get("answer", ""),
-                "contexts": sources,
-                "ground_truth": case["ground_truth"],
-            })
-            test_details.append({
-                "question": case["question"],
-                "level": case.get("level"),
-                "answer": rag_response.get("answer", "")[:200],
-                "num_contexts": len(sources),
-                "timings": rag_response.get("timings", {}),
-                "rerank_scores": rag_response.get("rerank_scores", []),
-                "compression_ratios": rag_response.get("compression_ratios", []),
-            })
-
+    for run in body.runs:
+        test_cases, test_details = _run_batch(
+            controller=controller,
+            project_id=project_id,
+            cases=cases_to_evaluate,
+            enable_multi_query=run.enable_multi_query,
+            enable_hybrid=run.enable_hybrid,
+            enable_reranker=run.enable_reranker,
+            enable_compression=run.enable_compression,
+        )
         evaluator = RAGASEvaluator(
             groq_api_key=request.app.generation_client.api_key
         )
         scores = await evaluator.evaluate(test_cases)
+        avg_latency = _avg_latency(test_details)
 
-        all_timings = [d["timings"] for d in test_details if d["timings"]]
-        avg_latency = {}
-        if all_timings:
-            for key in all_timings[0]:
-                avg_latency[key] = round(
-                    sum(t.get(key, 0) for t in all_timings) / len(all_timings)
-                )
-
-        label = f"compare_{dataset}_{mode}"
+        label = f"ablation_{body.dataset}_{run.name.replace(' ', '_')}"
         evaluator.save_results(scores, test_details=test_details, label=label)
 
-        results[mode] = {
+        results[run.name] = {
+            "flags": {
+                "multi_query": run.enable_multi_query,
+                "hybrid": run.enable_hybrid,
+                "reranker": run.enable_reranker,
+                "compression": run.enable_compression,
+            },
             "scores": scores,
             "avg_latency_ms": avg_latency,
             "test_details": test_details,
@@ -734,9 +407,10 @@ async def evaluate_compare(
     return JSONResponse(
         status_code=200,
         content={
-            "signal": "A/B evaluation comparison completed",
-            "dataset": dataset,
+            "signal": "Ablation study completed",
+            "dataset": body.dataset,
             "num_test_cases": len(cases_to_evaluate),
-            **results,
+            "num_runs": len(body.runs),
+            "results": results,
         },
     )

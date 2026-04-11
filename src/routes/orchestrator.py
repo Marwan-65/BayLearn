@@ -1,9 +1,9 @@
 """
-Orchestrator routes — proxy endpoints for teammate modules.
+Orchestrator routes — proxy endpoints for other modules.
 
-Phase 4: Rate-limited, validated proxy with health checks.
+Rate-limited, validated proxy with health checks.
 
-Each teammate module exposes POST /init and POST /run.
+Each module exposes POST /init and POST /run.
 These routes forward requests to the correct module and return the response.
 
 The module URLs are configured via environment variables:
@@ -33,12 +33,12 @@ orchestrator_router = APIRouter(
 # Timeout for proxied requests (seconds)
 PROXY_TIMEOUT = 30.0
 
-# Phase 6: Maximum payload size for proxied requests (bytes)
+# Maximum payload size for proxied requests (bytes)
 MAX_PROXY_PAYLOAD_SIZE = 50_000  # 50KB
 
 
 async def _proxy_post(base_url: str, path: str, payload: dict) -> dict:
-    """Forward a POST request to a teammate module and return its JSON response."""
+    """Forward a POST request to another module and return its JSON response."""
     url = f"{base_url.rstrip('/')}{path}"
     async with httpx.AsyncClient(timeout=PROXY_TIMEOUT) as client:
         response = await client.post(url, json=payload)
@@ -80,13 +80,13 @@ def _handle_proxy_error(module_name: str, base_url: str, error: Exception):
 
 # ---------------------------------------------------------
 # HEALTH CHECKS — frontend needs to know which modules are up
-# Phase 4: Check module availability without calling /run
+# Check module availability without calling /run
 # ---------------------------------------------------------
 
 @orchestrator_router.get("/modules/health")
 async def modules_health(request: Request):
     """
-    Check which teammate modules are reachable.
+    Check which other modules are reachable.
     Returns a dict of module_name -> {available: bool, url: str, status: str}.
     Frontend uses this to show/hide module tabs.
     """
@@ -135,7 +135,7 @@ async def modules_health(request: Request):
 
 # ---------------------------------------------------------
 # EQUATION MODULE
-# Phase 4: Rate limited + validated input
+# Rate limited + validated input
 # ---------------------------------------------------------
 
 @orchestrator_router.post("/equation/init")
@@ -161,7 +161,7 @@ async def equation_init(request: Request, init_request: ModuleInitRequest):
 async def equation_run(request: Request, run_request: EquationRunRequest):
     """
     Forward a solve request to the equation module.
-    Phase 4: Uses typed EquationRunRequest for validation.
+    Uses typed EquationRunRequest for validation.
     Equation module expects: {"query": "..."}
     """
     settings = get_settings()
@@ -182,7 +182,7 @@ async def equation_run(request: Request, run_request: EquationRunRequest):
 
 # ---------------------------------------------------------
 # ANIMATION MODULE
-# Phase 4: Rate limited + validated input
+# Rate limited + validated input
 # ---------------------------------------------------------
 
 @orchestrator_router.post("/animation/init")

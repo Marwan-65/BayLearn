@@ -1,11 +1,11 @@
 """
-Phase 5: Input Parsing Integration Adapter
+Input Parsing Integration Adapter
+
+Design Pattern: The Adapter design pattern is a structural pattern that acts as a bridge between two 
+incompatible interfaces, allowing them to work together without modifying existing code.
 
 This adapter allows the RAG module to consume the Input Parsing Module's
 output via HTTP, converting ParsedContent responses into RAG-ready chunks.
-
-The Input Parsing Module runs as a separate service (teammate's code).
-We do NOT modify it — we only call its API and convert its response.
 
 Input Parsing Module API:
     POST /upload (multipart/form-data, field="file")
@@ -31,8 +31,7 @@ PARSING_TIMEOUT = 120.0
 
 class InputParsingAdapter:
     """
-    Adapter between the Input Parsing Module (teammate's FastAPI service)
-    and the RAG pipeline's chunk storage.
+    Adapter between the Input Parsing Module and the RAG pipeline's chunk storage.
 
     Uses the Adapter Pattern — translates between:
         Input Parsing Module's ParsedContent format
@@ -154,7 +153,7 @@ class InputParsingAdapter:
                             "metadata": {
                                 "page": 1,
                                 "section_heading": "Page 1",
-                                "chunk_type": "text" | "image" | "table"
+                                "chunk_type": "text" | "image" | "table" | "equation"
                             }
                         }
                     ]

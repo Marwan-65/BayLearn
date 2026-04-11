@@ -13,7 +13,7 @@ class ModuleRunRequest(BaseModel):
 
 
 # ═════════════════════════════════════════════════════════════
-# Phase 4: Typed request schemas matching teammate module APIs
+# Typed request schemas matching other module APIs
 # ═════════════════════════════════════════════════════════════
 
 class EquationRunRequest(BaseModel):
@@ -31,14 +31,14 @@ class EquationRunRequest(BaseModel):
     @field_validator("query")
     @classmethod
     def sanitize_query(cls, v: str) -> str:
-        """Phase 6: Basic sanitization — strip control characters."""
+        """Basic sanitization — strip control characters."""
         return v.strip()
 
 
 class AnimationRunRequest(BaseModel):
     """
     Animation module request schema.
-    Will be refined once the animation teammate provides their API contract.
+    ?????? Will be refined once the animation teammate provides their API contract.
     """
     data_structure: str = Field(
         default="linked_list",
@@ -72,7 +72,7 @@ class AnimationRunRequest(BaseModel):
 
 
 # ═════════════════════════════════════════════════════════════
-# Phase 5: Input parsing proxy schema
+# Input parsing proxy schema
 # ═════════════════════════════════════════════════════════════
 
 class InputParsingResponse(BaseModel):
