@@ -1,8 +1,8 @@
 """
-Phase 5: Input Parsing Routes
+Input Parsing Routes
 
 Provides endpoints for uploading files through the RAG module,
-which proxies them to the Input Parsing Module (teammate's service)
+which proxies them to the Input Parsing Module 
 and stores the resulting chunks in the RAG pipeline.
 
 This gives the frontend a SINGLE upload endpoint that handles:
@@ -26,8 +26,8 @@ input_parsing_router = APIRouter(
     prefix="/api/v1/parse",
 )
 
-# Phase 6: Max file size for uploads (10 MB)
-MAX_FILE_SIZE = 10 * 1024 * 1024
+# Max file size for uploads (10 MB) 
+MAX_FILE_SIZE = 10 * 1024 * 1024 
 
 
 @input_parsing_router.post("/upload/{project_id}")
@@ -56,7 +56,7 @@ async def parse_and_store(
     """
     settings = get_settings()
 
-    # Phase 6: Validate file
+    # Validate file
     if not file.filename:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -149,6 +149,7 @@ async def parse_and_store(
                 chunk_repository=request.app.chunk_repository,
                 reranker_client=getattr(request.app, "reranker_client", None),
                 bm25_client=getattr(request.app, "bm25_client", None),
+                contextual_cache=getattr(request.app, "contextual_cache", None),
             )
             indexed_count = await controller.index_project(
                 project_id=project_id,

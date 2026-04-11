@@ -11,7 +11,7 @@ from helpers.config import get_settings
 from stores.LLM.LLMProviderFactory import LLMProviderFactory
 from stores.LLM.LLMEnums import LLMEnum, LLMBackendEnum
 from stores.vectordb.VectorDBProviderFactory import VectorDBProviderFactory
-from routes import base, data, nlp, orchestrator
+from routes import base, nlp, orchestrator
 from routes.input_parsing import input_parsing_router
 
 # CORS middleware (allow frontend to call API)
@@ -43,7 +43,7 @@ async def startup_span():
 
     # ── Persistent chunk repository (survives restarts) ──────────────
     app.chunk_repository = JsonChunkRepository(
-        storage_path="chunks_storage.json"
+        storage_path="chunk_staging_buffer.json"
     )
 
     # ── LLM Factory ──────────────────────────────────────────────────
@@ -109,6 +109,14 @@ async def startup_span():
         module_url=getattr(settings, "INPUT_PARSING_MODULE_URL", None),
     )
 
+    # ── Contextual Retrieval Description Cache ───────────────
+    # Persists LLM-generated contextual descriptions across runs so
+    # re-indexing a project doesn't re-pay the ~400 LLM calls per PDF.
+    from services.contextual_cache import ContextualDescriptionCache
+    app.contextual_cache = ContextualDescriptionCache(
+        storage_path="contextual_cache.json"
+    )
+
 
 @app.on_event("shutdown")
 async def shutdown_span():
@@ -116,7 +124,6 @@ async def shutdown_span():
 
 
 app.include_router(base.base_router)
-app.include_router(data.data_router)
 app.include_router(nlp.nlp_router)
 app.include_router(orchestrator.orchestrator_router)
 app.include_router(input_parsing_router)
