@@ -26,8 +26,42 @@ input_parsing_router = APIRouter(
     prefix="/api/v1/parse",
 )
 
-# Max file size for uploads (10 MB) 
-MAX_FILE_SIZE = 10 * 1024 * 1024 
+# Extension → category mapping for per-type size limits.
+# Categories map to the UPLOAD_MAX_MB_* settings in helpers/config.py.
+_EXT_CATEGORY = {
+    # PDFs
+    "pdf": "pdf",
+    # Images
+    "png": "image", "jpg": "image", "jpeg": "image",
+    "gif": "image", "webp": "image", "bmp": "image", "tiff": "image",
+    # Audio
+    "mp3": "audio", "wav": "audio", "m4a": "audio",
+    "flac": "audio", "ogg": "audio", "aac": "audio",
+    # Video
+    "mp4": "video", "webm": "video", "mov": "video",
+    "mkv": "video", "avi": "video",
+}
+
+
+def _resolve_max_bytes(filename: str, settings) -> tuple[int, str]:
+    """
+    Determine the max upload size (in bytes) for the given filename based
+    on its extension. Falls back to UPLOAD_MAX_MB_DEFAULT for unknown types.
+
+    Returns (max_bytes, category_label).
+    """
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    category = _EXT_CATEGORY.get(ext, "default")
+
+    mb_by_category = {
+        "pdf": settings.UPLOAD_MAX_MB_PDF,
+        "image": settings.UPLOAD_MAX_MB_IMAGE,
+        "audio": settings.UPLOAD_MAX_MB_AUDIO,
+        "video": settings.UPLOAD_MAX_MB_VIDEO,
+        "default": settings.UPLOAD_MAX_MB_DEFAULT,
+    }
+    max_mb = mb_by_category.get(category) or settings.UPLOAD_MAX_MB_DEFAULT or 25
+    return max_mb * 1024 * 1024, category
 
 
 @input_parsing_router.post("/upload/{project_id}")
@@ -63,13 +97,17 @@ async def parse_and_store(
             content={"signal": "No file provided"},
         )
 
-    # Read file content with size limit
+    # Resolve per-type size limit from extension, then read with that cap.
+    max_bytes, category = _resolve_max_bytes(file.filename, settings)
     file_content = await file.read()
-    if len(file_content) > MAX_FILE_SIZE:
+    if len(file_content) > max_bytes:
         return JSONResponse(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             content={
-                "signal": f"File too large. Max size: {MAX_FILE_SIZE // (1024*1024)} MB"
+                "signal": (
+                    f"File too large for type '{category}'. "
+                    f"Max size: {max_bytes // (1024*1024)} MB"
+                )
             },
         )
 

@@ -22,6 +22,7 @@ import httpx
 import logging
 from typing import Optional
 from models.chunk import Chunk as RAGChunk
+from routes.schemes.orchestrator import InputParsingResponse
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,12 @@ class InputParsingAdapter:
                 files = {"file": (filename, file_content)}
                 resp = await client.post(url, files=files)
                 resp.raise_for_status()
-                return resp.json()
+                # Validate the response shape against our contract.
+                # Defensive: if the parsing module drifts, we fail fast here
+                # rather than deep inside _convert_to_rag_chunks.
+                return InputParsingResponse.model_validate(
+                    resp.json()
+                ).model_dump()
         except httpx.ConnectError:
             logger.error(
                 f"Input parsing module not running at {self.module_url}"
