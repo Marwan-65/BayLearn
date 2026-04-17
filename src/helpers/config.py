@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     # Input Parsing Module URL
     INPUT_PARSING_MODULE_URL: Optional[str] = None
 
+    # Per-type upload size limits (MB). Applied in routes/input_parsing.py
+    # based on the uploaded file's extension.
+    UPLOAD_MAX_MB_PDF: Optional[int] = 50
+    UPLOAD_MAX_MB_IMAGE: Optional[int] = 20
+    UPLOAD_MAX_MB_AUDIO: Optional[int] = 200
+    UPLOAD_MAX_MB_VIDEO: Optional[int] = 1024  # 1 GB
+    UPLOAD_MAX_MB_DEFAULT: Optional[int] = 25
+
     # BM25 + RRF Hybrid Retrieval
     BM25_ENABLED: Optional[bool] = True
     BM25_BACKEND: Optional[str] = "IN_MEMORY"
