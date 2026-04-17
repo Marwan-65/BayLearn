@@ -1,3 +1,5 @@
+"""BayLearn Streamlit UI application."""
+
 import re
 from datetime import datetime
 
@@ -10,7 +12,7 @@ from sympy.parsing.sympy_parser import (
     standard_transformations,
 )
 
-from level2_solver import level_2_solver
+from ..core.solver import level_2_solver
 
 st.set_page_config(
     page_title="BayLearn Math Solver",

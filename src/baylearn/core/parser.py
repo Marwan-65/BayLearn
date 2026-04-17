@@ -1,12 +1,26 @@
+"""Basic equation parser for BayLearn."""
+
 import sympy as sp
 from sympy.parsing.sympy_parser import (
     parse_expr,
     standard_transformations,
     implicit_multiplication_application,
-    convert_xor
+    convert_xor,
 )
 
-def solve_math_string(user_input):
+
+def solve_math_string(user_input: str) -> str:
+    """
+    Parse and solve a simple math equation from a string.
+    
+    Handles equations with equality signs and automatically detects the variable.
+    
+    Args:
+        user_input: Mathematical equation as string (e.g., "2y - 4 = 14")
+        
+    Returns:
+        String representation of the solution
+    """
     # Phase 1: Lexical Analysis & Sanitization
     clean_input = user_input.replace(" ", "")
     
@@ -17,7 +31,10 @@ def solve_math_string(user_input):
     
     # Phase 2: Parsing & Transformations (The Compiler step)
     # Combine standard rules with implicit multiplication and XOR conversion
-    transformations = standard_transformations + (implicit_multiplication_application, convert_xor)
+    transformations = standard_transformations + (
+        implicit_multiplication_application,
+        convert_xor,
+    )
     
     try:
         # Build the mathematical objects for both sides
@@ -41,6 +58,3 @@ def solve_math_string(user_input):
         
     except Exception as e:
         return f"Could not parse the mathematical syntax. Error: {e}"
-
-# Test it out with messy, human-like formatting
-print(solve_math_string("2y - 4 = 14"))
