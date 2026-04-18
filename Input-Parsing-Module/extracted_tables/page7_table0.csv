@@ -1,0 +1,8 @@
+# Standardize dates,nan,nan
+"df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')",nan,nan
+# Standardize names,nan,nan
+df['name'] = df['name'].str.strip().str.title(),nan,nan
+# Check logical consistency,nan,nan
+df['age_from_dob'] = (pd.Timestamp.now() - df['dob']).dt.days,/,365
+inconsistent = df[abs(df['age'] - df['age_from_dob']) > 1],nan,nan
+if len(inconsistent) > 0:,nan,nan

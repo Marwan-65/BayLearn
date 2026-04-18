@@ -1,0 +1,3 @@
+"# Check expected frequency (e.g., 10K records/hour)","# Check expected frequency (e.g., 10K records/hour)","# Check expected frequency (e.g., 10K records/hour)",nan,nan
+last_hour = df[df['timestamp'],> pd.Timestamp.now(),nan,-,pd.Timedelta(hours=1)]
+expected_per_hour = 10000,nan,nan,nan,nan

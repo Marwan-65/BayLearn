@@ -1,0 +1,4 @@
+"print(f""Pearson:","{pearson:.3f}"")",nan,nan
+"print(f""Spearman:","{spearman:.3f}"")",nan,nan
+if abs(pearson -,spearman) > 0.1:,nan,nan
+"print(""Large",difference suggests,non-linear,"relationship"")"

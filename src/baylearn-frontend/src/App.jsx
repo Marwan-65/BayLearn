@@ -180,18 +180,10 @@ export default function App() {
           raw: d,
         },
       ]);
-      // Auto-open the equation lab in a new tab when the equation module
-      // returned a solution. Passes the equation via ?q= so the lab can
-      // pre-fill its input (if the lab reads query params; otherwise the
-      // user just sees the lab open alongside the chat).
-      if (d.equation_result && (d.equation_text_sent || d.equation)) {
-        const eq = encodeURIComponent(d.equation_text_sent || d.equation);
-        try {
-          window.open(`${EQUATION_URL}/?q=${eq}`, "_blank", "noopener");
-        } catch {
-          /* popup blocker — user can click the button in the chat card */
-        }
-      }
+      // Equation intent: do NOT auto-open the lab. The chat bubble shows
+      // the steps + "Open Equation Lab ↗" button, and the student clicks
+      // through only when they want the interactive workspace. Auto-open
+      // was disorienting — every question yanked focus to a new tab.
       // Auto-open the animation lab when we produced an animation spec.
       if (d.animation_spec || d.animation) {
         try {
