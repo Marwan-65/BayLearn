@@ -12,7 +12,7 @@ from sympy.parsing.sympy_parser import (
     standard_transformations,
 )
 
-from ..core.solver import level_2_solver
+from baylearn.core.solver import level_2_solver
 
 st.set_page_config(
     page_title="BayLearn Math Solver",
