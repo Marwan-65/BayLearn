@@ -26,10 +26,29 @@ const ANIMATION_URL =
 /* ────────────────────────────────────────────────────────────── */
 
 async function jsonFetch(path, opts = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-    ...opts,
-  });
+  // 90 s client-side timeout so a hung Groq call never leaves the UI
+  // spinning forever — the user sees a clear error and can retry.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000);
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
+      signal: controller.signal,
+      ...opts,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e.name === "AbortError") {
+      const err = new Error(
+        "Request timed out after 90 s. The LLM may be rate-limited or slow — try again."
+      );
+      err.status = 0;
+      throw err;
+    }
+    throw e;
+  }
+  clearTimeout(timer);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.signal || data.detail || `HTTP ${res.status}`);
@@ -513,7 +532,10 @@ function Bubble({ m }) {
           <div style={{ marginTop: 8 }}>
             <div style={S.srcLabel}>Sources retrieved</div>
             {m.sources.map((src, j) => {
-              const score = m.scores?.[j] ?? 0;
+              // Scores may be cosine similarity (0–1) OR RRF scores
+              // (unbounded). Clamp to [0, 1] so the pill never shows 500%.
+              const raw = m.scores?.[j] ?? 0;
+              const score = Math.max(0, Math.min(1, raw));
               const color =
                 score >= 0.6 ? "#16a34a" : score >= 0.4 ? "#ca8a04" : "#dc2626";
               return (

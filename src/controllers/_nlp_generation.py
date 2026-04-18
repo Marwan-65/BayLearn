@@ -5,7 +5,46 @@ Contains generate_answer_from_sources(): builds a numbered-context
 prompt with a security-hardened system prompt and calls the LLM.
 """
 
+import re
 import time
+
+# The model keeps emitting "(Note: this answer is not from your uploaded
+# materials.)" style disclaimers even when the prompt forbids it. The UI
+# already surfaces intent and source list separately, so we strip these
+# trailing disclaimers post-hoc rather than relying on prompt compliance.
+_DISCLAIMER_PATTERNS = [
+    re.compile(
+        r"\s*\(?\s*Note:\s*[Tt]his (?:answer|response)\s+"
+        r"(?:is not|did not come|does not come|was not)\s+"
+        r"(?:from|based on)[^.)\n]*?(?:materials?|sources?|context)[^.)\n]*?\)?\.?\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\s*\(?\s*Note:\s*[^)\n]*?(?:uploaded|study)\s+materials?[^)\n]*?\)?\.?\s*$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\s*\(?\s*Disclaimer:\s*[^)\n]*?materials?[^)\n]*?\)?\.?\s*$",
+        re.IGNORECASE,
+    ),
+]
+
+
+def _strip_source_disclaimers(text: str) -> str:
+    if not isinstance(text, str):
+        return text
+    out = text
+    # Run a few passes in case the model stacks two disclaimers.
+    for _ in range(3):
+        changed = False
+        for pat in _DISCLAIMER_PATTERNS:
+            new = pat.sub("", out)
+            if new != out:
+                out = new
+                changed = True
+        if not changed:
+            break
+    return out.rstrip()
 
 
 class _NLPGenerationMixin:
@@ -62,4 +101,4 @@ class _NLPGenerationMixin:
             chat_history=[{"role": "system", "content": system_prompt}],
         )
         timings["answer_generation_ms"] = round((time.time() - t0) * 1000)
-        return answer
+        return _strip_source_disclaimers(answer)

@@ -1,11 +1,23 @@
 import json
 import os
+import re
 from typing import List
 from models.chunk import Chunk
 from repositories.chunk_repository import AbstractChunkRepository
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Strip ASCII control characters except \t \n \r, which json handles fine.
+# Anything else (NUL, vertical tab, form feed, stray escape bytes from
+# PDF/OCR) blows up json.load on the next read.
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _sanitize(text):
+    if not isinstance(text, str):
+        return text
+    return _CTRL_RE.sub("", text)
 
 
 class JsonChunkRepository(AbstractChunkRepository):
@@ -34,9 +46,29 @@ class JsonChunkRepository(AbstractChunkRepository):
             logger.info(f"Created new chunk storage at {self.storage_path}")
 
     def _load(self) -> dict:
-        """Read all data from the JSON file into memory."""
-        with open(self.storage_path, "r") as f:
-            return json.load(f)
+        """Read all data from the JSON file into memory.
+
+        If the file got corrupted by a rogue control character from a
+        previous parse, quarantine the bad copy and start fresh rather
+        than blocking every subsequent upload.
+        """
+        try:
+            with open(self.storage_path, "r") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            backup = self.storage_path + ".corrupt"
+            try:
+                os.replace(self.storage_path, backup)
+                logger.error(
+                    f"chunks_storage.json was corrupt ({e}); moved to {backup} "
+                    "and starting with an empty store."
+                )
+            except OSError:
+                logger.error(
+                    f"chunks_storage.json was corrupt ({e}); starting fresh."
+                )
+            self._ensure_file_exists()
+            return {}
 
     def _save(self, data: dict):
         """Write all data back to the JSON file."""
@@ -52,10 +84,17 @@ class JsonChunkRepository(AbstractChunkRepository):
         # WHY? JSON can only store basic types (strings, numbers, lists, dicts)
         # A Python dataclass object is not a basic type, so we convert it first
         for chunk in chunks:
+            # Sanitize text + string metadata values so a stray
+            # control character from PDF/OCR can never corrupt the
+            # JSON store.
+            clean_meta = {
+                k: (_sanitize(v) if isinstance(v, str) else v)
+                for k, v in (chunk.metadata or {}).items()
+            }
             data[project_id].append({
                 "chunk_id": chunk.chunk_id,
-                "text": chunk.text,
-                "metadata": chunk.metadata
+                "text": _sanitize(chunk.text),
+                "metadata": clean_meta,
             })
 
         self._save(data)

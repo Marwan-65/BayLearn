@@ -237,11 +237,28 @@ async def _handle_equation_from_context(
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
 
+    # If the user's question already contains the equation / directive
+    # (e.g. "Solve 2x+y=10", "Find the derivative of sin(x)*x^2",
+    # "graph sin(x)"), send the question itself — extracting from PDF
+    # chunks only makes sense for prompts like "solve the equation from
+    # page 3" that reference the material.
+    q_lower = question.lower()
+    self_contained = any(
+        kw in q_lower for kw in (
+            "solve", "derivative", "derive", "integrate", "integral",
+            "limit", "eigenvalue", "eigenvector", "determinant", "inverse",
+            "matrix", "simplify", "factor", "expand", "graph", "plot",
+        )
+    ) or any(op in question for op in ("=", "+", "-", "*", "/", "^"))
+
     t0 = time.time()
-    equation_text = controller.extract_equation_from_sources(
-        filtered_results=filtered_results,
-        question=question,
-    )
+    if self_contained:
+        equation_text = question
+    else:
+        equation_text = controller.extract_equation_from_sources(
+            filtered_results=filtered_results,
+            question=question,
+        )
     timings["equation_extraction_ms"] = round((time.time() - t0) * 1000)
 
     equation_result = None
