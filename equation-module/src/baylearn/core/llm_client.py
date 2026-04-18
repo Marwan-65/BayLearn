@@ -2,6 +2,7 @@
 
 import json
 import os
+from pathlib import Path
 from typing import Dict, Any
 
 from groq import Groq
@@ -9,8 +10,14 @@ from dotenv import load_dotenv
 
 from .config import SYSTEM_PROMPT, MODEL_NAME, MODEL_TEMPERATURE
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the equation-module root .env,
+# regardless of where Streamlit / uvicorn is launched from.
+# llm_client.py is at: equation-module/src/baylearn/core/llm_client.py
+# so the package root is 4 parents up.
+_MODULE_ROOT = Path(__file__).resolve().parents[3]
+load_dotenv(_MODULE_ROOT / ".env", override=False)
+# Fallback: also try CWD (for dev convenience).
+load_dotenv(override=False)
 
 
 def get_groq_client() -> Groq:

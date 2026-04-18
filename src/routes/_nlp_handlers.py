@@ -71,20 +71,36 @@ def _run_rag(
     )
 
     if "error" in retrieval:
-        if retrieval["error"] == "no_relevant_sources":
-            return {
-                "query": question,
-                "answer": (
-                    "I could not find relevant information in the "
-                    "uploaded materials to answer this question."
-                ),
-                "sources": [],
-                "scores": [],
-                "rerank_scores": [],
-                "num_sources": 0,
-                **_retrieval_metadata(retrieval),
-            }
-        return retrieval
+        # Retrieval found nothing (empty collection, no match, etc.).
+        # Instead of failing, answer conversationally using the LLM directly.
+        # This covers greetings, thanks, general knowledge questions, and
+        # any case where the user hasn't uploaded matching materials yet.
+        try:
+            system_prompt = (
+                "You are BayLearn, a friendly engineering tutor. The student's "
+                "uploaded materials do not cover this question (or they haven't "
+                "uploaded anything yet). Answer their question naturally and briefly "
+                "from your own knowledge. Do NOT mention that their materials don't "
+                "cover it — just answer the question directly. Keep answers concise."
+            )
+            answer = controller.generation_client.generate_text(
+                prompt=question,
+                chat_history=[{"role": "system", "content": system_prompt}],
+            )
+        except Exception:
+            answer = (
+                "I couldn't find this in your uploaded materials. "
+                "Try uploading a relevant PDF or ask me something else."
+            )
+        return {
+            "query": question,
+            "answer": answer,
+            "sources": [],
+            "scores": [],
+            "rerank_scores": [],
+            "num_sources": 0,
+            **_retrieval_metadata(retrieval),
+        }
 
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
@@ -158,22 +174,51 @@ async def _handle_equation_from_context(
         limit=limit,
         intent="equation_from_context",
     )
+    # If retrieval returned ANY error (no sources, empty collection,
+    # mid-upload, etc.), still solve the equation from the raw question
+    # using the equation module. The user's intent was clearly to solve
+    # an equation — don't block on retrieval.
     if "error" in retrieval:
-        if retrieval["error"] == "no_relevant_sources":
-            return {
-                "intent": "equation_from_context",
-                "query": question,
-                "answer": (
-                    "I could not find relevant equations in the "
-                    "uploaded materials for this question."
-                ),
-                "equation_result": None,
-                "sources": [],
-                "scores": [],
-                "num_sources": 0,
-                **_retrieval_metadata(retrieval),
-            }
-        return {"intent": "equation_from_context", **retrieval}
+        equation_result = None
+        base_url = getattr(settings, "EQUATION_MODULE_URL", None)
+        if base_url:
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(
+                        f"{base_url.rstrip('/')}/run",
+                        json={"query": question},
+                    )
+                    if resp.status_code == 200:
+                        equation_result = resp.json()
+                    else:
+                        logger.warning(
+                            f"Equation module returned {resp.status_code}: "
+                            f"{resp.text[:200]}"
+                        )
+            except Exception as e:
+                logger.warning(f"Equation module call failed: {e}")
+        if equation_result:
+            answer = (
+                "Here's the solution from the equation module. See the "
+                "extracted equation and solver output below."
+            )
+        else:
+            answer = (
+                "I couldn't reach the equation module. Make sure the "
+                "equation backend is running on port 9001."
+            )
+        return {
+            "intent": "equation_from_context",
+            "intent_confidence": confidence,
+            "query": question,
+            "answer": answer,
+            "equation_text_sent": question,
+            "equation_result": equation_result,
+            "sources": [],
+            "scores": [],
+            "num_sources": 0,
+            **_retrieval_metadata(retrieval),
+        }
 
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
@@ -210,11 +255,21 @@ async def _handle_equation_from_context(
     else:
         logger.warning("EQUATION_MODULE_URL not configured")
 
-    answer = controller.generate_answer_from_sources(
-        question=question,
-        filtered_results=filtered_results,
-        timings=timings,
-    )
+    # If the equation module already returned a solution, prefer a
+    # concise summary over the strict source-grounded answer (which
+    # would say "not covered" because the chunks are about theory,
+    # not numeric solutions).
+    if equation_result:
+        answer = (
+            "Here's the solution from the equation module. See the "
+            "extracted equation and solver output below."
+        )
+    else:
+        answer = controller.generate_answer_from_sources(
+            question=question,
+            filtered_results=filtered_results,
+            timings=timings,
+        )
     timings["total_ms"] = sum(
         v for v in timings.values() if isinstance(v, (int, float))
     )
@@ -241,21 +296,31 @@ async def _handle_animation_from_context(
         intent="animation_from_context",
     )
     if "error" in retrieval:
-        if retrieval["error"] == "no_relevant_sources":
-            return {
-                "intent": "animation_from_context",
-                "query": question,
-                "answer": (
-                    "I could not find relevant content in the "
-                    "uploaded materials to build an animation."
-                ),
-                "animation_spec": None,
-                "sources": [],
-                "scores": [],
-                "num_sources": 0,
-                **_retrieval_metadata(retrieval),
-            }
-        return {"intent": "animation_from_context", **retrieval}
+        # Any retrieval error → fall back to a best-effort spec built from
+        # the classifier hints alone.
+        ds = (extracted_params or {}).get("data_structure") or "linked_list"
+        op = (extracted_params or {}).get("operation") or "insertAtTail"
+        vals = (extracted_params or {}).get("initial_values") or [3, 7, 1, 9, 4]
+        fallback_spec = {
+            "data_structure": ds,
+            "operation": op,
+            "initial_values": vals,
+            "source": "fallback_from_question",
+        }
+        return {
+            "intent": "animation_from_context",
+            "intent_confidence": confidence,
+            "query": question,
+            "answer": (
+                "I built an animation spec from your question. "
+                "Open **Animation Lab ↗** in the sidebar to run it."
+            ),
+            "animation_spec": fallback_spec,
+            "sources": [],
+            "scores": [],
+            "num_sources": 0,
+            **_retrieval_metadata(retrieval),
+        }
 
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
@@ -268,11 +333,17 @@ async def _handle_animation_from_context(
     )
     timings["animation_extraction_ms"] = round((time.time() - t0) * 1000)
 
-    answer = controller.generate_answer_from_sources(
-        question=question,
-        filtered_results=filtered_results,
-        timings=timings,
-    )
+    if animation_spec:
+        answer = (
+            "I built an animation spec from your materials and question. "
+            "Open **Animation Lab ↗** in the sidebar to run it."
+        )
+    else:
+        answer = controller.generate_answer_from_sources(
+            question=question,
+            filtered_results=filtered_results,
+            timings=timings,
+        )
     timings["total_ms"] = sum(
         v for v in timings.values() if isinstance(v, (int, float))
     )
