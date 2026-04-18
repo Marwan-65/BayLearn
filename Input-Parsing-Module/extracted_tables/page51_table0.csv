@@ -1,0 +1,16 @@
+Dimension,What It Measures,Formula
+Accuracy,"How closely do values match ground
+truth",(correct values / total values) × 100%
+Consistency,Uniformity across systems/standards,(conforming records / total records) × 100%
+Completeness,Proportion of required data present,(non-null values / total records) × 100%
+Uniqueness,Absence of duplicates,(unique records / total records) × 100%
+Outliers,"Proportion of anomalous values
+detected",(non-outlier records / total records) × 100%
+Timeliness,Data freshness and latency,Mean time from event to availability
+"Distribution
+Profile","How closely current distribution
+matches expected/baseline","KS statistic (0 = identical, 1 = completely
+different)"
+Correlation,"Strength of expected correlations
+between fields","Pearson or Spearman r per feature pair
+(expected vs. actual)"

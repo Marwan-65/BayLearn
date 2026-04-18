@@ -1,0 +1,3 @@
+# Flag outliers,# Flag outliers,nan,nan,nan,nan
+df['is_outlier'],nan,=,(df['value'],<,lower_bound)
+| (df['value'],>,upper_bound),upper_bound),nan,nan

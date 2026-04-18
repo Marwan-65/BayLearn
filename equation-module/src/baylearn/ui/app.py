@@ -639,9 +639,58 @@ with tab_solver:
         "Derivative (Exponential)": "Find the derivative of e^(2x) with respect to x",
     }
 
+    # If the user arrived via a deep link from the chat, pick the
+    # dropdown entry that matches the detected operation so the UI
+    # doesn't misleadingly show "Linear system" next to a derivative
+    # query.
+    def _guess_example_key(text: str) -> str | None:
+        if not text:
+            return None
+        t = text.lower()
+        # Order matters — check more specific keywords first.
+        if "partial derivative" in t:
+            return "Partial Derivative"
+        if "taylor" in t:
+            return "Taylor Series"
+        if "eigen" in t:
+            return "Matrix Eigenvalues"
+        if "inverse" in t and ("matrix" in t or "[" in t):
+            return "Matrix Inverse"
+        if "determinant" in t:
+            return "Matrix Determinant"
+        if "limit" in t and ("infinity" in t or "infty" in t):
+            return "Limit at Infinity"
+        if "limit" in t:
+            return "Limit"
+        if "simplify" in t:
+            return "Simplify"
+        if "dy/dx" in t or "differential equation" in t:
+            return "Differential Equation"
+        if "derivative" in t or "derive" in t or "d/dx" in t:
+            if "sin" in t or "cos" in t or "tan" in t:
+                return "Derivative (Trigonometric)"
+            if "e^" in t or "exp(" in t:
+                return "Derivative (Exponential)"
+            return "Derivative"
+        if "integrate" in t or "integral" in t:
+            return "Integral (Polynomial)"
+        if "quadratic" in t or ("x^2" in t and "=" in t and " and " not in t):
+            return "Quadratic"
+        if " and " in t and "=" in t:
+            return "Linear system"
+        return None
+
+    _sample_keys = list(sample_prompts.keys())
+    _default_idx = 0
+    _guessed = _guess_example_key(_prefill_q) if _prefill_q else None
+    if _guessed and _guessed in _sample_keys:
+        _default_idx = _sample_keys.index(_guessed)
+
     col_example, col_toggle = st.columns([1.2, 1])
     with col_example:
-        selected_example = st.selectbox("Quick examples", list(sample_prompts.keys()))
+        selected_example = st.selectbox(
+            "Quick examples", _sample_keys, index=_default_idx
+        )
     with col_toggle:
         show_translation = st.toggle("Show AI translation JSON", value=False)
 

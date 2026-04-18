@@ -1,0 +1,5 @@
+# Check for similar names,# Check for similar names,# Check for similar names,nan,nan,nan,nan,nan,nan,nan
+for,i in range(len(df)):,i in range(len(df)):,nan,nan,nan,nan,nan,nan,nan
+nan,for,"j in range(i+1, len(df)):",nan,nan,nan,nan,nan,nan,nan
+nan,nan,"if similar(df.iloc[i]['name'],",nan,nan,nan,nan,nan,> 0.9:,nan
+nan,nan,"print(f""Potential fuzzy duplicate:","print(f""Potential fuzzy duplicate:","print(f""Potential fuzzy duplicate:","print(f""Potential fuzzy duplicate:",{df.iloc[i]['name']},{df.iloc[i]['name']},{df.iloc[i]['name']},~

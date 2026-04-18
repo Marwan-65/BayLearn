@@ -1,0 +1,2 @@
+def,"similar(a, b):",nan,nan
+nan,"return SequenceMatcher(None,","a.lower(),",b.lower()).ratio()
