@@ -180,6 +180,7 @@ async def _handle_equation_from_context(
     # an equation — don't block on retrieval.
     if "error" in retrieval:
         equation_result = None
+        eq_error = None
         base_url = getattr(settings, "EQUATION_MODULE_URL", None)
         if base_url:
             try:
@@ -191,21 +192,34 @@ async def _handle_equation_from_context(
                     if resp.status_code == 200:
                         equation_result = resp.json()
                     else:
+                        eq_error = f"status {resp.status_code}"
                         logger.warning(
                             f"Equation module returned {resp.status_code}: "
                             f"{resp.text[:200]}"
                         )
+            except httpx.ConnectError:
+                eq_error = "not running"
+                logger.warning(f"Equation module not reachable at {base_url}")
             except Exception as e:
+                eq_error = str(e)
                 logger.warning(f"Equation module call failed: {e}")
+        else:
+            eq_error = "not configured"
         if equation_result:
             answer = (
                 "Here's the solution from the equation module. See the "
                 "extracted equation and solver output below."
             )
+        elif eq_error == "not running":
+            answer = (
+                "The equation module is not running on port 9001. "
+                "Start it in tab 2 and try again."
+            )
         else:
             answer = (
-                "I couldn't reach the equation module. Make sure the "
-                "equation backend is running on port 9001."
+                "The equation module couldn't process this query "
+                f"({eq_error}). Try rephrasing — e.g. "
+                '"Find the derivative of sin(x)*x^2" (no trailing period).'
             )
         return {
             "intent": "equation_from_context",
