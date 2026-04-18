@@ -161,6 +161,27 @@ if "user_input" not in st.session_state:
 if "last_translation" not in st.session_state:
     st.session_state.last_translation = None
 
+# ---------------------------------------------------------------------
+# Deep-link pre-fill from the orchestrator chat.
+# When the BayLearn frontend detects an equation intent, it opens this
+# UI with ?q=<equation>&autosolve=1 so the user lands on an already-
+# filled (and solved) page instead of an empty form.
+# Handled once per session via a guard flag so the user can still edit
+# the textarea without having it reset on every rerun.
+# ---------------------------------------------------------------------
+_qp = st.query_params
+_prefill_q = _qp.get("q", "")
+if isinstance(_prefill_q, list):  # older Streamlit returned lists
+    _prefill_q = _prefill_q[0] if _prefill_q else ""
+_autosolve_flag = _qp.get("autosolve", "")
+if isinstance(_autosolve_flag, list):
+    _autosolve_flag = _autosolve_flag[0] if _autosolve_flag else ""
+_autosolve = str(_autosolve_flag) == "1"
+
+if _prefill_q and not st.session_state.get("_deeplink_applied"):
+    st.session_state.user_input = _prefill_q
+    st.session_state["_deeplink_applied"] = True
+
 
 def _to_sympy_expr(text):
     normalized = text.strip().replace("^", "**")
@@ -635,6 +656,18 @@ with tab_solver:
     )
 
     solve_clicked = st.button("Solve", type="primary")
+
+    # Auto-trigger solve once when deep-linked with ?autosolve=1.
+    # Guard by a separate flag so the user can still click Solve again
+    # manually after editing the text; we only want this to fire on the
+    # very first render after the deep link.
+    if (
+        _autosolve
+        and _prefill_q
+        and not st.session_state.get("_deeplink_solved")
+    ):
+        st.session_state["_deeplink_solved"] = True
+        solve_clicked = True
 
     if solve_clicked:
         cleaned_input = user_input.strip()

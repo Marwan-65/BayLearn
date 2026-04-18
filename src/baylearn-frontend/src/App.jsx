@@ -496,8 +496,21 @@ function Bubble({ m }) {
           <div style={S.card}>
             <div style={S.cardLabel}>🧮 Equation</div>
             <code style={S.code}>{m.equation}</code>
-            {m.equationResult && (
+            {m.equationResult ? (
               <EquationSolution result={m.equationResult} equation={m.equation} />
+            ) : (
+              // Even if the equation module didn't return a result (not
+              // running, error, or LLM answered conversationally), still
+              // give the user a one-click path into the lab pre-filled
+              // with their equation.
+              <a
+                href={`${EQUATION_URL}/?q=${encodeURIComponent(m.equation)}&autosolve=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={S.launchBtn}
+              >
+                Open Equation Lab ↗
+              </a>
             )}
           </div>
         )}
@@ -591,7 +604,7 @@ function EquationSolution({ result, equation }) {
   const final = result.final_result;
   const lab = `${
     import.meta.env.VITE_EQUATION_FRONTEND_URL || "http://localhost:8501"
-  }/?q=${encodeURIComponent(equation || "")}`;
+  }/?q=${encodeURIComponent(equation || "")}&autosolve=1`;
 
   return (
     <>
