@@ -195,9 +195,11 @@ class SimpleKT(nn.Module):
         if not history:
             return np.full((cfg.N_CONCEPTS, cfg.DIFF_LEVELS), 0.5)
 
-        concept_ids = torch.LongTensor([[h[0] for h in history]])
-        diff_levels = torch.LongTensor([[h[1] for h in history]])
-        corrects    = torch.LongTensor([[h[2] for h in history]])
+        device = next(self.parameters()).device
+
+        concept_ids = torch.LongTensor([[h[0] for h in history]]).to(device)
+        diff_levels = torch.LongTensor([[h[1] for h in history]]).to(device)
+        corrects    = torch.LongTensor([[h[2] for h in history]]).to(device)
 
         # Truncate to max sequence length
         if concept_ids.shape[1] > cfg.KT_SEQ_LEN:
@@ -297,10 +299,19 @@ class EPPOAgent(nn.Module):
         )
 
     def evaluate(self, states, actions):
-        """Used during PPO update to get new log probs and values."""
-        logits  = self.actor(states)
-        values  = self.critic(states).squeeze(1)
-        dist    = Categorical(logits=logits)
+        """Used during PPO update to get new log probs and values.
+
+        During collection, select_action() writes -inf into masked logits.
+        Those states are stored in the buffer and replayed here. Categorical
+        cannot handle -inf (log-sum-exp produces NaN). Clamping to a large
+        finite negative keeps softmax numerically valid — masked actions still
+        get ~0 probability, and the collected actions are already valid so
+        the clamp does not change which action was taken.
+        """
+        logits = self.actor(states)
+        logits = logits.clamp(min=-1e9)          # guard against -inf → NaN
+        values = self.critic(states).squeeze(1)
+        dist      = Categorical(logits=logits)
         log_probs = dist.log_prob(actions)
         entropy   = dist.entropy()
         return log_probs, values, entropy
@@ -564,8 +575,10 @@ def ppo_update(agent, buffer, actor_opt, critic_opt, cfg):
     advantages = advantages.to(cfg.DEVICE)
     returns    = returns.to(cfg.DEVICE)
 
-    # Normalize advantages
-    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+    # Normalize advantages — skip when buffer has only 1 step (std undefined,
+    # triggers UserWarning and returns NaN with degrees-of-freedom = 0)
+    if advantages.numel() > 1:
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
     total_actor_loss  = 0
     total_critic_loss = 0
@@ -768,9 +781,11 @@ def train_kt_step(kt_model, optimizer, criterion, history, cfg):
     if len(history) < 2:
         return 0.0
 
-    concept_ids = torch.LongTensor([[h[0] for h in history]])
-    diff_levels = torch.LongTensor([[h[1] for h in history]])
-    corrects    = torch.LongTensor([[h[2] for h in history]])
+    device = next(kt_model.parameters()).device
+
+    concept_ids = torch.LongTensor([[h[0] for h in history]]).to(device)
+    diff_levels = torch.LongTensor([[h[1] for h in history]]).to(device)
+    corrects    = torch.LongTensor([[h[2] for h in history]]).to(device)
 
     # Truncate
     if concept_ids.shape[1] > cfg.KT_SEQ_LEN:
@@ -782,23 +797,23 @@ def train_kt_step(kt_model, optimizer, criterion, history, cfg):
     mastery_matrix = kt_model(concept_ids, diff_levels, corrects)
     # (1, N_CONCEPTS, DIFF_LEVELS)
 
-    # For each interaction t, predict whether the student got it right
-    # Use teacher forcing: predict correctness of answer t given prefix 0..t-1
+    # Teacher-forcing: for each step t, predict correctness of answer t
+    # given the interaction prefix 0..t-1 that was fed into the transformer.
+    # Accumulate per-step losses into a list then stack — avoids the fragile
+    # leaf-tensor pattern (torch.tensor(..., requires_grad=True) + inplace add)
+    # which can silently break the gradient graph.
     T = len(history)
-    loss = torch.tensor(0.0, requires_grad=True)
-    n = 0
+    losses = []
 
     for t in range(1, min(T, cfg.KT_SEQ_LEN)):
         c_idx = history[t][0]
         d_idx = history[t][1]
-        label = torch.FloatTensor([history[t][2]])
+        label = torch.FloatTensor([history[t][2]]).to(device)
+        pred  = mastery_matrix[0, c_idx, d_idx].unsqueeze(0)
+        losses.append(criterion(pred, label))
 
-        pred = mastery_matrix[0, c_idx, d_idx].unsqueeze(0)
-        loss = loss + criterion(pred, label)
-        n += 1
-
-    if n > 0:
-        loss = loss / n
+    if losses:
+        loss = torch.stack(losses).mean()
         optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(kt_model.parameters(), 1.0)
@@ -808,65 +823,354 @@ def train_kt_step(kt_model, optimizer, criterion, history, cfg):
     return 0.0
 
 
-# ─── Evaluation ───────────────────────────────────────────────────────────────
+# ─── Evaluation 1: KT Model Quality (AUC) ────────────────────────────────────
 
-def evaluate(kt_model, agent, cfg, n_students=50):
+def evaluate_kt(kt_model, cfg, n_students=200):
     """
-    Evaluate trained models on fresh simulated students.
-    Prints a per-concept mastery report.
+    Evaluates KT prediction quality using AUC and accuracy.
+
+    Method:
+      - For each simulated student, generate 20 random interactions
+      - Use the first 10 as the history prefix to build the student state
+      - Predict correctness for interactions 11-20
+      - Compare predictions against actual outcomes
+
+    Metrics:
+      AUC      — standard KT benchmark metric. Random = 0.5, good > 0.70
+      Accuracy — fraction of predictions correct when thresholded at 0.5
+      ECE      — Expected Calibration Error: are the probabilities well-calibrated?
+                 ECE near 0 means predicted 0.7 really means ~70% chance correct
     """
-    env = SimulatedStudentEnv(cfg)
-    results = {
-        "final_aprs":    [],
-        "steps_taken":   [],
-        "goal_reached":  [],
-        "diff_choices":  np.zeros((cfg.N_CONCEPTS, cfg.DIFF_LEVELS))
-    }
+    try:
+        from sklearn.metrics import roc_auc_score, accuracy_score
+    except ImportError:
+        print("sklearn not found — run: pip install scikit-learn")
+        return {}
+
+    env        = SimulatedStudentEnv(cfg)
+    all_labels = []
+    all_preds  = []
 
     kt_model.eval()
-    agent.eval()
 
     for _ in range(n_students):
         true_mastery = env.sample_student()
-        student      = StudentState(cfg)
-        action_hist  = []
+        history      = []
 
-        for step in range(cfg.MAX_STEPS):
-            student.update_from_kt(kt_model)
+        # Generate 20 random interactions (not EPPO — pure random exploration)
+        for _ in range(20):
+            c = np.random.randint(0, cfg.N_CONCEPTS)
+            d = np.random.randint(0, cfg.DIFF_LEVELS)
+            correct = env.answer(true_mastery, c, d)
+            history.append((c, d, correct))
 
-            if student.get_apr() >= cfg.BETA:
-                break
+        # Split: first 10 build state, predict on 11-20
+        split  = 10
+        prefix = history[:split]
+        suffix = history[split:]
 
-            with torch.no_grad():
-                action, _, _, _ = agent.select_action(
-                    student.get_state_vector(), student.mastery
-                )
+        mastery = kt_model.predict_single(prefix)   # (N_CONCEPTS, DIFF_LEVELS)
 
-            concept_idx = action // cfg.DIFF_LEVELS
-            diff_level  = action  % cfg.DIFF_LEVELS
-            results["diff_choices"][concept_idx, diff_level] += 1
+        for c_idx, diff, actual_correct in suffix:
+            all_preds.append(float(mastery[c_idx, diff]))
+            all_labels.append(int(actual_correct))
 
-            correct = env.answer(true_mastery, concept_idx, diff_level)
-            student.history.append((concept_idx, diff_level, correct))
+    all_labels = np.array(all_labels)
+    all_preds  = np.array(all_preds)
 
-        results["final_aprs"].append(student.get_apr())
-        results["steps_taken"].append(len(student.history))
-        results["goal_reached"].append(student.get_apr() >= cfg.BETA)
+    auc  = roc_auc_score(all_labels, all_preds)
+    acc  = accuracy_score(all_labels, (all_preds >= 0.5).astype(int))
 
-    print("\n=== Evaluation Results ===")
-    print(f"Students evaluated : {n_students}")
-    print(f"Mean final APR     : {np.mean(results['final_aprs']):.3f}")
-    print(f"Goal reached       : {np.mean(results['goal_reached'])*100:.1f}%")
-    print(f"Mean steps taken   : {np.mean(results['steps_taken']):.1f}")
+    # Expected Calibration Error — split into 10 bins by predicted probability
+    ece = _compute_ece(all_labels, all_preds, n_bins=10)
 
-    print("\nDifficulty choices per concept:")
-    print(f"{'Concept':<30} {'Easy':>6} {'Medium':>8} {'Hard':>6}")
-    print("-" * 54)
+    print("\n" + "=" * 50)
+    print("KT Model Evaluation")
+    print("=" * 50)
+    print(f"  Students evaluated : {n_students}")
+    print(f"  Predictions made   : {len(all_labels)}")
+    print(f"  True positive rate : {all_labels.mean():.3f}  (fraction actually correct)")
+    print()
+    print(f"  AUC      : {auc:.4f}   (random=0.50, acceptable>0.65, good>0.70)")
+    print(f"  Accuracy : {acc:.4f}   (random≈0.50)")
+    print(f"  ECE      : {ece:.4f}   (lower is better — 0 = perfectly calibrated)")
+    print()
+
+    # Interpret AUC
+    if auc >= 0.75:
+        verdict = "GOOD — KT model is tracking student knowledge reliably"
+    elif auc >= 0.65:
+        verdict = "ACCEPTABLE — KT model is working, more training may help"
+    elif auc >= 0.55:
+        verdict = "WEAK — KT model is barely above random, needs more training"
+    else:
+        verdict = "POOR — KT model is not learning, check training setup"
+    print(f"  Verdict  : {verdict}")
+
+    return {
+        "auc":      auc,
+        "accuracy": acc,
+        "ece":      ece,
+        "labels":   all_labels,
+        "preds":    all_preds,
+    }
+
+
+def _compute_ece(labels, preds, n_bins=10):
+    """Expected Calibration Error — measures if predicted probabilities are reliable."""
+    bins      = np.linspace(0, 1, n_bins + 1)
+    ece       = 0.0
+    total     = len(labels)
+
+    for i in range(n_bins):
+        lo, hi = bins[i], bins[i + 1]
+        mask   = (preds >= lo) & (preds < hi)
+        if mask.sum() == 0:
+            continue
+        bin_acc  = labels[mask].mean()
+        bin_conf = preds[mask].mean()
+        bin_size = mask.sum() / total
+        ece     += bin_size * abs(bin_acc - bin_conf)
+
+    return float(ece)
+
+
+# ─── Evaluation 2: Policy Comparison (EPPO vs Baselines) ─────────────────────
+
+def evaluate_policy(kt_model, agent, cfg, n_students=200):
+    """
+    Compares EPPO against two baselines on fresh simulated students.
+
+    Baselines:
+      Random      — picks concept and difficulty uniformly at random
+      Greedy      — always picks the weakest concept at the ideal difficulty
+                    (a strong hand-crafted heuristic — EPPO must beat this)
+
+    Metrics per policy:
+      Mean final APR    — how much of the material did the student cover?
+      Goal reached %    — how often did the session reach APR >= beta?
+      Mean steps        — how many interactions to reach the goal (lower = more efficient)?
+      Difficulty dist   — what difficulty mix did the policy choose?
+      Coverage per diff — mean mastery at each difficulty level at session end
+    """
+    env     = SimulatedStudentEnv(cfg)
+    kt_model.eval()
+    agent.eval()
+
+    policies = {
+        "eppo":   _run_eppo_policy,
+        "random": _run_random_policy,
+        "greedy": _run_greedy_policy,
+    }
+
+    results = {}
+
+    for policy_name, policy_fn in policies.items():
+        aprs         = []
+        steps        = []
+        goals        = []
+        diff_counts  = np.zeros(cfg.DIFF_LEVELS)
+        final_mastery_sum = np.zeros((cfg.N_CONCEPTS, cfg.DIFF_LEVELS))
+
+        for _ in range(n_students):
+            true_mastery = env.sample_student()
+            student      = StudentState(cfg)
+
+            student, diff_counts_ep = policy_fn(
+                kt_model, agent, env, student, true_mastery, cfg
+            )
+            diff_counts += diff_counts_ep
+
+            apr = student.get_apr()
+            aprs.append(apr)
+            steps.append(len(student.history))
+            goals.append(apr >= cfg.BETA)
+            final_mastery_sum += student.mastery
+
+        mean_mastery = final_mastery_sum / n_students
+
+        results[policy_name] = {
+            "mean_apr":      np.mean(aprs),
+            "std_apr":       np.std(aprs),
+            "goal_rate":     np.mean(goals) * 100,
+            "mean_steps":    np.mean(steps),
+            "std_steps":     np.std(steps),
+            "diff_dist":     diff_counts / max(diff_counts.sum(), 1),
+            "mean_mastery":  mean_mastery,   # (N_CONCEPTS, DIFF_LEVELS)
+        }
+
+    _print_policy_comparison(results, cfg, n_students)
+    return results
+
+
+def _run_eppo_policy(kt_model, agent, env, student, true_mastery, cfg):
+    """Run one session using the trained EPPO agent."""
+    diff_counts = np.zeros(cfg.DIFF_LEVELS)
+
+    for _ in range(cfg.MAX_STEPS):
+        student.update_from_kt(kt_model)
+        if student.get_apr() >= cfg.BETA:
+            break
+        with torch.no_grad():
+            action, _, _, _ = agent.select_action(
+                student.get_state_vector(), student.mastery
+            )
+        c = action // cfg.DIFF_LEVELS
+        d = action  % cfg.DIFF_LEVELS
+        diff_counts[d] += 1
+        correct = env.answer(true_mastery, c, d)
+        student.history.append((c, d, correct))
+
+    return student, diff_counts
+
+
+def _run_random_policy(kt_model, agent, env, student, true_mastery, cfg):
+    """Run one session using uniformly random action selection."""
+    diff_counts = np.zeros(cfg.DIFF_LEVELS)
+
+    for _ in range(cfg.MAX_STEPS):
+        student.update_from_kt(kt_model)
+        if student.get_apr() >= cfg.BETA:
+            break
+        c = np.random.randint(0, cfg.N_CONCEPTS)
+        d = np.random.randint(0, cfg.DIFF_LEVELS)
+        diff_counts[d] += 1
+        correct = env.answer(true_mastery, c, d)
+        student.history.append((c, d, correct))
+
+    return student, diff_counts
+
+
+def _run_greedy_policy(kt_model, agent, env, student, true_mastery, cfg):
+    """
+    Greedy heuristic: always pick the weakest concept at the ideal difficulty.
+    Ideal difficulty = one step above the student's current competence level.
+    This is a strong baseline — EPPO must beat it to demonstrate value.
+    """
+    diff_counts = np.zeros(cfg.DIFF_LEVELS)
+
+    for _ in range(cfg.MAX_STEPS):
+        student.update_from_kt(kt_model)
+        if student.get_apr() >= cfg.BETA:
+            break
+
+        # Pick weakest concept by easy mastery
+        weakest_c = int(np.argmin(student.mastery[:, 0]))
+
+        # Ideal difficulty: one above current competence
+        current_d = 0
+        for d in range(cfg.DIFF_LEVELS):
+            if student.mastery[weakest_c, d] > 0.6:
+                current_d = d
+        ideal_d = min(current_d + 1, cfg.DIFF_LEVELS - 1)
+
+        diff_counts[ideal_d] += 1
+        correct = env.answer(true_mastery, weakest_c, ideal_d)
+        student.history.append((weakest_c, ideal_d, correct))
+
+    return student, diff_counts
+
+
+def _print_policy_comparison(results, cfg, n_students):
+    """Print formatted policy comparison table."""
+    w = 14   # column width
+
+    print("\n" + "=" * 62)
+    print("Policy Comparison")
+    print("=" * 62)
+    print(f"  Students per policy: {n_students}")
+    print(f"  Learning goal (β)  : {cfg.BETA}")
+    print()
+
+    header = f"  {'Metric':<24}" + "".join(f"{'EPPO':>{w}} {'Random':>{w}} {'Greedy':>{w}}")
+    print(f"  {'Metric':<24} {'EPPO':>{w}} {'Random':>{w}} {'Greedy':>{w}}")
+    print("  " + "-" * 60)
+
+    metrics = [
+        ("Mean final APR",   "mean_apr",   ".3f"),
+        ("Std APR",          "std_apr",    ".3f"),
+        ("Goal reached %",   "goal_rate",  ".1f"),
+        ("Mean steps",       "mean_steps", ".1f"),
+        ("Std steps",        "std_steps",  ".1f"),
+    ]
+
+    for label, key, fmt in metrics:
+        row = f"  {label:<24}"
+        for p in ["eppo", "random", "greedy"]:
+            val = results[p][key]
+            row += f" {val:>{w}{fmt}}"
+        print(row)
+
+    print()
+    print(f"  {'Difficulty distribution':}")
+    diff_header = f"  {'':24}"
+    for p in ["eppo", "random", "greedy"]:
+        diff_header += f" {'E/M/H':>{w}}"
+    print(diff_header)
+    print("  " + "-" * 60)
+
+    row = f"  {'  Easy/Medium/Hard %':<24}"
+    for p in ["eppo", "random", "greedy"]:
+        d = results[p]["diff_dist"] * 100
+        row += f"  {d[0]:.0f}/{d[1]:.0f}/{d[2]:.0f}".rjust(w)
+    print(row)
+
+    print()
+    # Verdict
+    eppo_apr    = results["eppo"]["mean_apr"]
+    random_apr  = results["random"]["mean_apr"]
+    greedy_apr  = results["greedy"]["mean_apr"]
+    eppo_steps  = results["eppo"]["mean_steps"]
+    greedy_steps= results["greedy"]["mean_steps"]
+
+    beats_random = eppo_apr > random_apr
+    beats_greedy = eppo_apr > greedy_apr or eppo_steps < greedy_steps
+
+    print(f"  EPPO vs Random : {'EPPO wins (+{:.3f} APR)'.format(eppo_apr-random_apr) if beats_random else 'Random wins — EPPO needs more training'}")
+    print(f"  EPPO vs Greedy : {'EPPO wins' if beats_greedy else 'Greedy wins — EPPO has not learned a better policy yet'}")
+
+    if not beats_random:
+        print()
+        print("  NOTE: EPPO not beating random yet. Try:")
+        print("    - Increase N_EPISODES to 2000")
+        print("    - Increase GAMMA_FIT to 0.25 (stronger fit penalty)")
+        print("    - Add pretrain_kt() before main training")
+
+
+# ─── Evaluation 3: Per-concept Mastery Report ─────────────────────────────────
+
+def evaluate_mastery_report(kt_model, agent, cfg, n_students=100):
+    """
+    Shows per-concept mastery breakdown at session end.
+    Useful for understanding which concepts EPPO is covering well vs neglecting.
+    """
+    results = evaluate_policy(kt_model, agent, cfg, n_students=n_students)
+    eppo_mastery = results["eppo"]["mean_mastery"]   # (N_CONCEPTS, DIFF_LEVELS)
+
+    print("\n" + "=" * 62)
+    print("Per-concept Mastery Report (EPPO policy)")
+    print("=" * 62)
+    print(f"  {'Concept':<28} {'Easy':>6} {'Medium':>8} {'Hard':>6}  {'Coverage'}")
+    print("  " + "-" * 62)
+
     for j, name in enumerate(cfg.CONCEPTS):
-        e = int(results["diff_choices"][j, 0])
-        m = int(results["diff_choices"][j, 1])
-        h = int(results["diff_choices"][j, 2])
-        print(f"{name:<30} {e:>6} {m:>8} {h:>6}")
+        e = eppo_mastery[j, 0]
+        m = eppo_mastery[j, 1]
+        h = eppo_mastery[j, 2]
+
+        # Coverage bar: blocks proportional to easy mastery
+        bar_len = int(e * 10)
+        bar     = "█" * bar_len + "░" * (10 - bar_len)
+
+        print(f"  {name:<28} {e:>6.2f} {m:>8.2f} {h:>6.2f}  {bar}")
+
+    print()
+    print(f"  Mean easy mastery   : {eppo_mastery[:, 0].mean():.3f}")
+    print(f"  Mean medium mastery : {eppo_mastery[:, 1].mean():.3f}")
+    print(f"  Mean hard mastery   : {eppo_mastery[:, 2].mean():.3f}")
+    print()
+    print(f"  Well-covered (easy > 0.7) : {(eppo_mastery[:, 0] > 0.7).sum()}/{cfg.N_CONCEPTS} concepts")
+    print(f"  Neglected   (easy < 0.5)  : {(eppo_mastery[:, 0] < 0.5).sum()}/{cfg.N_CONCEPTS} concepts")
 
     return results
 
@@ -876,16 +1180,19 @@ def evaluate(kt_model, agent, cfg, n_students=50):
 def run_demo_session(kt_model, agent, cfg):
     """
     Run a single demo session and print what happens step by step.
-    Shows exactly what EPPO is deciding and why.
+    Shows exactly what EPPO is deciding at each step.
     """
     env          = SimulatedStudentEnv(cfg)
     true_mastery = env.sample_student()
     student      = StudentState(cfg)
 
-    print("\n=== Demo Session ===")
-    print(f"Goal: APR >= {cfg.BETA}")
-    print(f"Student archetype: random")
+    print("\n" + "=" * 72)
+    print("Demo Session — step by step")
+    print("=" * 72)
+    print(f"  Goal: APR >= {cfg.BETA}")
     print()
+    print(f"  {'Step':>4}  {'Concept':<26} {'Diff':<8} {'Mastery':>8} {'Answer':>8} {'APR':>6}")
+    print("  " + "-" * 66)
 
     kt_model.eval()
     agent.eval()
@@ -895,7 +1202,7 @@ def run_demo_session(kt_model, agent, cfg):
         apr = student.get_apr()
 
         if apr >= cfg.BETA:
-            print(f"Goal reached at step {step}! Final APR = {apr:.3f}")
+            print(f"\n  Goal reached at step {step}!  Final APR = {apr:.3f}")
             break
 
         with torch.no_grad():
@@ -903,34 +1210,69 @@ def run_demo_session(kt_model, agent, cfg):
                 student.get_state_vector(), student.mastery
             )
 
-        concept_idx = action // cfg.DIFF_LEVELS
-        diff_level  = action  % cfg.DIFF_LEVELS
-        concept     = cfg.CONCEPTS[concept_idx]
-        diff_name   = cfg.DIFF_NAMES[diff_level]
-
+        concept_idx      = action // cfg.DIFF_LEVELS
+        diff_level       = action  % cfg.DIFF_LEVELS
+        concept          = cfg.CONCEPTS[concept_idx]
+        diff_name        = cfg.DIFF_NAMES[diff_level]
         mastery_at_level = student.mastery[concept_idx, diff_level]
 
         correct = env.answer(true_mastery, concept_idx, diff_level)
         student.history.append((concept_idx, diff_level, correct))
 
+        answer_str = "CORRECT" if correct else "wrong  "
         print(
-            f"Step {step+1:2d} | "
-            f"Concept: {concept:<25} | "
-            f"Difficulty: {diff_name:<8} | "
-            f"Mastery: {mastery_at_level:.2f} | "
-            f"{'CORRECT' if correct else 'WRONG  '} | "
-            f"APR: {apr:.3f}"
+            f"  {step+1:>4}  {concept:<26} {diff_name:<8} "
+            f"{mastery_at_level:>8.2f} {answer_str:>8} {apr:>6.3f}"
         )
 
-    print(f"\nFinal state:")
-    print(f"{'Concept':<30} {'Easy':>6} {'Medium':>8} {'Hard':>6}")
-    print("-" * 54)
+    print()
     student.update_from_kt(kt_model)
+    print(f"  {'Concept':<28} {'Easy':>6} {'Medium':>8} {'Hard':>6}")
+    print("  " + "-" * 52)
     for j, name in enumerate(cfg.CONCEPTS):
-        e = student.mastery[j, 0]
-        m = student.mastery[j, 1]
-        h = student.mastery[j, 2]
-        print(f"{name:<30} {e:>6.2f} {m:>8.2f} {h:>6.2f}")
+        e, m, h = student.mastery[j]
+        print(f"  {name:<28} {e:>6.2f} {m:>8.2f} {h:>6.2f}")
+
+
+# ─── Full Evaluation Suite ────────────────────────────────────────────────────
+
+def run_full_evaluation(kt_model, agent, cfg, n_students=200):
+    """
+    Runs all three evaluations in sequence and returns all results.
+    Call this after training to get a complete picture of system performance.
+    """
+    print("\n" + "=" * 62)
+    print("FULL EVALUATION SUITE")
+    print("=" * 62)
+
+    # 1. KT quality
+    kt_results = evaluate_kt(kt_model, cfg, n_students=n_students)
+
+    # 2. Policy comparison
+    policy_results = evaluate_policy(kt_model, agent, cfg, n_students=n_students)
+
+    # 3. Mastery report — uses already-computed policy results
+    eppo_mastery = policy_results["eppo"]["mean_mastery"]
+    print("\n" + "=" * 62)
+    print("Per-concept Mastery Report (EPPO policy)")
+    print("=" * 62)
+    print(f"  {'Concept':<28} {'Easy':>6} {'Medium':>8} {'Hard':>6}  Coverage")
+    print("  " + "-" * 62)
+    for j, name in enumerate(cfg.CONCEPTS):
+        e, m, h  = eppo_mastery[j]
+        bar      = "█" * int(e * 10) + "░" * (10 - int(e * 10))
+        print(f"  {name:<28} {e:>6.2f} {m:>8.2f} {h:>6.2f}  {bar}")
+
+    print(f"\n  Well-covered (easy>0.7): {(eppo_mastery[:,0]>0.7).sum()}/{cfg.N_CONCEPTS}")
+    print(f"  Neglected   (easy<0.5): {(eppo_mastery[:,0]<0.5).sum()}/{cfg.N_CONCEPTS}")
+
+    # 4. Demo session
+    run_demo_session(kt_model, agent, cfg)
+
+    return {
+        "kt":     kt_results,
+        "policy": policy_results,
+    }
 
 
 # ─── Entry Point ─────────────────────────────────────────────────────────────
@@ -946,53 +1288,5 @@ if __name__ == "__main__":
     # Train
     kt_model, agent, metrics = train(cfg, save_dir="checkpoints")
 
-    # Evaluate
-    evaluate(kt_model, agent, cfg, n_students=100)
-
-    # Demo session
-    run_demo_session(kt_model, agent, cfg)
-
-
-
-
-# def pretrain_kt(kt_model, cfg, n_synthetic=5000):
-# """
-# Pre-train KT on synthetic interactions BEFORE EPPO training.
-# This breaks the chicken-and-egg dependency.
-# """
-# optimizer = torch.optim.Adam(kt_model.parameters(), lr=1e-3)
-# criterion = nn.BCELoss()
-# env = SimulatedStudentEnv(cfg)
-
-# print("Pre-training KT model...")
-# for i in range(n_synthetic):
-#     # Generate a random student session
-#     true_mastery = env.sample_student()
-#     history = []
-
-#     # Random interactions — no EPPO yet, just random exploration
-#     for _ in range(random.randint(5, 20)):
-#         c = random.randint(0, cfg.N_CONCEPTS - 1)
-#         d = random.randint(0, cfg.DIFF_LEVELS - 1)
-#         correct = env.answer(true_mastery, c, d)
-#         history.append((c, d, correct))
-
-#     # Train KT on this history
-#     if len(history) >= 2:
-#         train_kt_step(kt_model, optimizer, criterion, history, cfg)
-
-#     if (i + 1) % 500 == 0:
-#         print(f"  KT pre-train step {i+1}/{n_synthetic}")
-
-# print("KT pre-training done")
-# return kt_model
-
-# cfg = Config()
-# kt_model = SimpleKT(cfg)
-# agent    = EPPOAgent(cfg)
-
-# # Pre-train KT first — ~2 minutes
-# kt_model = pretrain_kt(kt_model, cfg, n_synthetic=3000)
-
-# # Now train EPPO — KT already gives reasonable state estimates
-# kt_model, agent, metrics = train(cfg, kt_model=kt_model, agent=agent)
+    # Full evaluation suite
+    results = run_full_evaluation(kt_model, agent, cfg, n_students=200)
