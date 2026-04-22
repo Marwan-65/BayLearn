@@ -26,6 +26,7 @@
 
 import {
   fromArray,
+  toArray,
   traverse,
   insertAtHead, insertAtTail, insertAtIndex,
   deleteAtHead, deleteAtTail, deleteByValue, deleteAtIndex,
@@ -44,6 +45,13 @@ import { NarrativeLayer }     from './narrative/NarrativeLayer.js';
 let animLayer  = null;
 let narrLayer  = null;
 let controller = null;
+
+let scenario = null;
+let scenarioIndex = 0;
+let scenarioWorkingList = null;
+let scenarioWorkingListText = null;
+
+const SCENARIO_FILE = './linked-list-sequence.json';
 
 // ─── Operation dispatcher ─────────────────────────────────────────────────────
 
@@ -94,7 +102,12 @@ function runOperation() {
     .filter(Boolean)
     .map(s => (isNaN(s) ? s : Number(s)));
 
-  const list  = fromArray(values);
+  const normalizedRawList = normalizeListText(rawList);
+  const useScenarioState = Boolean(
+    scenario && scenarioWorkingList && scenarioWorkingListText === normalizedRawList
+  );
+
+  const list  = useScenarioState ? scenarioWorkingList : fromArray(values);
   const op    = document.getElementById('op-select').value;
   const value = (() => {
     const v = document.getElementById('param-value').value;
@@ -106,6 +119,9 @@ function runOperation() {
   const steps = buildSteps(op, list, value, index);
   if (!steps.length) return;
 
+  // In scenario mode, treat the resulting list as the next input seed.
+  syncScenarioAfterRun(steps);
+
   // 3. Pre-flight: load the correct pseudocode + complexity into the narrative
   //    layer BEFORE the controller fires its first event.
   narrLayer.loadOperation(op);
@@ -113,6 +129,9 @@ function runOperation() {
   // 4. Destroy the old controller to stop any running timers and clear
   //    old event listeners. Skipping this would double-fire events.
   if (controller) controller.destroy();
+
+  // Reset animation history so the next operation is rendered as a fresh run.
+  if (animLayer) animLayer._prev = null;
 
   controller = new PlaybackController(steps, {
     speed:            currentSpeed(),
@@ -144,6 +163,78 @@ function runOperation() {
     totalSteps:   steps.length,
     progress:     0,
   });
+}
+
+function applyScenarioStep(step) {
+  if (!step || typeof step !== 'object') return;
+
+  document.getElementById('op-select').value = step.op ?? 'traverse';
+
+  if ('value' in step) {
+    document.getElementById('param-value').value = step.value;
+  }
+
+  if ('index' in step) {
+    document.getElementById('param-index').value = step.index;
+  }
+
+  syncParamVisibility();
+}
+
+function prefillFromScenarioStart() {
+  if (!scenario) return;
+
+  const listText = scenario.initialList.map(v => String(v)).join(', ');
+  document.getElementById('input-list').value = listText;
+  scenarioWorkingList = fromArray(scenario.initialList);
+  scenarioWorkingListText = listText;
+
+  scenarioIndex = 0;
+  applyScenarioStep(scenario.operations[scenarioIndex]);
+}
+
+function syncScenarioAfterRun(steps) {
+  if (!scenario || !Array.isArray(steps) || steps.length === 0) return;
+
+  const lastStep = steps[steps.length - 1];
+  scenarioWorkingList = lastStep.state;
+  const nextList = toArray(lastStep.state);
+  const nextListText = nextList.join(', ');
+  document.getElementById('input-list').value = nextListText;
+  scenarioWorkingListText = nextListText;
+
+  scenarioIndex += 1;
+  if (scenarioIndex < scenario.operations.length) {
+    applyScenarioStep(scenario.operations[scenarioIndex]);
+  }
+}
+
+function normalizeListText(text) {
+  return text
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+async function loadScenario() {
+  try {
+    const res = await fetch(SCENARIO_FILE);
+    if (!res.ok) return;
+
+    const parsed = await res.json();
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+    if (!Array.isArray(parsed.initialList) || !Array.isArray(parsed.operations)) return;
+    if (parsed.operations.length === 0) return;
+
+    const hasInvalidOp = parsed.operations.some(item => !item || typeof item.op !== 'string');
+    if (hasInvalidOp) return;
+
+    scenario = parsed;
+    prefillFromScenarioStart();
+  } catch {
+    // Scenario mode is optional. If loading fails, keep normal manual mode.
+  }
 }
 
 // ─── Playback UI chrome ───────────────────────────────────────────────────────
@@ -205,7 +296,7 @@ function syncParamVisibility() {
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   // Instantiate long-lived singletons
   animLayer = new AnimationLayer(
     document.getElementById('viz-svg'),
@@ -225,8 +316,10 @@ window.addEventListener('load', () => {
 
   syncParamVisibility();
 
-  // Run the default operation immediately so the canvas isn't blank
-  runOperation();
+  await loadScenario();
+
+  // Keep the original behavior for manual mode only.
+  if (!scenario) runOperation();
 });
 
 // ─── Expose to HTML onclick attributes ───────────────────────────────────────

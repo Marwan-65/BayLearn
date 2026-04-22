@@ -1,0 +1,9 @@
+{
+  "initialList": [10, 20, 30, 40],
+  "operations": [
+    { "op": "insertAtHead", "value": 5 },
+    { "op": "insertAtIndex", "value": 15, "index": 2 },
+    { "op": "deleteByValue", "value": 30 },
+    { "op": "reverse" }
+  ]
+}

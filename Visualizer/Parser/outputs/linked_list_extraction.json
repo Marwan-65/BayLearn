@@ -1,0 +1,60 @@
+{
+  "animation_type": "linked_list",
+  "confidence": 0.9,
+  "initial_list": [],
+  "operations": [
+    {
+      "op": "insertAtHead",
+      "value": 30,
+      "index": null,
+      "source_quote": "First, we perform an insertion at the head by adding the number 30"
+    },
+    {
+      "op": "insertAtHead",
+      "value": 20,
+      "index": null,
+      "source_quote": "then another insertion at the head with 20"
+    },
+    {
+      "op": "insertAtHead",
+      "value": 10,
+      "index": null,
+      "source_quote": "and finally 10"
+    },
+    {
+      "op": "traverse",
+      "value": null,
+      "index": null,
+      "source_quote": "To see what we have, we perform a traversal , starting at the head and visiting each node in order until we reach the end."
+    },
+    {
+      "op": "deleteAtTail",
+      "value": null,
+      "index": null,
+      "source_quote": "Next, we execute a deletion at the tail ; the pointer from 20 is updated to null, dropping 30 and leaving us with 10, 20 ."
+    },
+    {
+      "op": "insertAtTail",
+      "value": 40,
+      "index": null,
+      "source_quote": "We then perform an insertion at the tail by adding 40"
+    },
+    {
+      "op": "insertAtTail",
+      "value": 50,
+      "index": null,
+      "source_quote": "and 50"
+    },
+    {
+      "op": "deleteByValue",
+      "value": 20,
+      "index": null,
+      "source_quote": "Finally, we perform a deletion by value for the number 20 ."
+    }
+  ],
+  "final_list": [
+    10,
+    40,
+    50
+  ]
+}
