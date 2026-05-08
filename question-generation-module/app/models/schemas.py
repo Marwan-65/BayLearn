@@ -1,12 +1,23 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
+# ── Bloom's Taxonomy Levels ────────────────────────────────────────────────
+"""
+Bloom's Taxonomy (Revised):
+1. Remember - recall facts and definitions
+2. Understand - explain ideas or concepts
+3. Apply - use information in a new situation
+4. Analyze - distinguish between different parts
+5. Evaluate - justify a decision or choice
+6. Create - combine elements to produce original work
+"""
+
 # ── What the caller sends to your API ──────────────────────────────────────
 class GenerateQuestionsRequest(BaseModel):
     project_id: str = Field(..., description="The ID of the indexed project/document")
     topic: Optional[str] = Field(None, description="Optional: focus questions on a topic")
     num_questions: int = Field(default=5, ge=1, le=20, description="How many questions to generate")
-    difficulty: str = Field(default="medium", description="easy | medium | hard")
+    difficulty: str = Field(default="understand", description="remember | understand | apply | analyze | evaluate | create")
     question_type: str = Field(default="mcq", description="mcq | short_answer | true_false")
 
 # ── One generated question ─────────────────────────────────────────────────

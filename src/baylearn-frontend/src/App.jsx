@@ -71,7 +71,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("chat"); // "chat" or "questions"
   const [questionTopic, setQuestionTopic] = useState("");
   const [questionType, setQuestionType] = useState("mcq");
-  const [questionDifficulty, setQuestionDifficulty] = useState("medium");
+  const [questionDifficulty, setQuestionDifficulty] = useState("understand");
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionCards, setQuestionCards] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -528,9 +528,12 @@ export default function App() {
                   onChange={(e) => setQuestionDifficulty(e.target.value)}
                   style={S.qInput}
                 >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
+                  <option value="remember">Remember</option>
+                  <option value="understand">Understand</option>
+                  <option value="apply">Apply</option>
+                  <option value="analyze">Analyze</option>
+                  <option value="evaluate">Evaluate</option>
+                  <option value="create">Create</option>
                 </select>
 
                 <button
@@ -541,7 +544,7 @@ export default function App() {
                     opacity: questionLoading ? 0.55 : 1,
                   }}
                 >
-                  {questionLoading ? "Generating..." : `Generate one ${questionDifficulty} question`}
+                  {questionLoading ? "Generating..." : `Generate (${questionDifficulty})`}
                 </button>
 
                 <div style={S.qHint}>Uses current project sources and project id automatically.</div>
