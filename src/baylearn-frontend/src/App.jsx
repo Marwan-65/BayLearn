@@ -1,38 +1,20 @@
-/**
- * BayLearn — simple NotebookLM-style pipeline UI.
- *
- * Left panel  : Sources (upload + file list) + Module shortcuts
- *               (Equation Lab, Animation Lab → open teammate frontends
- *                in new tabs).
- * Right panel : Chat that hits /nlp/ask/{project_id}.
- *               The backend returns the detected intent — the UI
- *               renders:
- *                 - plain answer + sources for rag_only
- *                 - extracted equation + solver output for
- *                   equation_from_context
- *                 - animation spec for animation_from_context
- *
- * Everything is one file on purpose — the design will be redone later.
- */
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api/v1";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api/v1";
+const QUESTION_API_BASE =
+  import.meta.env.VITE_QUESTION_API_BASE || "http://127.0.0.1:8002/api/v1";
 const EQUATION_URL =
   import.meta.env.VITE_EQUATION_FRONTEND_URL || "http://localhost:8501";
 const ANIMATION_URL =
   import.meta.env.VITE_ANIMATION_FRONTEND_URL || "http://localhost:3001";
 
-/* ────────────────────────────────────────────────────────────── */
-
-async function jsonFetch(path, opts = {}) {
-  // 90 s client-side timeout so a hung Groq call never leaves the UI
-  // spinning forever — the user sees a clear error and can retry.
+async function jsonFetch(path, opts = {}, baseUrl = API_BASE) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 90_000);
   let res;
+
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(`${baseUrl}${path}`, {
       headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
       signal: controller.signal,
       ...opts,
@@ -40,14 +22,13 @@ async function jsonFetch(path, opts = {}) {
   } catch (e) {
     clearTimeout(timer);
     if (e.name === "AbortError") {
-      const err = new Error(
-        "Request timed out after 90 s. The LLM may be rate-limited or slow — try again."
-      );
+      const err = new Error("Request timed out after 90s. Please try again.");
       err.status = 0;
       throw err;
     }
     throw e;
   }
+
   clearTimeout(timer);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -58,13 +39,13 @@ async function jsonFetch(path, opts = {}) {
   return data;
 }
 
-/** Generate/retrieve a stable per-browser project ID. The user never sees
- *  or types this — it's just the bucket key the backend uses to isolate
- *  one person's uploaded materials from another's. */
 function getOrCreateProjectId() {
   let pid = localStorage.getItem("baylearn:pid");
   if (!pid) {
-    pid = "p_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    pid =
+      "p_" +
+      Math.random().toString(36).slice(2, 10) +
+      Date.now().toString(36).slice(-4);
     localStorage.setItem("baylearn:pid", pid);
   }
   return pid;
@@ -79,23 +60,38 @@ export default function App() {
       return [];
     }
   });
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState(null);
   const [serverOk, setServerOk] = useState(null);
+
+  const [activeTab, setActiveTab] = useState("chat"); // "chat" or "questions"
+  const [questionTopic, setQuestionTopic] = useState("");
+  const [questionType, setQuestionType] = useState("mcq");
+  const [questionDifficulty, setQuestionDifficulty] = useState("medium");
+  const [questionLoading, setQuestionLoading] = useState(false);
+  const [questionCards, setQuestionCards] = useState([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem("baylearn:files", JSON.stringify(files));
   }, [files]);
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!loading && messages.length === 0) return;
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+      inline: "nearest",
+    });
   }, [messages, loading]);
 
-  // Ping backend
   useEffect(() => {
     let cancelled = false;
     async function check() {
@@ -119,10 +115,10 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  /* ── Upload (input parsing → chunk → embed → index) ───────── */
   async function handleUpload(fileList) {
     const list = Array.from(fileList || []);
     if (!list.length) return;
+
     setUploading(true);
     try {
       for (const file of list) {
@@ -132,8 +128,10 @@ export default function App() {
           `${API_BASE}/parse/upload/${projectId}?auto_index=true`,
           { method: "POST", body: form }
         );
+
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.signal || `HTTP ${res.status}`);
+
         setFiles((prev) => [
           ...prev.filter((f) => f.filename !== file.name),
           {
@@ -144,7 +142,7 @@ export default function App() {
           },
         ]);
       }
-      showToast(`Uploaded ${list.length} file(s) ✓`, "success");
+      showToast(`Uploaded ${list.length} file(s).`, "success");
     } catch (err) {
       showToast(err.message || "Upload failed", "error");
     } finally {
@@ -153,19 +151,21 @@ export default function App() {
     }
   }
 
-  /* ── Ask (intent-aware) ───────────────────────────────────── */
   async function send(textOverride) {
     const q = (textOverride ?? input).trim();
     if (!q || loading) return;
+
     setInput("");
     setMessages((m) => [...m, { role: "user", content: q }]);
     setLoading(true);
+
     try {
       const data = await jsonFetch(`/nlp/ask/${projectId}`, {
         method: "POST",
         body: JSON.stringify({ text: q, limit: 5 }),
       });
       const d = data.data || {};
+
       setMessages((m) => [
         ...m,
         {
@@ -177,19 +177,14 @@ export default function App() {
           equation: d.equation_text_sent || d.equation || null,
           equationResult: d.equation_result || null,
           animation: d.animation_spec || d.animation || null,
-          raw: d,
         },
       ]);
-      // Equation intent: do NOT auto-open the lab. The chat bubble shows
-      // the steps + "Open Equation Lab ↗" button, and the student clicks
-      // through only when they want the interactive workspace. Auto-open
-      // was disorienting — every question yanked focus to a new tab.
-      // Auto-open the animation lab when we produced an animation spec.
+
       if (d.animation_spec || d.animation) {
         try {
           window.open(ANIMATION_URL, "_blank", "noopener");
         } catch {
-          /* noop */
+          // no-op
         }
       }
     } catch (err) {
@@ -200,12 +195,61 @@ export default function App() {
           error: true,
           content:
             err.status === 429
-              ? "Rate limit reached — try again in a minute."
-              : err.message || "Cannot reach the server.",
+              ? "Rate limit reached, please retry in a minute."
+              : err.message || "Cannot reach server.",
         },
       ]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function generateQuestion() {
+    if (questionLoading) return;
+
+    if (files.length === 0) {
+      showToast("Upload and index at least one source first.", "error");
+      return;
+    }
+
+    setQuestionLoading(true);
+    try {
+      const topic = questionTopic.trim();
+      const data = await jsonFetch(
+        "/questions/generate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            project_id: projectId,
+            topic: topic || null,
+            num_questions: 1,
+            difficulty: questionDifficulty,
+            question_type: questionType,
+          }),
+        },
+        QUESTION_API_BASE
+      );
+
+      const generated = data.questions?.[0];
+      if (!generated) {
+        throw new Error("Question module returned no question.");
+      }
+
+      setQuestionCards((prev) => [
+        {
+          id: Date.now(),
+          topic: topic || "General",
+          questionType,
+          question: generated,
+          chunksUsed: data.chunks_used ?? 0,
+        },
+        ...prev,
+      ]);
+      showToast(`Generated one ${questionDifficulty} question.`, "success");
+    } catch (err) {
+      showToast(err.message || "Question generation failed", "error");
+    } finally {
+      setQuestionLoading(false);
     }
   }
 
@@ -220,10 +264,8 @@ export default function App() {
     "What are the most important points to review?",
   ];
 
-  /* ────────────────────── UI ────────────────────── */
   return (
     <div style={S.app}>
-      {/* ═════ LEFT — Sources + Modules ═════ */}
       <aside style={S.sidebar}>
         <div style={S.brand}>
           <div style={S.logo}>B</div>
@@ -233,7 +275,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Upload */}
         <label style={S.label}>SOURCES</label>
         <div
           onClick={() => fileInputRef.current?.click()}
@@ -249,9 +290,8 @@ export default function App() {
           }}
           style={S.dropzone}
         >
-          <div style={{ fontSize: 22 }}>{uploading ? "⏳" : "📄"}</div>
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>
-            {uploading ? "Uploading…" : "Add sources"}
+            {uploading ? "Uploading..." : "Add sources"}
           </div>
           <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
             PDF · image · audio · video · txt
@@ -266,7 +306,6 @@ export default function App() {
           />
         </div>
 
-        {/* File list */}
         <div style={S.fileList}>
           {files.length === 0 ? (
             <div style={{ fontSize: 12, color: "#999", padding: "8px 4px" }}>
@@ -278,8 +317,8 @@ export default function App() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={S.fileName}>{f.filename}</div>
                   <div style={S.fileMeta}>
-                    {(f.size / 1024).toFixed(0)} KB · {f.chunks} chunks{" "}
-                    {f.indexed ? "· ✓" : ""}
+                    {(f.size / 1024).toFixed(0)} KB · {f.chunks} chunks
+                    {f.indexed ? " · indexed" : ""}
                   </div>
                 </div>
                 <button
@@ -294,39 +333,25 @@ export default function App() {
           )}
         </div>
 
-        {/* Module shortcuts */}
         <label style={{ ...S.label, marginTop: 18 }}>MODULES</label>
-        <button
-          onClick={() => window.open(EQUATION_URL, "_blank")}
-          style={S.modCard}
-        >
-          <span style={{ fontSize: 18 }}>🧮</span>
+        <button onClick={() => window.open(EQUATION_URL, "_blank")} style={S.modCard}>
           <div style={{ flex: 1, textAlign: "left" }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>Equation Lab</div>
-            <div style={{ fontSize: 11, color: "#888" }}>
-              Symbolic + numeric solver
-            </div>
+            <div style={{ fontSize: 11, color: "#888" }}>Symbolic + numeric solver</div>
           </div>
           <span style={{ fontSize: 12, color: "#888" }}>↗</span>
         </button>
-        <button
-          onClick={() => window.open(ANIMATION_URL, "_blank")}
-          style={S.modCard}
-        >
-          <span style={{ fontSize: 18 }}>🎬</span>
+
+        <button onClick={() => window.open(ANIMATION_URL, "_blank")} style={S.modCard}>
           <div style={{ flex: 1, textAlign: "left" }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>Animation Lab</div>
-            <div style={{ fontSize: 11, color: "#888" }}>
-              Algorithm visualizer
-            </div>
+            <div style={{ fontSize: 11, color: "#888" }}>Algorithm visualizer</div>
           </div>
           <span style={{ fontSize: 12, color: "#888" }}>↗</span>
         </button>
 
         <div style={{ fontSize: 11, color: "#999", marginTop: 10, lineHeight: 1.6 }}>
-          Or just ask in chat — BayLearn detects whether you want an
-          explanation, a solved equation, or an animation, and routes to
-          the right module automatically.
+          Ask in chat for explanations, equation solving, or animation routing.
         </div>
 
         <div style={{ flex: 1 }} />
@@ -338,12 +363,10 @@ export default function App() {
               background: serverOk ? "#4ade80" : "#f87171",
             }}
           />
-          Server{" "}
-          {serverOk === null ? "checking…" : serverOk ? "online" : "offline"}
+          Server {serverOk === null ? "checking" : serverOk ? "online" : "offline"}
         </div>
       </aside>
 
-      {/* ═════ RIGHT — Chat ═════ */}
       <main style={S.main}>
         <header style={S.header}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Study Assistant</div>
@@ -352,75 +375,256 @@ export default function App() {
           </div>
         </header>
 
-        <div style={S.messages}>
-          {messages.length === 0 ? (
-            <div style={S.empty}>
-              <div style={{ fontSize: 36 }}>🎓</div>
-              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 8 }}>
-                Three things you can do
-              </div>
-              <div style={{ fontSize: 13, color: "#777", marginTop: 6, maxWidth: 460, lineHeight: 1.7, textAlign: "left" }}>
-                <div>① Drop study materials into <b>Sources</b> on the left.</div>
-                <div>② Ask a question below — BayLearn answers from your materials, or routes to the equation/animation module if that's what you asked for.</div>
-                <div>③ Or open <b>Equation Lab</b> / <b>Animation Lab</b> directly from the sidebar.</div>
-              </div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 14 }}>
-                Try one of these:
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 16 }}>
-                {suggestions.map((s, i) => (
-                  <button key={i} style={S.chip} onClick={() => send(s)}>
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            messages.map((m, i) => <Bubble key={i} m={m} />)
-          )}
-          {loading && (
-            <div style={{ ...S.msg, alignSelf: "flex-start" }}>
-              <div style={S.avatarAI}>🤖</div>
-              <div style={S.bubbleAI}>
-                <span style={S.dotAnim} />
-                <span style={{ ...S.dotAnim, animationDelay: "0.2s" }} />
-                <span style={{ ...S.dotAnim, animationDelay: "0.4s" }} />
-              </div>
-            </div>
-          )}
-          <div ref={bottomRef} />
+        {/* Tab Switcher */}
+        <div style={S.tabBar}>
+          <button
+            onClick={() => {
+              setActiveTab("chat");
+            }}
+            style={{
+              ...S.tabBtn,
+              background: activeTab === "chat" ? "white" : "transparent",
+              borderBottom: activeTab === "chat" ? "2px solid #6c63ff" : "1px solid #e6e6ec",
+            }}
+          >
+            Chat
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("questions");
+            }}
+            style={{
+              ...S.tabBtn,
+              background: activeTab === "questions" ? "white" : "transparent",
+              borderBottom: activeTab === "questions" ? "2px solid #6c63ff" : "1px solid #e6e6ec",
+            }}
+          >
+            Question Studio
+            {questionCards.length > 0 && (
+              <span style={{ marginLeft: 8, fontSize: 11, color: "#888" }}>
+                ({currentQuestionIndex + 1}/{questionCards.length})
+              </span>
+            )}
+          </button>
         </div>
 
-        <div style={S.inputWrap}>
-          <div style={S.inputBox}>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              placeholder="Ask a question, or try 'solve 2x+3=7' or 'animate a stack push'…"
-              rows={1}
-              style={S.textarea}
-            />
-            <button
-              onClick={() => send()}
-              disabled={loading || !input.trim()}
-              style={{
-                ...S.sendBtn,
-                opacity: loading || !input.trim() ? 0.4 : 1,
-              }}
-            >
-              ➤
-            </button>
+        {/* Chat Tab */}
+        {activeTab === "chat" && (
+          <div style={S.contentShell}>
+            <section style={S.chatColumn}>
+              <div style={S.messages}>
+                {messages.length === 0 ? (
+                  <div style={S.empty}>
+                    <div style={{ fontSize: 18, fontWeight: 700, marginTop: 8 }}>
+                      Three things you can do
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "#777",
+                        marginTop: 6,
+                        maxWidth: 460,
+                        lineHeight: 1.7,
+                        textAlign: "left",
+                      }}
+                    >
+                      <div>1. Drop study materials into Sources on the left.</div>
+                      <div>
+                        2. Ask in chat and BayLearn answers from your material or routes to modules.
+                      </div>
+                      <div>3. Switch to Question Studio tab to generate quiz questions.</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#999", marginTop: 14 }}>Try one:</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        justifyContent: "center",
+                        marginTop: 16,
+                      }}
+                    >
+                      {suggestions.map((s, i) => (
+                        <button key={i} style={S.chip} onClick={() => send(s)}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  messages.map((m, i) => <Bubble key={i} m={m} />)
+                )}
+
+                {loading && (
+                  <div style={{ ...S.msg, alignSelf: "flex-start" }}>
+                    <div style={S.avatarAI}>AI</div>
+                    <div style={S.bubbleAI}>Thinking...</div>
+                  </div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+
+              <div style={S.inputWrap}>
+                <div style={S.inputBox}>
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        send();
+                      }
+                    }}
+                    placeholder="Ask a question, or try solve 2x+3=7"
+                    rows={1}
+                    style={S.textarea}
+                  />
+                  <button
+                    onClick={() => send()}
+                    disabled={loading || !input.trim()}
+                    style={{
+                      ...S.sendBtn,
+                      opacity: loading || !input.trim() ? 0.4 : 1,
+                    }}
+                  >
+                    Send
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: "#999", marginTop: 6, textAlign: "center" }}>
+                  Enter to send · Shift+Enter for newline
+                </div>
+              </div>
+            </section>
           </div>
-          <div style={{ fontSize: 11, color: "#999", marginTop: 6, textAlign: "center" }}>
-            Enter to send · Shift+Enter for newline
+        )}
+
+        {/* Question Studio Tab - Carousel */}
+        {activeTab === "questions" && (
+          <div style={S.contentShell}>
+            <section style={{ ...S.chatColumn, display: "flex", flexDirection: "column" }}>
+              <div style={S.questionControls}>
+                <label style={S.qLabel}>Topic (optional)</label>
+                <input
+                  value={questionTopic}
+                  onChange={(e) => setQuestionTopic(e.target.value)}
+                  placeholder="e.g. chain rule"
+                  style={S.qInput}
+                />
+
+                <label style={S.qLabel}>Question type</label>
+                <select
+                  value={questionType}
+                  onChange={(e) => setQuestionType(e.target.value)}
+                  style={S.qInput}
+                >
+                  <option value="mcq">MCQ</option>
+                  <option value="short_answer">Short answer</option>
+                  <option value="true_false">True/False</option>
+                </select>
+
+                <label style={S.qLabel}>Difficulty</label>
+                <select
+                  value={questionDifficulty}
+                  onChange={(e) => setQuestionDifficulty(e.target.value)}
+                  style={S.qInput}
+                >
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+
+                <button
+                  onClick={generateQuestion}
+                  disabled={questionLoading}
+                  style={{
+                    ...S.generateBtn,
+                    opacity: questionLoading ? 0.55 : 1,
+                  }}
+                >
+                  {questionLoading ? "Generating..." : `Generate one ${questionDifficulty} question`}
+                </button>
+
+                <div style={S.qHint}>Uses current project sources and project id automatically.</div>
+              </div>
+
+              {/* Carousel Container */}
+              <div style={S.carouselContainer}>
+                {questionCards.length === 0 ? (
+                  <div style={{ ...S.carouselEmpty, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: "#555" }}>No questions yet</div>
+                      <div style={{ fontSize: 12, color: "#999", marginTop: 6 }}>
+                        Generate your first question above
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Carousel Viewport */}
+                    <div style={S.carouselViewport}>
+                      <div
+                        style={{
+                          ...S.carouselSlide,
+                          transform: `translateX(-${currentQuestionIndex * 100}%)`,
+                        }}
+                      >
+                        {questionCards.map((item) => (
+                          <div key={item.id} style={S.carouselSlideItem}>
+                            <QuestionCard item={item} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Navigation Arrows & Dots */}
+                    <div style={S.carouselNav}>
+                      <button
+                        onClick={() =>
+                          setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))
+                        }
+                        disabled={currentQuestionIndex === 0}
+                        style={{
+                          ...S.arrowBtn,
+                          opacity: currentQuestionIndex === 0 ? 0.3 : 1,
+                        }}
+                      >
+                        ←
+                      </button>
+
+                      <div style={S.dotContainer}>
+                        {questionCards.map((_, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentQuestionIndex(idx)}
+                            style={{
+                              ...S.dot,
+                              background: idx === currentQuestionIndex ? "#6c63ff" : "#d9d9e3",
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          setCurrentQuestionIndex(
+                            Math.min(questionCards.length - 1, currentQuestionIndex + 1)
+                          )
+                        }
+                        disabled={currentQuestionIndex === questionCards.length - 1}
+                        style={{
+                          ...S.arrowBtn,
+                          opacity: currentQuestionIndex === questionCards.length - 1 ? 0.3 : 1,
+                        }}
+                      >
+                        →
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
           </div>
-        </div>
+        )}
       </main>
 
       {toast && (
@@ -444,22 +648,10 @@ export default function App() {
           {toast.msg}
         </div>
       )}
-
-      <style>{`
-        @keyframes bl-bounce {
-          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-          30% { transform: translateY(-6px); opacity: 1; }
-        }
-        @keyframes bl-slide {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }
 
-/* ────────────── Message bubble with intent rendering ────────────── */
 function Bubble({ m }) {
   if (m.role === "user") {
     return (
@@ -469,95 +661,67 @@ function Bubble({ m }) {
       </div>
     );
   }
+
   return (
     <div style={{ ...S.msg, alignSelf: "flex-start" }}>
-      <div style={S.avatarAI}>🤖</div>
+      <div style={S.avatarAI}>AI</div>
       <div style={{ maxWidth: 680 }}>
         {m.intent && <IntentBadge intent={m.intent} />}
-        <div
-          style={{
-            ...S.bubbleAI,
-            ...(m.error ? { borderColor: "#f87171", color: "#c53030" } : {}),
-          }}
-        >
+        <div style={{ ...S.bubbleAI, ...(m.error ? { borderColor: "#f87171", color: "#c53030" } : {}) }}>
           {m.content}
         </div>
 
-        {/* Equation module result — rendered nicely, not as raw JSON */}
         {m.equation && (
           <div style={S.card}>
-            <div style={S.cardLabel}>🧮 Equation</div>
+            <div style={S.cardLabel}>Equation</div>
             <code style={S.code}>{m.equation}</code>
             {m.equationResult ? (
               <EquationSolution result={m.equationResult} equation={m.equation} />
             ) : (
-              // Even if the equation module didn't return a result (not
-              // running, error, or LLM answered conversationally), still
-              // give the user a one-click path into the lab pre-filled
-              // with their equation.
               <a
                 href={`${EQUATION_URL}/?q=${encodeURIComponent(m.equation)}&autosolve=1`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={S.launchBtn}
               >
-                Open Equation Lab ↗
+                Open Equation Lab
               </a>
             )}
           </div>
         )}
 
-        {/* Animation module result */}
         {m.animation && (
           <div style={S.card}>
-            <div style={S.cardLabel}>🎬 Animation spec</div>
+            <div style={S.cardLabel}>Animation spec</div>
             <div style={S.specGrid}>
               {Object.entries(m.animation).map(([k, v]) => (
                 <div key={k} style={S.specRow}>
                   <span style={S.specKey}>{k}</span>
-                  <span style={S.specVal}>
-                    {Array.isArray(v) ? v.join(", ") : String(v)}
-                  </span>
+                  <span style={S.specVal}>{Array.isArray(v) ? v.join(", ") : String(v)}</span>
                 </div>
               ))}
             </div>
-            <a
-              href={ANIMATION_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={S.launchBtn}
-            >
-              Open Animation Lab ↗
+            <a href={ANIMATION_URL} target="_blank" rel="noopener noreferrer" style={S.launchBtn}>
+              Open Animation Lab
             </a>
           </div>
         )}
 
-        {/* Sources */}
         {m.sources && m.sources.length > 0 && (
           <div style={{ marginTop: 8 }}>
             <div style={S.srcLabel}>Sources retrieved</div>
             {m.sources.map((src, j) => {
-              // Scores may be cosine similarity (0–1) OR RRF scores
-              // (unbounded). Clamp to [0, 1] so the pill never shows 500%.
               const raw = m.scores?.[j] ?? 0;
               const score = Math.max(0, Math.min(1, raw));
               const color =
                 score >= 0.6 ? "#16a34a" : score >= 0.4 ? "#ca8a04" : "#dc2626";
               return (
                 <div key={j} style={S.src}>
-                  <span
-                    style={{
-                      ...S.scorePill,
-                      color,
-                      background: color + "1A",
-                    }}
-                  >
+                  <span style={{ ...S.scorePill, color, background: color + "1A" }}>
                     {(score * 100).toFixed(0)}%
                   </span>
                   <span style={{ flex: 1, fontSize: 12, color: "#444" }}>
-                    {String(src).length > 240
-                      ? String(src).slice(0, 240) + "…"
-                      : String(src)}
+                    {String(src).length > 240 ? String(src).slice(0, 240) + "..." : String(src)}
                   </span>
                 </div>
               );
@@ -569,9 +733,6 @@ function Bubble({ m }) {
   );
 }
 
-/** Strip the $…$ and a few LaTeX commands so steps read as plain math
- *  in the chat. We don't need full LaTeX rendering for the demo — just
- *  something readable instead of a JSON dump. */
 function cleanLatex(s) {
   if (!s) return "";
   return String(s)
@@ -585,41 +746,24 @@ function cleanLatex(s) {
 
 function EquationSolution({ result, equation }) {
   if (!result || typeof result !== "object") return null;
+
   if (result.success === false) {
-    return (
-      <div style={{ marginTop: 10, color: "#c53030", fontSize: 13 }}>
-        Solver error: {result.error || "unknown"}
-      </div>
-    );
+    return <div style={{ marginTop: 10, color: "#c53030", fontSize: 13 }}>Solver error: {result.error || "unknown"}</div>;
   }
+
   const steps = Array.isArray(result.steps) ? result.steps : [];
   const final = result.final_result;
-  const lab = `${
-    import.meta.env.VITE_EQUATION_FRONTEND_URL || "http://localhost:8501"
-  }/?q=${encodeURIComponent(equation || "")}&autosolve=1`;
+  const lab = `${EQUATION_URL}/?q=${encodeURIComponent(equation || "")}&autosolve=1`;
 
   return (
     <>
       {final && (
         <>
           <div style={{ ...S.cardLabel, marginTop: 10 }}>Answer</div>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 600,
-              color: "#111827",
-              padding: "8px 10px",
-              background: "#ecfdf5",
-              border: "1px solid #a7f3d0",
-              borderRadius: 6,
-              fontFamily:
-                "ui-monospace, SFMono-Regular, Menlo, Monaco, monospace",
-            }}
-          >
-            {cleanLatex(final)}
-          </div>
+          <div style={S.answerBox}>{cleanLatex(final)}</div>
         </>
       )}
+
       {steps.length > 0 && (
         <>
           <div style={{ ...S.cardLabel, marginTop: 10 }}>Steps</div>
@@ -632,13 +776,9 @@ function EquationSolution({ result, equation }) {
           </ol>
         </>
       )}
-      <a
-        href={lab}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={S.launchBtn}
-      >
-        Open Equation Lab ↗
+
+      <a href={lab} target="_blank" rel="noopener noreferrer" style={S.launchBtn}>
+        Open Equation Lab
       </a>
     </>
   );
@@ -650,6 +790,7 @@ function IntentBadge({ intent }) {
     equation_from_context: { label: "Equation mode", color: "#f59e0b" },
     animation_from_context: { label: "Animation mode", color: "#10b981" },
   };
+
   const m = map[intent] || { label: intent, color: "#6b7280" };
   return (
     <div
@@ -667,16 +808,206 @@ function IntentBadge({ intent }) {
         marginBottom: 6,
       }}
     >
-      ✦ {m.label}
+      {m.label}
     </div>
   );
 }
 
-/* ───────────────────── styles ───────────────────── */
+function QuestionCard({ item }) {
+  const q = item.question;
+  const [selected, setSelected] = useState(null); // MCQ: label string, T/F: "true"/"false", SA: user text
+  const [shortAnswerText, setShortAnswerText] = useState("");
+  const revealed = selected !== null;
+  const isMCQ = item.questionType === "mcq" && Array.isArray(q.options) && q.options.length > 0;
+  const isTrueFalse = item.questionType === "true_false";
+  const isShortAnswer = item.questionType === "short_answer";
+
+  // Determine if user's answer is correct
+  let isCorrect = false;
+  if (isMCQ) {
+    isCorrect = q.options.find(o => o.label === selected)?.is_correct || false;
+  } else if (isTrueFalse) {
+    const correctAnswer = (q.correct_answer || "").toLowerCase();
+    const userAnswer = (selected || "").toLowerCase();
+    isCorrect = correctAnswer === userAnswer;
+  } else if (isShortAnswer) {
+    // For short answer, do case-insensitive substring matching for basic validation
+    const correctLower = (q.correct_answer || "").toLowerCase().trim();
+    const userLower = shortAnswerText.toLowerCase().trim();
+    isCorrect = userLower === correctLower || correctLower.includes(userLower) || userLower.includes(correctLower);
+  }
+
+  function optionStyle(opt) {
+    if (!revealed) return S.qOption;
+    if (opt.is_correct) return { ...S.qOption, ...S.qOptionCorrect };
+    if (opt.label === selected) return { ...S.qOption, ...S.qOptionWrong };
+    return { ...S.qOption, opacity: 0.5 };
+  }
+
+  function handleTrueFalseClick(value) {
+    setSelected(value);
+  }
+
+  function handleShortAnswerSubmit() {
+    if (shortAnswerText.trim()) {
+      setSelected("submitted");
+    }
+  }
+
+  return (
+    <div style={S.qCard}>
+      {/* LEFT SIDE - QUESTION */}
+      <div style={S.qCardLeft}>
+        <div style={S.qMetaTop}>
+          <span style={S.qTag}>{item.questionType.replace("_", " ")}</span>
+          <span style={S.qMetaSmall}>{item.topic}</span>
+        </div>
+
+        <div style={S.qText}>{q.question_text}</div>
+
+        {isMCQ && (
+          <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+            {q.options.map((opt) => (
+              <button
+                key={opt.label}
+                disabled={revealed}
+                onClick={() => setSelected(opt.label)}
+                style={{
+                  ...optionStyle(opt),
+                  textAlign: "left",
+                  cursor: revealed ? "default" : "pointer",
+                  border: selected === opt.label && !opt.is_correct
+                    ? "1px solid #fca5a5"
+                    : optionStyle(opt).border,
+                }}
+              >
+                <b>{opt.label}.</b> {opt.text}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {isTrueFalse && (
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <button
+              disabled={revealed}
+              onClick={() => handleTrueFalseClick("true")}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 6,
+                border: "1px solid #d6d6de",
+                background: selected === "true" ? (revealed ? (isCorrect ? "#ecfdf5" : "#fff1f2") : "#e6e6ff") : "#fff",
+                color: selected === "true" ? (revealed ? (isCorrect ? "#059669" : "#dc2626") : "#6c63ff") : "#333",
+                fontWeight: selected === "true" ? 600 : 500,
+                cursor: revealed ? "default" : "pointer",
+                fontSize: 13,
+              }}
+            >
+              True
+            </button>
+            <button
+              disabled={revealed}
+              onClick={() => handleTrueFalseClick("false")}
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 6,
+                border: "1px solid #d6d6de",
+                background: selected === "false" ? (revealed ? (isCorrect ? "#ecfdf5" : "#fff1f2") : "#e6e6ff") : "#fff",
+                color: selected === "false" ? (revealed ? (isCorrect ? "#059669" : "#dc2626") : "#6c63ff") : "#333",
+                fontWeight: selected === "false" ? 600 : 500,
+                cursor: revealed ? "default" : "pointer",
+                fontSize: 13,
+              }}
+            >
+              False
+            </button>
+          </div>
+        )}
+
+        {isShortAnswer && (
+          <div style={{ marginTop: 12 }}>
+            <textarea
+              disabled={revealed}
+              value={shortAnswerText}
+              onChange={(e) => setShortAnswerText(e.target.value)}
+              placeholder="Enter your answer..."
+              style={{
+                width: "100%",
+                minHeight: 70,
+                padding: 10,
+                borderRadius: 6,
+                border: "1px solid #d6d6de",
+                fontSize: 12,
+                fontFamily: "inherit",
+                resize: "none",
+                cursor: revealed ? "default" : "text",
+                opacity: revealed ? 0.6 : 1,
+              }}
+            />
+            <button
+              disabled={revealed || !shortAnswerText.trim()}
+              onClick={handleShortAnswerSubmit}
+              style={{
+                ...S.generateBtn,
+                marginTop: 8,
+                width: "100%",
+                opacity: revealed || !shortAnswerText.trim() ? 0.5 : 1,
+                cursor: revealed || !shortAnswerText.trim() ? "default" : "pointer",
+              }}
+            >
+              Submit answer
+            </button>
+          </div>
+        )}
+
+        <div style={S.qMetaBottom}>
+          {item.difficulty} · {item.chunksUsed} chunk{item.chunksUsed === 1 ? "" : "s"}
+        </div>
+      </div>
+
+      {/* RIGHT SIDE - ANSWER REVEAL */}
+      {revealed && (
+        <div style={{ ...S.qCardRight, opacity: revealed ? 1 : 0, transform: revealed ? "translateX(0)" : "translateX(20px)" }}>
+          <div style={{ ...S.resultBadge, background: isCorrect ? "#ecfdf5" : "#fff1f2", borderColor: isCorrect ? "#a7f3d0" : "#fca5a5" }}>
+            <span style={{ fontSize: 28, marginBottom: 4 }}>{isCorrect ? "✓" : "✗"}</span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: isCorrect ? "#059669" : "#dc2626" }}>
+              {isCorrect ? "Correct!" : "Incorrect"}
+            </div>
+          </div>
+
+          {isShortAnswer && (
+            <div style={{ marginTop: 12 }}>
+              <div style={S.qLabel}>Your answer</div>
+              <div style={{ ...S.qAnswer, background: "#f5f5f7", wordBreak: "break-word" }}>{shortAnswerText}</div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 16 }}>
+            <div style={S.qLabel}>Correct answer</div>
+            <div style={S.qAnswer}>{q.correct_answer}</div>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <div style={S.qLabel}>Explanation</div>
+            <div style={S.qExplain}>{q.explanation}</div>
+          </div>
+
+          <div style={{ fontSize: 11, color: "#999", marginTop: 12, textAlign: "center" }}>
+            Use arrows or dots below to continue
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const S = {
-  app: { display: "flex", height: "100vh", width: "100vw", overflow: "hidden" },
+  app: { display: "flex", height: "100vh", width: "100vw", overflow: "hidden", minWidth: 0 },
+
   sidebar: {
-    width: 300,
+    width: "clamp(200px, 22vw, 280px)",
     flexShrink: 0,
     background: "#ffffff",
     borderRight: "1px solid #e6e6ec",
@@ -684,8 +1015,11 @@ const S = {
     display: "flex",
     flexDirection: "column",
     overflowY: "auto",
+    minHeight: 0,
   },
+
   brand: { display: "flex", alignItems: "center", gap: 10, marginBottom: 18 },
+
   logo: {
     width: 34,
     height: 34,
@@ -698,6 +1032,7 @@ const S = {
     alignItems: "center",
     justifyContent: "center",
   },
+
   label: {
     fontSize: 10,
     fontWeight: 700,
@@ -707,6 +1042,7 @@ const S = {
     marginBottom: 6,
     display: "block",
   },
+
   dropzone: {
     border: "2px dashed #d6d6de",
     borderRadius: 10,
@@ -716,7 +1052,9 @@ const S = {
     background: "#fafafd",
     transition: "border-color 0.2s",
   },
+
   fileList: { marginTop: 8, display: "flex", flexDirection: "column", gap: 4 },
+
   fileRow: {
     display: "flex",
     alignItems: "center",
@@ -726,6 +1064,7 @@ const S = {
     border: "1px solid #eee",
     borderRadius: 6,
   },
+
   fileName: {
     fontSize: 12,
     fontWeight: 600,
@@ -733,7 +1072,9 @@ const S = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+
   fileMeta: { fontSize: 10, color: "#888" },
+
   xBtn: {
     border: "none",
     background: "transparent",
@@ -742,6 +1083,7 @@ const S = {
     fontSize: 16,
     padding: "0 4px",
   },
+
   modCard: {
     display: "flex",
     alignItems: "center",
@@ -754,6 +1096,7 @@ const S = {
     marginBottom: 6,
     width: "100%",
   },
+
   status: {
     marginTop: 12,
     padding: "8px 12px",
@@ -766,9 +1109,11 @@ const S = {
     alignItems: "center",
     gap: 8,
   },
+
   dot: { width: 8, height: 8, borderRadius: "50%" },
 
-  main: { flex: 1, display: "flex", flexDirection: "column", background: "#f7f7f8" },
+  main: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "#f7f7f8", overflow: "hidden" },
+
   header: {
     height: 52,
     padding: "0 22px",
@@ -778,6 +1123,125 @@ const S = {
     alignItems: "center",
     justifyContent: "space-between",
   },
+
+  tabBar: {
+    display: "flex",
+    gap: 0,
+    background: "#f7f7f8",
+    borderBottom: "1px solid #e6e6ec",
+    height: 44,
+    paddingX: 0,
+  },
+
+  tabBtn: {
+    flex: 1,
+    border: "none",
+    background: "transparent",
+    borderBottom: "1px solid #e6e6ec",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "#555",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.2s",
+  },
+
+  contentShell: {
+    flex: 1,
+    minHeight: 0,
+    display: "flex",
+    flexWrap: "nowrap",
+    overflow: "hidden",
+  },
+
+  carouselContainer: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    minHeight: 0,
+    position: "relative",
+    background: "#f7f7f8",
+  },
+
+  carouselEmpty: {
+    flex: 1,
+    color: "#777",
+  },
+
+  carouselViewport: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  carouselSlide: {
+    display: "flex",
+    width: "100%",
+    transition: "transform 0.3s ease-out",
+  },
+
+  carouselSlideItem: {
+    flex: "0 0 100%",
+    minWidth: 0,
+    minHeight: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "auto",
+    padding: "20px 20px",
+  },
+
+  carouselNav: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    padding: "16px 20px",
+    background: "white",
+    borderTop: "1px solid #e6e6ec",
+  },
+
+  arrowBtn: {
+    border: "none",
+    background: "transparent",
+    fontSize: 18,
+    fontWeight: 600,
+    color: "#555",
+    cursor: "pointer",
+    padding: "8px 12px",
+    transition: "opacity 0.2s",
+  },
+
+  dotContainer: {
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+  },
+
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: "50%",
+    border: "none",
+    cursor: "pointer",
+    background: "#d9d9e3",
+    transition: "background 0.2s",
+  },
+
+  chatColumn: {
+    flex: "1 1 0",
+    minWidth: 0,
+    minHeight: 0,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+
   messages: {
     flex: 1,
     overflowY: "auto",
@@ -786,12 +1250,9 @@ const S = {
     flexDirection: "column",
     gap: 16,
   },
-  empty: {
-    margin: "auto",
-    textAlign: "center",
-    padding: 40,
-    color: "#777",
-  },
+
+  empty: { margin: "auto", textAlign: "center", padding: 40, color: "#777" },
+
   chip: {
     padding: "7px 14px",
     border: "1px solid #d6d6de",
@@ -801,12 +1262,9 @@ const S = {
     cursor: "pointer",
     color: "#555",
   },
-  msg: {
-    display: "flex",
-    gap: 10,
-    maxWidth: 780,
-    animation: "bl-slide 0.25s ease",
-  },
+
+  msg: { display: "flex", gap: 10, maxWidth: 780 },
+
   avatarUser: {
     width: 30,
     height: 30,
@@ -820,6 +1278,7 @@ const S = {
     fontSize: 13,
     flexShrink: 0,
   },
+
   avatarAI: {
     width: 30,
     height: 30,
@@ -829,9 +1288,10 @@ const S = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 14,
+    fontSize: 12,
     flexShrink: 0,
   },
+
   bubbleUser: {
     padding: "10px 14px",
     background: "#6c63ff",
@@ -840,6 +1300,7 @@ const S = {
     fontSize: 14,
     lineHeight: 1.6,
   },
+
   bubbleAI: {
     padding: "10px 14px",
     background: "white",
@@ -850,15 +1311,6 @@ const S = {
     color: "#1a1a1a",
     whiteSpace: "pre-wrap",
   },
-  dotAnim: {
-    display: "inline-block",
-    width: 7,
-    height: 7,
-    borderRadius: "50%",
-    background: "#a78bfa",
-    margin: "0 3px",
-    animation: "bl-bounce 1.2s ease-in-out infinite",
-  },
 
   card: {
     marginTop: 8,
@@ -867,6 +1319,7 @@ const S = {
     border: "1px solid #e6e6ec",
     borderRadius: 10,
   },
+
   cardLabel: {
     fontSize: 10,
     fontWeight: 700,
@@ -874,6 +1327,7 @@ const S = {
     color: "#888",
     marginBottom: 6,
   },
+
   code: {
     display: "block",
     fontFamily: "ui-monospace,Menlo,monospace",
@@ -882,15 +1336,18 @@ const S = {
     padding: "8px 10px",
     borderRadius: 6,
   },
-  pre: {
-    fontFamily: "ui-monospace,Menlo,monospace",
-    fontSize: 11,
-    background: "#f4f4f8",
+
+  answerBox: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: "#111827",
     padding: "8px 10px",
+    background: "#ecfdf5",
+    border: "1px solid #a7f3d0",
     borderRadius: 6,
-    overflowX: "auto",
-    whiteSpace: "pre-wrap",
+    fontFamily: "ui-monospace,SFMono-Regular,Menlo,Monaco,monospace",
   },
+
   launchBtn: {
     display: "inline-block",
     marginTop: 10,
@@ -902,11 +1359,9 @@ const S = {
     borderRadius: 6,
     textDecoration: "none",
   },
-  specGrid: {
-    display: "grid",
-    gap: 4,
-    marginTop: 2,
-  },
+
+  specGrid: { display: "grid", gap: 4, marginTop: 2 },
+
   specRow: {
     display: "flex",
     gap: 10,
@@ -915,6 +1370,7 @@ const S = {
     background: "#f9fafb",
     borderRadius: 4,
   },
+
   specKey: {
     minWidth: 120,
     fontWeight: 600,
@@ -922,12 +1378,14 @@ const S = {
     fontFamily: "ui-monospace,Menlo,monospace",
     fontSize: 12,
   },
+
   specVal: {
     flex: 1,
     color: "#111827",
     fontFamily: "ui-monospace,Menlo,monospace",
     fontSize: 12,
   },
+
   srcLabel: {
     fontSize: 10,
     fontWeight: 700,
@@ -935,6 +1393,7 @@ const S = {
     color: "#888",
     margin: "10px 0 4px",
   },
+
   src: {
     display: "flex",
     gap: 8,
@@ -945,6 +1404,7 @@ const S = {
     marginBottom: 4,
     alignItems: "flex-start",
   },
+
   scorePill: {
     fontFamily: "ui-monospace,Menlo,monospace",
     fontSize: 10,
@@ -959,6 +1419,7 @@ const S = {
     borderTop: "1px solid #e6e6ec",
     background: "white",
   },
+
   inputBox: {
     display: "flex",
     alignItems: "flex-end",
@@ -968,6 +1429,7 @@ const S = {
     padding: "10px 12px",
     background: "#fafafd",
   },
+
   textarea: {
     flex: 1,
     border: "none",
@@ -980,16 +1442,17 @@ const S = {
     minHeight: 22,
     maxHeight: 120,
   },
+
   sendBtn: {
-    width: 34,
     height: 34,
     borderRadius: 8,
     border: "none",
     background: "linear-gradient(135deg,#6c63ff,#a78bfa)",
     color: "white",
     cursor: "pointer",
-    fontSize: 15,
+    fontSize: 13,
     flexShrink: 0,
+    padding: "0 12px",
   },
 
   toast: {
@@ -1003,6 +1466,178 @@ const S = {
     fontSize: 13,
     boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
     zIndex: 100,
-    animation: "bl-slide 0.25s ease",
+  },
+
+  questionControls: {
+    padding: "8px 10px",
+    borderBottom: "1px solid #ececf1",
+    display: "grid",
+    gap: 4,
+    background: "#ffffff",
+    flexShrink: 0,
+  },
+
+  qLabel: {
+    fontSize: 8,
+    color: "#6b7280",
+    fontWeight: 700,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginTop: 1,
+  },
+
+  qInput: {
+    border: "1px solid #d9d9e3",
+    borderRadius: 4,
+    padding: "5px 7px",
+    fontSize: 11,
+    outline: "none",
+    background: "#f9f9fd",
+  },
+
+  generateBtn: {
+    marginTop: 1,
+    border: "none",
+    borderRadius: 4,
+    background: "#111827",
+    color: "white",
+    padding: "5px 8px",
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+
+  qHint: { fontSize: 9, color: "#777", lineHeight: 1.3, marginTop: 1 },
+
+  qEmpty: {
+    fontSize: 12,
+    color: "#8b8b95",
+    border: "1px dashed #d9d9e3",
+    borderRadius: 8,
+    padding: "12px 10px",
+    background: "#fff",
+  },
+
+  qCard: {
+    background: "white",
+    border: "1px solid #e6e6ec",
+    borderRadius: 10,
+    display: "flex",
+    flexDirection: "row",
+    gap: 20,
+    width: "100%",
+    maxWidth: "900px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+    overflow: "hidden",
+  },
+
+  qCardLeft: {
+    flex: "0 0 50%",
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    padding: 18,
+    overflowY: "auto",
+    paddingRight: 12,
+  },
+
+  qCardRight: {
+    flex: "0 0 50%",
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    padding: 18,
+    paddingLeft: 12,
+    overflowY: "auto",
+    background: "#fafbff",
+    borderLeft: "1px solid #e6e6ec",
+    transition: "all 0.4s ease-out",
+  },
+
+  resultBadge: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    borderRadius: 10,
+    border: "2px solid",
+  },
+
+  qMetaTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+
+  qTag: {
+    fontSize: 9,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    color: "#4338ca",
+    background: "#e0e7ff",
+    border: "1px solid #c7d2fe",
+    borderRadius: 999,
+    padding: "1px 6px",
+  },
+
+  qMetaSmall: {
+    fontSize: 10,
+    color: "#6b7280",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
+  qText: { fontSize: 13, fontWeight: 600, color: "#111827", lineHeight: 1.5 },
+
+  qOption: {
+    display: "flex",
+    gap: 6,
+    fontSize: 12,
+    color: "#1f2937",
+    background: "#f9fafb",
+    border: "1px solid #e5e7eb",
+    borderRadius: 6,
+    padding: "6px 8px",
+    width: "100%",
+    fontFamily: "inherit",
+  },
+
+  qOptionCorrect: {
+    background: "#ecfdf5",
+    border: "1px solid #a7f3d0",
+  },
+
+  qOptionWrong: {
+    background: "#fff1f2",
+    border: "1px solid #fca5a5",
+  },
+
+  qAnswer: {
+    fontSize: 12,
+    color: "#065f46",
+    background: "#ecfdf5",
+    border: "1px solid #a7f3d0",
+    borderRadius: 6,
+    padding: "6px 8px",
+    lineHeight: 1.5,
+  },
+
+  qExplain: {
+    fontSize: 11,
+    color: "#374151",
+    lineHeight: 1.5,
+    whiteSpace: "pre-wrap",
+  },
+
+  qMetaBottom: {
+    marginTop: "auto",
+    paddingTop: 10,
+    fontSize: 10,
+    color: "#6b7280",
+    borderTop: "1px solid #f0f0f0",
   },
 };

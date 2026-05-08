@@ -1,2 +1,0 @@
-print(missing_report),nan,nan,nan
-"print(f""\nCritical: {len(critical_missing)}",columns,with,">20% missing data"")"

@@ -518,6 +518,12 @@ class PDFParser(BaseParser):
 
     def preprocess(self, file_path):
         doc = fitz.open(file_path)
+        if doc.page_count == 0:
+            doc.close()
+            raise ValueError(
+                "Uploaded PDF has zero pages or is invalid/corrupted. "
+                "Please upload a valid, non-empty PDF file."
+            )
         cleaned_path = file_path.replace(".pdf", "_clean.pdf")
         doc.save(cleaned_path)
         doc.close()

@@ -1,4 +1,0 @@
-assert,nan,(df['age'],"> 0).all(), ""Invalid negative ages“","> 0).all(), ""Invalid negative ages“","> 0).all(), ""Invalid negative ages“"
-assert,nan,(df['age'],<,"120).all(), ""Unrealistic",ages found“
-assert,nan,nan,nan,"(df['email'].str.contains('@').all(),","""Invalid"
-email formats“,email formats“,email formats“,nan,nan,nan
