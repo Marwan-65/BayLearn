@@ -1,6 +1,0 @@
-# Missing value analysis,nan,nan,nan
-missing_report = pd.DataFrame({,nan,nan,nan
-"'Column': df.columns,",nan,nan,nan
-"'Missing_Count': df.isnull().sum(),",nan,nan,nan
-'Missing_Percentage': (df.isnull().sum() / len(df),'Missing_Percentage': (df.isnull().sum() / len(df),*,"100).round(2),"
-'Data_Type': df.dtypes }),'Data_Type': df.dtypes }),nan,nan

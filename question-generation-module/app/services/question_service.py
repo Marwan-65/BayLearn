@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 from typing import List, Optional
 
 from app.llm.groq_client import QuestionGenLLMClient
@@ -53,21 +54,26 @@ class QuestionGenerationService:
         # 1. Decide what to search for
         search_query = topic if topic else "key concepts definitions important principles"
 
-        # 2. Fetch relevant chunks from the RAG module
+        # 2. Fetch relevant chunks from the RAG module (fetch more to allow randomization)
         raw_chunks = await self.chunk_fetcher.fetch_relevant_chunks(
             project_id=project_id,
             query=search_query,
-            limit=10,
+            limit=20,  # Fetch 20 instead of 10 to enable sampling
         )
 
         if not raw_chunks:
             raise ValueError(f"No indexed content found for project '{project_id}'. "
                              "Make sure the project has been uploaded and indexed first.")
 
-        # 3. Join chunk texts, but don't exceed the LLM context limit
-        chunks_text = self._prepare_context(raw_chunks)
+        # 3. Randomly sample from the fetched chunks for diversity
+        # Use at most 10 but pick randomly to avoid always using the same top ones
+        sample_size = min(10, len(raw_chunks))
+        selected_chunks = random.sample(raw_chunks, sample_size)
 
-        # 4. Build prompt based on question type
+        # 4. Join chunk texts, but don't exceed the LLM context limit
+        chunks_text = self._prepare_context(selected_chunks)
+
+        # 5. Build prompt based on question type
         if question_type == "mcq":
             system_prompt, user_prompt = build_mcq_prompt(chunks_text, num_questions, difficulty)
         elif question_type == "short_answer":
@@ -77,18 +83,18 @@ class QuestionGenerationService:
         else:
             raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
 
-        # 5. Call the LLM
+        # 6. Call the LLM with higher temperature for diversity
         raw_response = self.llm_client.generate(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            temperature=0.7,
+            temperature=0.85,  # Increased from 0.7 for more variety
             max_tokens=min(900, 220 + (num_questions * 140)),
         )
 
-        # 6. Parse the JSON the LLM returned
+        # 7. Parse the JSON the LLM returned
         questions = self._parse_llm_response(raw_response, question_type)
 
-        return questions, len(raw_chunks)
+        return questions, len(selected_chunks)
 
     def _prepare_context(self, raw_chunks: list) -> str:
         """

@@ -1,3 +1,0 @@
-# Check most recent record,nan,nan,nan
-latest = df['timestamp'].max(),nan,nan,nan
-hours_old = (pd.Timestamp.now(),-,/,3600

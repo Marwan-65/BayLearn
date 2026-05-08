@@ -14,6 +14,8 @@ def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str) -> t
 
     user_prompt = f"""
 Generate exactly {num_questions} multiple choice questions at {difficulty} difficulty from the study material below.
+IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material. 
+Do NOT generate near-duplicate or redundant questions. Vary question structure and content.
 
 STUDY MATERIAL:
 {chunks_text}
@@ -34,7 +36,7 @@ OUTPUT FORMAT — return a JSON array, nothing else:
   }}
 ]
 
-Generate {num_questions} questions now:
+Generate {num_questions} diverse questions now:
 """
     return system_prompt, user_prompt
 
@@ -48,6 +50,8 @@ def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: 
 
     user_prompt = f"""
 Generate exactly {num_questions} short-answer questions at {difficulty} difficulty from the study material below.
+IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material. 
+Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
 
 STUDY MATERIAL:
 {chunks_text}
@@ -62,7 +66,7 @@ OUTPUT FORMAT — return a JSON array, nothing else:
   }}
 ]
 
-Generate {num_questions} questions now:
+Generate {num_questions} diverse questions now:
 """
     return system_prompt, user_prompt
 
@@ -76,6 +80,8 @@ def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: st
 
     user_prompt = f"""
 Generate exactly {num_questions} true/false questions at {difficulty} difficulty from the study material below.
+IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material. 
+Do NOT generate near-duplicate or redundant questions. Vary question focus and content.
 
 STUDY MATERIAL:
 {chunks_text}
@@ -84,12 +90,14 @@ OUTPUT FORMAT — return a JSON array, nothing else:
 [
   {{
     "question_text": "Ohm's law states that voltage equals current divided by resistance.",
-    "correct_answer": "False",
+    "correct_answer": "false",
     "explanation": "Ohm's law states V = IR (voltage = current × resistance, not divided).",
     "difficulty": "{difficulty}"
   }}
 ]
 
-Generate {num_questions} questions now:
+IMPORTANT: correct_answer must be exactly "true" or "false" (lowercase strings).
+
+Generate {num_questions} diverse questions now:
 """
     return system_prompt, user_prompt

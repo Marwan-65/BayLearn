@@ -1,2 +1,0 @@
-if hours_old > 24:,nan,nan,nan,nan
-"print(f""Warning:",Data,is,hours,"old!"")"

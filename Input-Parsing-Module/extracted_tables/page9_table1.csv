@@ -1,2 +1,0 @@
-# Flag columns,with,>20% missing,nan,nan,nan
-critical_missing,=,nan,missing_report[missing_report['Missing_Percentage'],>,20]
