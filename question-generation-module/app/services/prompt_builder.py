@@ -1,11 +1,48 @@
 from typing import List
 
+# Bloom's Taxonomy guidance for each level
+BLOOM_GUIDANCE = {
+    "remember": {
+        "description": "Recall facts and definitions",
+        "instruction": "Ask students to recall or recognize facts, terms, definitions, or basic concepts directly from the material.",
+        "examples": "What is..., Define..., List..., Name..., Identify..."
+    },
+    "understand": {
+        "description": "Explain ideas or concepts",
+        "instruction": "Ask students to explain, describe, or interpret concepts. Questions should require understanding but not application.",
+        "examples": "Explain..., Describe..., Summarize..., Classify..., Compare..."
+    },
+    "apply": {
+        "description": "Use information in a new situation",
+        "instruction": "Ask students to apply knowledge to solve problems or use procedures in new contexts.",
+        "examples": "Calculate..., Solve..., Demonstrate..., Show how..., Construct..."
+    },
+    "analyze": {
+        "description": "Distinguish between different parts",
+        "instruction": "Ask students to break down information, identify relationships, or distinguish between components.",
+        "examples": "Analyze..., Compare..., Contrast..., Distinguish..., What is the relationship between..."
+    },
+    "evaluate": {
+        "description": "Justify a decision or choice",
+        "instruction": "Ask students to make judgments based on criteria, justify choices, or critique ideas.",
+        "examples": "Evaluate..., Justify..., Critique..., Defend..., Which is better and why..."
+    },
+    "create": {
+        "description": "Combine elements to produce original work",
+        "instruction": "Ask students to combine elements to produce something new, design solutions, or generate original ideas.",
+        "examples": "Design..., Create..., Devise..., Generate..., Propose a solution..."
+    }
+}
+
 def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str) -> tuple[str, str]:
     """
     Returns (system_prompt, user_prompt) for MCQ generation.
     
     chunks_text: All retrieved chunk texts joined together
+    difficulty: Bloom level (remember, understand, apply, analyze, evaluate, create)
     """
+    bloom = BLOOM_GUIDANCE.get(difficulty.lower(), BLOOM_GUIDANCE["understand"])
+    
     system_prompt = (
         "You are an expert university professor who creates high-quality quiz questions.\n"
         "You ONLY generate questions based on the provided study material — never from general knowledge.\n"
@@ -13,7 +50,11 @@ def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str) -> t
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} multiple choice questions at {difficulty} difficulty from the study material below.
+Generate exactly {num_questions} multiple choice questions at the Bloom's level: {difficulty.upper()} ({bloom['description']}).
+
+LEVEL GUIDANCE: {bloom['instruction']}
+QUESTION PATTERNS TO USE: {bloom['examples']}
+
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material. 
 Do NOT generate near-duplicate or redundant questions. Vary question structure and content.
 
@@ -42,6 +83,8 @@ Generate {num_questions} diverse questions now:
 
 
 def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: str) -> tuple[str, str]:
+    bloom = BLOOM_GUIDANCE.get(difficulty.lower(), BLOOM_GUIDANCE["understand"])
+    
     system_prompt = (
         "You are an expert university professor creating short-answer exam questions.\n"
         "Base all questions ONLY on the provided study material.\n"
@@ -49,7 +92,11 @@ def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: 
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} short-answer questions at {difficulty} difficulty from the study material below.
+Generate exactly {num_questions} short-answer questions at the Bloom's level: {difficulty.upper()} ({bloom['description']}).
+
+LEVEL GUIDANCE: {bloom['instruction']}
+QUESTION PATTERNS TO USE: {bloom['examples']}
+
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material. 
 Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
 
@@ -72,6 +119,8 @@ Generate {num_questions} diverse questions now:
 
 
 def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: str) -> tuple[str, str]:
+    bloom = BLOOM_GUIDANCE.get(difficulty.lower(), BLOOM_GUIDANCE["understand"])
+    
     system_prompt = (
         "You are an expert university professor creating true/false quiz questions.\n"
         "Base all questions ONLY on the provided study material.\n"
@@ -79,7 +128,11 @@ def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: st
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} true/false questions at {difficulty} difficulty from the study material below.
+Generate exactly {num_questions} true/false questions at the Bloom's level: {difficulty.upper()} ({bloom['description']}).
+
+LEVEL GUIDANCE: {bloom['instruction']}
+QUESTION PATTERNS TO USE: {bloom['examples']}
+
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material. 
 Do NOT generate near-duplicate or redundant questions. Vary question focus and content.
 
