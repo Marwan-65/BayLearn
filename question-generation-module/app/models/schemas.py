@@ -31,6 +31,7 @@ class GeneratedQuestion(BaseModel):
     question_type: str  # "mcq", "short_answer", "true_false"
     options: Optional[List[QuestionOption]] = None   # Only for MCQ
     correct_answer: str                              # The answer text
+    keywords_to_match: Optional[List[str]] = None    # Short-answer grading hints
     explanation: str                                 # Why this is correct
     source_chunk_id: Optional[int] = None           # Which chunk this came from
     difficulty: str

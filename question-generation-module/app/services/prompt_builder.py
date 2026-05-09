@@ -108,10 +108,17 @@ OUTPUT FORMAT — return a JSON array, nothing else:
   {{
     "question_text": "What is the relationship between voltage, current, and resistance?",
     "correct_answer": "V = IR (Ohm's law): voltage equals current times resistance.",
+        "keywords_to_match": ["ohm's law", "v = ir", "voltage", "current", "resistance"],
     "explanation": "This is the fundamental equation in circuit analysis.",
     "difficulty": "{difficulty}"
   }}
 ]
+
+IMPORTANT FOR SHORT ANSWER GRADING:
+- Include "keywords_to_match" for every question.
+- Provide 3 to 6 concise keywords or short phrases that must appear in a correct answer.
+- Keywords should capture core meaning, not exact sentence wording.
+- Use lowercase strings when possible.
 
 Generate {num_questions} diverse questions now:
 """
