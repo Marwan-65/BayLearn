@@ -834,10 +834,24 @@ function QuestionCard({ item }) {
     const userAnswer = (selected || "").toLowerCase();
     isCorrect = correctAnswer === userAnswer;
   } else if (isShortAnswer) {
-    // For short answer, do case-insensitive substring matching for basic validation
-    const correctLower = (q.correct_answer || "").toLowerCase().trim();
     const userLower = shortAnswerText.toLowerCase().trim();
-    isCorrect = userLower === correctLower || correctLower.includes(userLower) || userLower.includes(correctLower);
+    const keywordHints = Array.isArray(q.keywords_to_match)
+      ? q.keywords_to_match
+          .map((k) => String(k).toLowerCase().trim())
+          .filter(Boolean)
+      : [];
+
+    if (keywordHints.length > 0) {
+      const matchedCount = keywordHints.filter((k) => userLower.includes(k)).length;
+      const requiredMatches = keywordHints.length <= 2
+        ? keywordHints.length
+        : Math.ceil(keywordHints.length * 0.6);
+      isCorrect = matchedCount >= requiredMatches;
+    } else {
+      // Fallback if keyword hints are unavailable.
+      const correctLower = (q.correct_answer || "").toLowerCase().trim();
+      isCorrect = userLower === correctLower || correctLower.includes(userLower) || userLower.includes(correctLower);
+    }
   }
 
   function optionStyle(opt) {
@@ -862,7 +876,10 @@ function QuestionCard({ item }) {
       {/* LEFT SIDE - QUESTION */}
       <div style={S.qCardLeft}>
         <div style={S.qMetaTop}>
-          <span style={S.qTag}>{item.questionType.replace("_", " ")}</span>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
+            <span style={S.qTag}>{item.questionType.replace("_", " ")}</span>
+            <span style={S.qTagDifficulty}>{item.difficulty || q.difficulty || "understand"}</span>
+          </div>
           <span style={S.qMetaSmall}>{item.topic}</span>
         </div>
 
@@ -996,6 +1013,19 @@ function QuestionCard({ item }) {
             <div style={S.qLabel}>Explanation</div>
             <div style={S.qExplain}>{q.explanation}</div>
           </div>
+
+          {isShortAnswer && Array.isArray(q.keywords_to_match) && q.keywords_to_match.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={S.qLabel}>Expected key points</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {q.keywords_to_match.map((kw, idx) => (
+                  <span key={`${kw}-${idx}`} style={S.qTagDifficulty}>
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ fontSize: 11, color: "#999", marginTop: 12, textAlign: "center" }}>
             Use arrows or dots below to continue
@@ -1582,6 +1612,17 @@ const S = {
     color: "#4338ca",
     background: "#e0e7ff",
     border: "1px solid #c7d2fe",
+    borderRadius: 999,
+    padding: "1px 6px",
+  },
+
+  qTagDifficulty: {
+    fontSize: 9,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    color: "#0f766e",
+    background: "#ccfbf1",
+    border: "1px solid #99f6e4",
     borderRadius: 999,
     padding: "1px 6px",
   },

@@ -158,8 +158,31 @@ class QuestionGenerationService:
                 question_type=question_type,
                 options=options,
                 correct_answer=item.get("correct_answer", ""),
+                keywords_to_match=self._extract_keywords(item.get("keywords_to_match")),
                 explanation=item.get("explanation", ""),
                 difficulty=item.get("difficulty", "medium"),
             ))
 
         return questions
+
+    def _extract_keywords(self, raw_keywords: object) -> Optional[List[str]]:
+        """
+        Normalize keyword hints returned by the LLM.
+
+        Accepts list input and removes empty/duplicate values.
+        """
+        if not isinstance(raw_keywords, list):
+            return None
+
+        seen = set()
+        cleaned: List[str] = []
+        for item in raw_keywords:
+            if not isinstance(item, str):
+                continue
+            kw = item.strip().lower()
+            if not kw or kw in seen:
+                continue
+            seen.add(kw)
+            cleaned.append(kw)
+
+        return cleaned or None
