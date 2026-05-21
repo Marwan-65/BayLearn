@@ -4,7 +4,6 @@ import json
 import os
 from typing import Dict, Any
 
-from groq import Groq
 from dotenv import load_dotenv
 
 from .config import SYSTEM_PROMPT, MODEL_NAME, MODEL_TEMPERATURE
@@ -13,8 +12,15 @@ from .config import SYSTEM_PROMPT, MODEL_NAME, MODEL_TEMPERATURE
 load_dotenv()
 
 
-def get_groq_client() -> Groq:
+def get_groq_client() -> Any:
     """Initialize and return Groq client with API key from environment."""
+    try:
+        from groq import Groq
+    except ImportError as exc:
+        raise RuntimeError(
+            "The 'groq' package is required to translate natural-language math prompts."
+        ) from exc
+
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise ValueError(

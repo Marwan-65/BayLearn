@@ -1,12 +1,18 @@
 """FastAPI routes and endpoints for BayLearn solver."""
 
 import json
+import logging
 import time
+import traceback
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException
+
+logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..core.solver import level_2_solver, _extract_graphable_functions
 from .models import SolveRequest, SolveResponse, GraphableFunction
@@ -26,6 +32,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_FRONTEND_DIST = _REPO_ROOT / "src" / "baylearn-frontend" / "dist"
+
+if (_FRONTEND_DIST / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(_FRONTEND_DIST / "assets")), name="assets")
 
 
 @app.get("/")
@@ -52,8 +64,12 @@ async def health():
 async def init():
     """Return embedded frontend HTML."""
     try:
-        with open("frontend.html", "r", encoding="utf-8") as f:
-            html = f.read()
+        frontend_index = _FRONTEND_DIST / "index.html"
+        if frontend_index.exists():
+            html = frontend_index.read_text(encoding="utf-8")
+        else:
+            with open("frontend.html", "r", encoding="utf-8") as f:
+                html = f.read()
         return HTMLResponse(content=html)
     except FileNotFoundError:
         raise HTTPException(
@@ -115,6 +131,7 @@ async def run(request: SolveRequest):
         )
 
     except Exception as e:
+        logger.error("Error in /run: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 

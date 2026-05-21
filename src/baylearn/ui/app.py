@@ -1,7 +1,9 @@
 """BayLearn Streamlit UI application."""
 
 import re
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import plotly.graph_objects as go
 import sympy as sp
@@ -12,7 +14,13 @@ from sympy.parsing.sympy_parser import (
     standard_transformations,
 )
 
-from ..core.solver import level_2_solver
+try:
+    from ..core.solver import level_2_solver
+except ImportError:
+    src_root = Path(__file__).resolve().parents[2]
+    if str(src_root) not in sys.path:
+        sys.path.insert(0, str(src_root))
+    from baylearn.core.solver import level_2_solver
 
 st.set_page_config(
     page_title="BayLearn Math Solver",
