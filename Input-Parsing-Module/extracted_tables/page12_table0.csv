@@ -1,2 +1,0 @@
-# Duplicates on key fields,nan,nan
-"key_dupes = df.duplicated(subset=['customer_id',","'date'],",keep=False).sum()

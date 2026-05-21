@@ -26,8 +26,10 @@ from routes.schemes.orchestrator import InputParsingResponse
 
 logger = logging.getLogger(__name__)
 
-# Timeout for parsing module calls (large PDFs can be slow)
-PARSING_TIMEOUT = 120.0
+# Timeout for parsing module calls.
+# Algorithms.pdf is 900+ pages — even at 1 page/s that is 15 minutes.
+# The frontend fetch has no browser-side timeout so this drives the cap.
+PARSING_TIMEOUT = 900.0
 
 
 class InputParsingAdapter:

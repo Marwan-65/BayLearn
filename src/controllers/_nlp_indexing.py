@@ -22,6 +22,13 @@ class _NLPIndexingMixin:
         if not chunks:
             return 0
 
+        # Invalidate all retrieval-side caches so the next call rebuilds them
+        # from the freshly-indexed chunks.
+        from controllers._nlp_retrieval import _NLPRetrievalMixin
+        _NLPRetrievalMixin._image_index_cache.pop(project_id, None)
+        _NLPRetrievalMixin._chunks_by_id_cache.pop(project_id, None)
+        _NLPRetrievalMixin._chunks_sorted_cache.pop(project_id, None)
+
         self.vectordb_client.create_collection(
             collection_name=collection_name,
             embedding_size=self.embedding_client.embedding_size,
@@ -52,6 +59,28 @@ class _NLPIndexingMixin:
                 or ""
             )
 
+            chunk_type = chunk.metadata.get("chunk_type", "text")
+
+            # For image/equation/table chunks the raw text may be empty or minimal.
+            # Build a searchable proxy text from available metadata so retrieval works.
+            alt_text = (
+                chunk.metadata.get("alt_text")
+                or chunk.metadata.get("caption")
+                or ""
+            )
+            if chunk_type == "image" and not chunk.text.strip():
+                proxy = (
+                    f"Figure from {doc_title}, page {page}, section '{section}'. "
+                    f"{alt_text}"
+                ).strip()
+            elif chunk_type == "equation" and not chunk.text.strip():
+                proxy = (
+                    f"Mathematical equation from {doc_title}, page {page}, "
+                    f"section '{section}'. {alt_text}"
+                ).strip()
+            else:
+                proxy = chunk.text
+
             if contextual_retrieval_enabled:
                 context_desc = None
 
@@ -59,7 +88,7 @@ class _NLPIndexingMixin:
                     context_desc = self.contextual_cache.get(
                         doc_title=doc_title,
                         section=section,
-                        chunk_text=chunk.text,
+                        chunk_text=proxy,
                     )
                     if context_desc:
                         cache_hits += 1
@@ -70,7 +99,7 @@ class _NLPIndexingMixin:
                         f"Document: {doc_title}\n"
                         f"Page: {page}\n"
                         f"Section: {section}\n\n"
-                        f"Chunk content:\n{chunk.text}\n\n"
+                        f"Chunk content:\n{proxy}\n\n"
                         "Write a brief (1-2 sentence) description that "
                         "situates this chunk within the document. Explain "
                         "what topic it covers and how it relates to the "
@@ -94,7 +123,7 @@ class _NLPIndexingMixin:
                         self.contextual_cache.set(
                             doc_title=doc_title,
                             section=section,
-                            chunk_text=chunk.text,
+                            chunk_text=proxy,
                             description=context_desc.strip(),
                         )
 
@@ -102,17 +131,17 @@ class _NLPIndexingMixin:
                     contextual_text = (
                         f"{context_desc.strip()}\n\n"
                         f"Document: {doc_title} | Page: {page} | Section: {section}\n\n"
-                        f"{chunk.text}"
+                        f"{proxy}"
                     )
                 else:
                     contextual_text = (
                         f"Document: {doc_title} | Page: {page} | Section: {section}\n\n"
-                        f"{chunk.text}"
+                        f"{proxy}"
                     )
             else:
                 contextual_text = (
                     f"Document: {doc_title} | Page: {page} | Section: {section}\n\n"
-                    f"{chunk.text}"
+                    f"{proxy}"
                 )
 
             texts_to_embed.append(contextual_text)

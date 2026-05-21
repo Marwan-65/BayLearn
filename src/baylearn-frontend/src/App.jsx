@@ -7,14 +7,18 @@
  * Right panel : Chat that hits /nlp/ask/{project_id}.
  *               The backend returns the detected intent — the UI
  *               renders:
- *                 - plain answer + sources for rag_only
- *                 - extracted equation + solver output for
- *                   equation_from_context
- *                 - animation spec for animation_from_context
+ *                 - plain answer + sources (with image previews) for rag_only
+ *                 - extracted equation + solver output for equation_from_context
+ *               Animation Lab is opened manually via the sidebar button.
  *
  * Everything is one file on purpose — the design will be redone later.
  */
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import remarkGfm from "remark-gfm";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api/v1";
@@ -58,27 +62,36 @@ async function jsonFetch(path, opts = {}) {
   return data;
 }
 
-/** Generate/retrieve a stable per-browser project ID. The user never sees
- *  or types this — it's just the bucket key the backend uses to isolate
- *  one person's uploaded materials from another's. */
-function getOrCreateProjectId() {
-  let pid = localStorage.getItem("baylearn:pid");
-  if (!pid) {
-    pid = "p_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-    localStorage.setItem("baylearn:pid", pid);
-  }
-  return pid;
+function newProjectId() {
+  return "p_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+}
+
+function loadProjects() {
+  try {
+    const ps = JSON.parse(localStorage.getItem("baylearn:projects") || "[]");
+    if (ps.length) return ps;
+  } catch {}
+  // Migrate legacy single-project storage
+  const legacyId = localStorage.getItem("baylearn:pid");
+  const legacyFiles = (() => {
+    try { return JSON.parse(localStorage.getItem("baylearn:files") || "[]"); } catch { return []; }
+  })();
+  const id = legacyId || newProjectId();
+  return [{ id, name: "My Project", createdAt: new Date().toISOString(), files: legacyFiles }];
 }
 
 export default function App() {
-  const [projectId] = useState(getOrCreateProjectId);
-  const [files, setFiles] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("baylearn:files") || "[]");
-    } catch {
-      return [];
-    }
+  const [projects, setProjects] = useState(loadProjects);
+  const [activeProjectId, setActiveProjectId] = useState(() => {
+    const ps = loadProjects();
+    const stored = localStorage.getItem("baylearn:activeProject");
+    return (stored && ps.find((p) => p.id === stored)) ? stored : (ps[0]?.id || "");
   });
+  // Derived — not their own state
+  const projectId = activeProjectId;
+  const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0] || { files: [] };
+  const files = activeProject.files || [];
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -89,8 +102,11 @@ export default function App() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    localStorage.setItem("baylearn:files", JSON.stringify(files));
-  }, [files]);
+    localStorage.setItem("baylearn:projects", JSON.stringify(projects));
+  }, [projects]);
+  useEffect(() => {
+    localStorage.setItem("baylearn:activeProject", activeProjectId);
+  }, [activeProjectId]);
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
@@ -119,38 +135,113 @@ export default function App() {
     setTimeout(() => setToast(null), 3500);
   }
 
-  /* ── Upload (input parsing → chunk → embed → index) ───────── */
+  /* ── Project management ───────────────────────────────────── */
+  function setFiles(updater) {
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === activeProjectId
+          ? { ...p, files: typeof updater === "function" ? updater(p.files) : updater }
+          : p
+      )
+    );
+  }
+  function addProject() {
+    const p = {
+      id: newProjectId(),
+      name: `Project ${projects.length + 1}`,
+      createdAt: new Date().toISOString(),
+      files: [],
+    };
+    setProjects((prev) => [...prev, p]);
+    setActiveProjectId(p.id);
+    setMessages([]);
+  }
+  function switchProject(id) {
+    if (id === activeProjectId) return;
+    setActiveProjectId(id);
+    setMessages([]);
+  }
+  function renameProject(newName) {
+    if (!newName.trim()) return;
+    setProjects((prev) =>
+      prev.map((p) => (p.id === activeProjectId ? { ...p, name: newName.trim() } : p))
+    );
+  }
+  function deleteProject(id) {
+    if (projects.length === 1) return showToast("Cannot delete the only project", "error");
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    if (activeProjectId === id) {
+      setActiveProjectId(remaining[0].id);
+      setMessages([]);
+    }
+  }
+
+  /* ── Upload — async: POST returns job_id, then poll until done ─ */
   async function handleUpload(fileList) {
     const list = Array.from(fileList || []);
     if (!list.length) return;
     setUploading(true);
-    try {
-      for (const file of list) {
+
+    for (const file of list) {
+      // Show the file immediately as "pending" so it never disappears
+      setFiles((prev) => [
+        ...prev.filter((f) => f.filename !== file.name),
+        { filename: file.name, size: file.size, chunks: 0, indexed: false, pending: true },
+      ]);
+
+      try {
         const form = new FormData();
         form.append("file", file);
+        // POST returns 202 immediately with job_id
         const res = await fetch(
-          `${API_BASE}/parse/upload/${projectId}?auto_index=true`,
+          `${API_BASE}/parse/upload/${projectId}`,
           { method: "POST", body: form }
         );
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.signal || `HTTP ${res.status}`);
-        setFiles((prev) => [
-          ...prev.filter((f) => f.filename !== file.name),
-          {
-            filename: file.name,
-            size: file.size,
-            chunks: data.inserted_items_count || data.chunks || 0,
-            indexed: true,
-          },
-        ]);
+        if (!res.ok && res.status !== 202)
+          throw new Error(data.signal || `HTTP ${res.status}`);
+
+        // Poll status until done or error
+        const pollUrl = `${API_BASE}/parse/status/${projectId}?filename=${encodeURIComponent(file.name)}`;
+        let done = false;
+        while (!done) {
+          await new Promise((r) => setTimeout(r, 6000)); // poll every 6s
+          try {
+            const sr = await fetch(pollUrl);
+            const s = await sr.json().catch(() => ({}));
+            if (s.status === "done") {
+              setFiles((prev) =>
+                prev.map((f) =>
+                  f.filename === file.name
+                    ? { filename: file.name, size: file.size, chunks: s.indexed_count || 0, indexed: true, pending: false }
+                    : f
+                )
+              );
+              showToast(`${file.name} indexed ✓ (${s.indexed_count} chunks)`, "success");
+              done = true;
+            } else if (s.status === "error") {
+              throw new Error(s.error || "Parsing failed");
+            }
+            // status "pending" or "indexing" → keep polling
+          } catch (pollErr) {
+            throw pollErr;
+          }
+        }
+      } catch (err) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.filename === file.name
+              ? { ...f, pending: false, indexed: false, indexError: err.message || "Upload failed" }
+              : f
+          )
+        );
+        showToast(`Upload failed for ${file.name}: ${err.message}`, "error");
       }
-      showToast(`Uploaded ${list.length} file(s) ✓`, "success");
-    } catch (err) {
-      showToast(err.message || "Upload failed", "error");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   /* ── Ask (intent-aware) ───────────────────────────────────── */
@@ -161,9 +252,16 @@ export default function App() {
     setMessages((m) => [...m, { role: "user", content: q }]);
     setLoading(true);
     try {
+      // Send last 6 messages (3 exchanges) as history so the LLM can handle
+      // follow-up questions like "I didn't understand".
+      const historyToSend = messages
+        .slice(-6)
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: (m.content || "").slice(0, 800) }));
+
       const data = await jsonFetch(`/nlp/ask/${projectId}`, {
         method: "POST",
-        body: JSON.stringify({ text: q, limit: 5 }),
+        body: JSON.stringify({ text: q, limit: 5, chat_history: historyToSend }),
       });
       const d = data.data || {};
       setMessages((m) => [
@@ -172,26 +270,14 @@ export default function App() {
           role: "assistant",
           content: d.answer || "(empty response)",
           sources: d.sources || [],
+          sourceMeta: d.source_meta || [],
           scores: d.scores || [],
           intent: d.intent || null,
           equation: d.equation_text_sent || d.equation || null,
           equationResult: d.equation_result || null,
-          animation: d.animation_spec || d.animation || null,
           raw: d,
         },
       ]);
-      // Equation intent: do NOT auto-open the lab. The chat bubble shows
-      // the steps + "Open Equation Lab ↗" button, and the student clicks
-      // through only when they want the interactive workspace. Auto-open
-      // was disorienting — every question yanked focus to a new tab.
-      // Auto-open the animation lab when we produced an animation spec.
-      if (d.animation_spec || d.animation) {
-        try {
-          window.open(ANIMATION_URL, "_blank", "noopener");
-        } catch {
-          /* noop */
-        }
-      }
     } catch (err) {
       setMessages((m) => [
         ...m,
@@ -209,15 +295,25 @@ export default function App() {
     }
   }
 
-  function removeFile(filename) {
+  async function removeFile(filename) {
+    // Optimistically remove from UI first
     setFiles((prev) => prev.filter((f) => f.filename !== filename));
+    // Then clean up backend chunks + re-index
+    try {
+      await fetch(
+        `${API_BASE}/parse/source/${projectId}?filename=${encodeURIComponent(filename)}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      // Non-fatal — the file list is already removed from the UI
+    }
   }
 
   const suggestions = [
     "Summarize the key concepts from my materials",
     "Solve the equation from page 3",
-    "Animate a linked list insertion",
     "What are the most important points to review?",
+    "Explain the main algorithm described in the lecture",
   ];
 
   /* ────────────────────── UI ────────────────────── */
@@ -231,6 +327,56 @@ export default function App() {
             <div style={{ fontWeight: 700, fontSize: 15 }}>BayLearn</div>
             <div style={{ fontSize: 11, color: "#888" }}>Adaptive study hub</div>
           </div>
+        </div>
+
+        {/* Project selector */}
+        <label style={S.label}>PROJECT</label>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
+          <select
+            value={activeProjectId}
+            onChange={(e) => switchProject(e.target.value)}
+            style={{
+              flex: 1, fontSize: 13, padding: "5px 8px", borderRadius: 6,
+              border: "1px solid #d6d6de", background: "#fff", color: "#1a1a1a",
+              cursor: "pointer",
+            }}
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={addProject}
+            title="New project"
+            style={{
+              padding: "5px 10px", borderRadius: 6, border: "1px solid #d6d6de",
+              background: "#fff", cursor: "pointer", fontSize: 16, fontWeight: 700,
+              color: "#6c63ff",
+            }}
+          >+</button>
+          {projects.length > 1 && (
+            <button
+              onClick={() => deleteProject(activeProjectId)}
+              title="Delete this project"
+              style={{
+                padding: "5px 8px", borderRadius: 6, border: "1px solid #fca5a5",
+                background: "#fff", cursor: "pointer", fontSize: 13, color: "#dc2626",
+              }}
+            >🗑</button>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", marginBottom: 12 }}>
+          <input
+            key={activeProjectId}
+            defaultValue={activeProject.name}
+            onBlur={(e) => renameProject(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+            style={{
+              flex: 1, fontSize: 12, padding: "3px 8px", borderRadius: 6,
+              border: "1px solid #e6e6ec", background: "#fafafd", color: "#555",
+            }}
+            placeholder="Rename project…"
+          />
         </div>
 
         {/* Upload */}
@@ -254,7 +400,7 @@ export default function App() {
             {uploading ? "Uploading…" : "Add sources"}
           </div>
           <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-            PDF · image · audio · video · txt
+            PDF · TXT
           </div>
           <input
             ref={fileInputRef}
@@ -277,9 +423,12 @@ export default function App() {
               <div key={f.filename} style={S.fileRow}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={S.fileName}>{f.filename}</div>
-                  <div style={S.fileMeta}>
-                    {(f.size / 1024).toFixed(0)} KB · {f.chunks} chunks{" "}
-                    {f.indexed ? "· ✓" : ""}
+                  <div style={{ ...S.fileMeta, color: f.indexError ? "#dc2626" : "#888" }}>
+                    {f.pending
+                      ? "⏳ parsing…"
+                      : f.indexError
+                      ? `⚠ ${f.indexError.slice(0, 60)}`
+                      : `${(f.size / 1024).toFixed(0)} KB · ${f.chunks} chunks${f.indexed ? " · ✓" : ""}`}
                   </div>
                 </div>
                 <button
@@ -324,9 +473,8 @@ export default function App() {
         </button>
 
         <div style={{ fontSize: 11, color: "#999", marginTop: 10, lineHeight: 1.6 }}>
-          Or just ask in chat — BayLearn detects whether you want an
-          explanation, a solved equation, or an animation, and routes to
-          the right module automatically.
+          Ask a question or click a module above to open it in a new tab.
+          BayLearn detects equation questions and routes them automatically.
         </div>
 
         <div style={{ flex: 1 }} />
@@ -346,7 +494,7 @@ export default function App() {
       {/* ═════ RIGHT — Chat ═════ */}
       <main style={S.main}>
         <header style={S.header}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>Study Assistant</div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{activeProject?.name || "Study Assistant"}</div>
           <div style={{ fontSize: 12, color: "#888" }}>
             {files.length} source{files.length === 1 ? "" : "s"} indexed
           </div>
@@ -361,8 +509,8 @@ export default function App() {
               </div>
               <div style={{ fontSize: 13, color: "#777", marginTop: 6, maxWidth: 460, lineHeight: 1.7, textAlign: "left" }}>
                 <div>① Drop study materials into <b>Sources</b> on the left.</div>
-                <div>② Ask a question below — BayLearn answers from your materials, or routes to the equation/animation module if that's what you asked for.</div>
-                <div>③ Or open <b>Equation Lab</b> / <b>Animation Lab</b> directly from the sidebar.</div>
+                <div>② Ask a question below — BayLearn answers from your materials, or routes to the equation module when you ask to solve/derive something.</div>
+                <div>③ Open <b>Equation Lab</b> or <b>Animation Lab</b> directly from the sidebar for interactive work.</div>
               </div>
               <div style={{ fontSize: 12, color: "#999", marginTop: 14 }}>
                 Try one of these:
@@ -480,8 +628,118 @@ function Bubble({ m }) {
             ...(m.error ? { borderColor: "#f87171", color: "#c53030" } : {}),
           }}
         >
-          {m.content}
+          {m.error ? (
+            m.content
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkMath, remarkGfm]}
+              rehypePlugins={[rehypeKatex]}
+              components={{
+                p: ({ children }) => (
+                  <span style={{ display: "block", marginBottom: 6 }}>{children}</span>
+                ),
+                ul: ({ children }) => (
+                  <ul style={{ paddingLeft: 18, margin: "3px 0 6px" }}>{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol style={{ paddingLeft: 18, margin: "3px 0 6px" }}>{children}</ol>
+                ),
+                li: ({ children }) => (
+                  <li style={{ marginBottom: 1, lineHeight: 1.5 }}>{children}</li>
+                ),
+                h1: ({ children }) => (
+                  <span style={{ display: "block", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{children}</span>
+                ),
+                h2: ({ children }) => (
+                  <span style={{ display: "block", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{children}</span>
+                ),
+                h3: ({ children }) => (
+                  <span style={{ display: "block", fontWeight: 700, fontSize: 14, marginBottom: 2 }}>{children}</span>
+                ),
+                strong: ({ children }) => (
+                  <strong style={{ fontWeight: 700 }}>{children}</strong>
+                ),
+                // react-markdown v8+ removed the `inline` prop. Detect block
+                // code by: has a language className OR content contains a newline.
+                code: ({ children, className }) => {
+                  const isBlock = !!className || (typeof children === "string" && children.includes("\n"));
+                  return isBlock ? (
+                    <pre style={{ background: "#f8f8f8", borderRadius: 6, padding: "8px 10px", overflowX: "auto", fontSize: "0.85em", margin: "4px 0 6px" }}>
+                      <code style={{ fontFamily: "monospace" }}>{children}</code>
+                    </pre>
+                  ) : (
+                    <code style={{ background: "#f0f0f0", borderRadius: 3, padding: "1px 4px", fontSize: "0.88em", fontFamily: "monospace" }}>{children}</code>
+                  );
+                },
+                blockquote: ({ children }) => (
+                  <blockquote style={{ borderLeft: "3px solid #d0d0e0", margin: "4px 0", paddingLeft: 10, color: "#555" }}>{children}</blockquote>
+                ),
+              }}
+            >
+              {m.content}
+            </ReactMarkdown>
+          )}
         </div>
+
+        {/* Inline figures — show ALL promoted image sources that have an
+            image_url (the backend only promotes images from pages that are
+            already in the retrieved text sources, so every promoted image
+            is relevant by construction).
+            We also scan [Source N] citations so we can badge cited images
+            with "mentioned in answer" — but we no longer hide uncited ones.
+            The LLM sometimes calls a TEXT chunk "the figure" (because the
+            text describes a figure) and never cites the promoted IMAGE chunk
+            by its correct number — hiding the image in that case is wrong. */}
+        {m.sourceMeta && m.sourceMeta.some(meta => meta.chunk_type === "image" && meta.image_url) && (() => {
+          // Build the set of source numbers explicitly cited in the answer.
+          const referenced = new Set();
+          const re = /\[Source\s+([\d,\s&and]+)\]/gi;
+          let mm;
+          while ((mm = re.exec(m.content || "")) !== null) {
+            for (const num of mm[1].match(/\d+/g) || []) {
+              referenced.add(parseInt(num, 10));
+            }
+          }
+          // Show ALL image sources that have a URL (cited or not).
+          const visible = m.sourceMeta
+            .map((meta, j) => ({ meta, srcNum: j + 1 }))
+            .filter(({ meta }) => meta.chunk_type === "image" && meta.image_url);
+          if (visible.length === 0) return null;
+          return (
+            <div style={{ marginTop: 8 }}>
+              {visible.map(({ meta, srcNum }) => {
+                const isCited = referenced.has(srcNum);
+                const badge = [
+                  meta.page ? `p.${meta.page}` : null,
+                  meta.section_heading ? meta.section_heading.slice(0, 40) : null,
+                ].filter(Boolean).join(" · ");
+                return (
+                  <div key={srcNum} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: "#666", marginBottom: 3, display: "flex", alignItems: "center", gap: 6 }}>
+                      📷 Figure [Source {srcNum}]{badge ? ` — ${badge}` : ""}
+                      {isCited && (
+                        <span style={{ background: "#dcfce7", color: "#15803d", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 600 }}>
+                          mentioned in answer
+                        </span>
+                      )}
+                    </div>
+                    <img
+                      src={meta.image_url}
+                      alt={`Source ${srcNum}`}
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: 280,
+                        borderRadius: 6,
+                        border: "1px solid #e0e0e0",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Equation module result — rendered nicely, not as raw JSON */}
         {m.equation && (
@@ -507,31 +765,6 @@ function Bubble({ m }) {
           </div>
         )}
 
-        {/* Animation module result */}
-        {m.animation && (
-          <div style={S.card}>
-            <div style={S.cardLabel}>🎬 Animation spec</div>
-            <div style={S.specGrid}>
-              {Object.entries(m.animation).map(([k, v]) => (
-                <div key={k} style={S.specRow}>
-                  <span style={S.specKey}>{k}</span>
-                  <span style={S.specVal}>
-                    {Array.isArray(v) ? v.join(", ") : String(v)}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <a
-              href={ANIMATION_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={S.launchBtn}
-            >
-              Open Animation Lab ↗
-            </a>
-          </div>
-        )}
-
         {/* Sources */}
         {m.sources && m.sources.length > 0 && (
           <div style={{ marginTop: 8 }}>
@@ -543,6 +776,18 @@ function Bubble({ m }) {
               const score = Math.max(0, Math.min(1, raw));
               const color =
                 score >= 0.6 ? "#16a34a" : score >= 0.4 ? "#ca8a04" : "#dc2626";
+              const meta = m.sourceMeta?.[j] || {};
+              const isImage = meta.chunk_type === "image";
+              const imgUrl = meta.image_url;
+              // Page / section badge
+              const badge = [
+                meta.page ? `p.${meta.page}` : null,
+                meta.section_heading
+                  ? meta.section_heading.slice(0, 30)
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
               return (
                 <div key={j} style={S.src}>
                   <span
@@ -554,11 +799,34 @@ function Bubble({ m }) {
                   >
                     {(score * 100).toFixed(0)}%
                   </span>
-                  <span style={{ flex: 1, fontSize: 12, color: "#444" }}>
-                    {String(src).length > 240
-                      ? String(src).slice(0, 240) + "…"
-                      : String(src)}
-                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {badge ? (
+                      <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>
+                        {isImage ? "📷 " : ""}{badge}
+                      </div>
+                    ) : isImage ? (
+                      <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>📷 image chunk</div>
+                    ) : null}
+                    {/* Render image when the parsing module returned a URL */}
+                    {isImage && imgUrl && (
+                      <img
+                        src={imgUrl}
+                        alt="source image"
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: 200,
+                          borderRadius: 6,
+                          marginBottom: 4,
+                          display: "block",
+                        }}
+                      />
+                    )}
+                    <span style={{ fontSize: 12, color: "#444" }}>
+                      {String(src).length > 240
+                        ? String(src).slice(0, 240) + "…"
+                        : String(src)}
+                    </span>
+                  </div>
                 </div>
               );
             })}
@@ -648,7 +916,6 @@ function IntentBadge({ intent }) {
   const map = {
     rag_only: { label: "Answering from sources", color: "#6c63ff" },
     equation_from_context: { label: "Equation mode", color: "#f59e0b" },
-    animation_from_context: { label: "Animation mode", color: "#10b981" },
   };
   const m = map[intent] || { label: intent, color: "#6b7280" };
   return (
@@ -846,9 +1113,8 @@ const S = {
     border: "1px solid #e6e6ec",
     borderRadius: "4px 14px 14px 14px",
     fontSize: 14,
-    lineHeight: 1.6,
+    lineHeight: 1.55,
     color: "#1a1a1a",
-    whiteSpace: "pre-wrap",
   },
   dotAnim: {
     display: "inline-block",

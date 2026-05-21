@@ -66,6 +66,11 @@ async def startup_span():
         app.generation_client.set_generation_model(
             model_id=settings.GENERATION_MODEL_ID
         )
+    elif settings.GENERATION_BACKEND == LLMBackendEnum.GEMINI.value:
+        # GENERATION_MODEL_ID in .env may hold a Groq/local model name —
+        # ignore it for Gemini and always use the correct Gemini model.
+        gemini_model = getattr(settings, "GEMINI_MODEL_ID", None) or "gemini-2.0-flash-lite"
+        app.generation_client.set_generation_model(model_id=gemini_model)
 
     # ── Embedding client ──────────────────────────────────────────────
     app.embedding_client = llm_factory.create(LLMBackendEnum.LOCAL.value)

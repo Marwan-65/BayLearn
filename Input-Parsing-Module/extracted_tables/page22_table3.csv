@@ -1,3 +1,0 @@
-if len(last_hour) <,expected_per_hour * 0.8:,expected_per_hour * 0.8:,nan,nan,nan
-"print(f""Warning:",Only {len(last_hour)},records,in,last hour,(expected
-"{expected_per_hour})"")","{expected_per_hour})"")",nan,nan,nan,nan

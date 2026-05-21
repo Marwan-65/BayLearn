@@ -1,0 +1,654 @@
+%% RAG Module — Experiments & Results
+%% BayLearn Graduation Project
+%% Fill in the [RESULT] placeholders after running RAGAS evaluations.
+%%
+%% Compile with: pdflatex rag_experiments.tex
+%%               bibtex   rag_experiments
+%%               pdflatex rag_experiments.tex (twice)
+
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{microtype}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!60!black,
+    citecolor=green!50!black,
+    urlcolor=blue!60!black
+}
+
+% Placeholder colour
+\newcommand{\todo}[1]{\textcolor{red!70!black}{\textbf{[TODO: #1]}}}
+\newcommand{\result}[1]{\textcolor{blue!70!black}{\textbf{#1}}}
+
+\title{%
+  \textbf{BayLearn — RAG Module}\\[6pt]
+  \large Retrieval-Augmented Generation Pipeline:\\
+  Algorithm Ablation Study \& Evaluation Results
+}
+\author{Manar Farghaly \\ Cairo University, Faculty of Engineering \\ Computer Engineering Department}
+\date{Academic Year 2025--2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Introduction}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Motivation}
+BayLearn is an adaptive study assistant designed for university students. Its core capability is a Retrieval-Augmented Generation (RAG) pipeline that allows students to upload study materials (PDFs, slides, transcripts) and ask natural-language questions whose answers are grounded in those materials.
+
+A fundamental challenge in RAG systems is the trade-off between retrieval precision, recall, and latency. This section documents the experiments conducted to determine which algorithmic enhancements deliver the greatest improvement in answer quality as measured by the RAGAS evaluation framework~\cite{es2023ragas}.
+
+\subsection{Research Questions}
+\begin{enumerate}
+  \item How much does adding hybrid BM25+dense retrieval improve context recall compared to dense-only retrieval?
+  \item Does multi-query expansion (RAG-Fusion) meaningfully increase faithfulness?
+  \item What is the latency cost of cross-encoder reranking relative to its quality gain?
+  \item Does contextual compression improve answer relevancy without harming faithfulness?
+  \item Does Contextual Retrieval (prepending LLM-generated chunk descriptions at index time) improve all metrics?
+\end{enumerate}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{System Architecture}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Pipeline Overview}
+
+The BayLearn RAG module is structured as a seven-layer retrieval pipeline followed by a grounded generation step. Figure~\ref{fig:architecture} shows the end-to-end architecture.
+
+\begin{figure}[H]
+  \centering
+  % Replace the path below with your architecture diagram
+  % \includegraphics[width=\linewidth]{figures/rag_architecture.pdf}
+  \fbox{\parbox{0.9\linewidth}{\centering\vspace{2cm}
+    \todo{Insert architecture diagram here (e.g., rag\_architecture.pdf)}
+    \vspace{2cm}}}
+  \caption{BayLearn RAG pipeline — seven retrieval layers and grounded generation.}
+  \label{fig:architecture}
+\end{figure}
+
+\subsection{Components}
+
+\begin{description}[leftmargin=2cm, style=sameline]
+  \item[\textbf{Input Parsing}] A microservice that accepts PDFs, images, audio, and video. It segments documents into typed chunks: \texttt{text}, \texttt{equation}, \texttt{table}, and \texttt{image}. Each chunk carries metadata (page number, section heading, image path).
+
+  \item[\textbf{Embedding}] A local SentenceTransformer model encodes chunk text into dense vectors. Optionally, Contextual Retrieval prepends an LLM-generated description to each chunk before embedding.
+
+  \item[\textbf{Vector Store}] Qdrant (disk-backed local instance). One collection per project. Cosine similarity distance. Stores full chunk payload (text + metadata) alongside each vector.
+
+  \item[\textbf{BM25 Index}] An in-memory BM25 index (rank\_bm25, $k_1=1.5$, $b=0.75$) is built per project alongside the vector store. Enables sparse retrieval for keyword-heavy queries.
+
+  \item[\textbf{RRF Fusion}] Reciprocal Rank Fusion ($k=60$) merges the ranked lists from dense and BM25 retrieval into a single score.
+
+  \item[\textbf{Cross-Encoder Reranker}] \texttt{cross-encoder/ms-marco-MiniLM-L-6-v2} re-scores query--passage pairs. Applied after fusion, before compression.
+
+  \item[\textbf{Contextual Compression}] Sentence-level cosine filtering. Each chunk is split into sentences; sentences below a dynamic similarity threshold are removed. Equation/table chunks are protected.
+
+  \item[\textbf{LLM Generation}] Groq-hosted Llama~3.1 8B Instant. Produces a numbered-context answer with inline source citations (\texttt{[Source N]}) and optional \texttt{[general knowledge]} tags.
+
+  \item[\textbf{Intent Router}] A lightweight LLM call (JSON-mode) classifies each query as \texttt{rag\_only} or \texttt{equation\_from\_context}. Equation queries are forwarded to a separate symbolic solver module.
+\end{description}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Implementation Details}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{HyDE — Attempted and Replaced}
+
+\textbf{What HyDE does:}
+Hypothetical Document Embeddings (HyDE)~\cite{gao2022hyde} generates a \emph{hypothetical answer} to the query using the LLM, embeds that answer (rather than the query itself), and uses it as the retrieval vector. The intuition is that a plausible answer embedding is geometrically closer to real document chunk embeddings than a short question embedding.
+
+\textbf{Why we replaced it:}
+\begin{itemize}
+  \item \textbf{Hallucination amplification:} When the LLM generated a plausible but factually wrong hypothetical answer, the retrieval vector pulled back chunks that confirmed the hallucination, making the final answer worse.
+  \item \textbf{Latency:} HyDE requires a full LLM call \emph{before} retrieval — adding 600--1200 ms per query.
+  \item \textbf{Domain-specific failure:} For questions about a student's own uploaded materials (CV, lecture notes), the LLM's hypothetical answer was often generic, drifting away from the specific terminology in the documents.
+\end{itemize}
+
+\textbf{What replaced it:}
+Multi-query RAG-Fusion (Section~\ref{sec:multiquery}) generates \emph{query variants} rather than a hypothetical answer. This avoids hallucination amplification while still addressing vocabulary mismatch. In our preliminary tests, RAG-Fusion outperformed HyDE on context recall for domain-specific documents by approximately \todo{X.XX} percentage points.
+
+\subsection{Multi-Query Expansion (RAG-Fusion)}
+\label{sec:multiquery}
+
+Multi-query expansion generates $N_q = 3$ paraphrased variants of the user's question using the LLM. Each variant is embedded and searched independently against the vector store. Results from all variants are pooled before RRF fusion.
+
+\textbf{Purpose:} Reduce vocabulary mismatch. A student asking ``how does a stack work'' may have material indexed under ``LIFO data structure''. Multiple phrasings increase the chance of matching the indexed text.
+
+\textbf{Configuration:}
+\begin{itemize}
+  \item \texttt{MULTI\_QUERY\_ENABLED}: \texttt{True} (default)
+  \item \texttt{MULTI\_QUERY\_COUNT}: \texttt{3}
+\end{itemize}
+
+\subsection{Hybrid Retrieval: Dense + BM25 via RRF}
+
+Dense retrieval excels at semantic similarity but misses exact keyword matches. BM25 is the opposite. Hybrid retrieval runs both in parallel and fuses the results.
+
+\textbf{RRF Formula:}
+\begin{equation}
+  \text{RRF}(d) = \sum_{i \in \{\text{dense, BM25}\}} \frac{1}{k + \text{rank}_i(d)}
+  \label{eq:rrf}
+\end{equation}
+where $k = 60$ (canonical constant that dampens top-rank dominance~\cite{cormack2009reciprocal}).
+
+\textbf{Configuration:}
+\begin{itemize}
+  \item \texttt{BM25\_ENABLED}: \texttt{True} (default)
+  \item \texttt{BM25\_K1}: \texttt{1.5}, \texttt{BM25\_B}: \texttt{0.75}
+  \item \texttt{RRF\_K}: \texttt{60}
+\end{itemize}
+
+\subsection{Cross-Encoder Reranking}
+
+After fusion, a cross-encoder jointly encodes the query and each candidate passage to produce a more accurate relevance score. The top-$k$ passages from the reranker replace the fusion-ranked list.
+
+\textbf{Model:} \texttt{cross-encoder/ms-marco-MiniLM-L-6-v2} (6-layer MiniLM, trained on MS MARCO passage re-ranking).
+
+\textbf{Configuration:}
+\begin{itemize}
+  \item \texttt{RERANKER\_ENABLED}: \texttt{False} (default — high latency)
+  \item \texttt{RERANKER\_OVER\_RETRIEVAL\_MULTIPLIER}: \texttt{3}
+\end{itemize}
+
+\subsection{Contextual Compression}
+
+Chunks often contain sentences irrelevant to the specific question. Compression filters out these sentences before passing context to the LLM, reducing input tokens and focusing the answer.
+
+\textbf{Algorithm:}
+\begin{enumerate}
+  \item Split chunk text into sentences.
+  \item Embed each sentence with the same SentenceTransformer.
+  \item Compute cosine similarity between sentence embedding and query embedding.
+  \item Keep sentences with similarity $\geq \tau_{\text{sim}}$ (adaptive per-chunk threshold).
+  \item Enforce a minimum keep ratio $r_{\min}$ to avoid empty chunks.
+  \item Equation/table chunks bypass compression entirely.
+\end{enumerate}
+
+\textbf{Configuration:}
+\begin{itemize}
+  \item \texttt{COMPRESSION\_ENABLED}: \texttt{True} (default)
+  \item \texttt{COMPRESSION\_SIMILARITY\_THRESHOLD}: \texttt{0.3}
+  \item \texttt{COMPRESSION\_MIN\_KEEP\_RATIO}: \texttt{0.4}
+\end{itemize}
+
+\subsection{Contextual Retrieval}
+
+Inspired by Anthropic's 2024 Contextual Retrieval technique~\cite{anthropic2024contextual}, this pre-processing step uses an LLM to generate a 1--2 sentence description for each chunk \emph{at indexing time}. The description is prepended to the chunk text before embedding.
+
+\textbf{Example:}
+\begin{quote}
+\textit{[Generated description]} This chunk is from Chapter 3 of the Data Structures lecture, covering the implementation of a singly linked list and its traversal operation.\\[4pt]
+\textit{[Original chunk]} A linked list consists of nodes where each node contains a data field and a reference (link) to the next node\ldots
+\end{quote}
+
+\textbf{Effect:} The embedding now represents the chunk's position in the document's narrative, not just its local text. This is especially valuable for short or ambiguous chunks.
+
+\textbf{Configuration:}
+\begin{itemize}
+  \item \texttt{CONTEXTUAL\_RETRIEVAL\_ENABLED}: \texttt{True} (default)
+  \item \texttt{CONTEXTUAL\_RETRIEVAL\_MAX\_TOKENS}: \texttt{100}
+\end{itemize}
+
+\subsection{Security and Rate Limiting}
+
+The \texttt{/ask} endpoint is exposed to the public Internet and carries non-trivial compute cost per request (multi-query expansion + LLM call). Two complementary defences are in place.
+
+\subsubsection*{Per-IP Rate Limiter (slowapi)}
+
+The endpoint is decorated with a \texttt{slowapi} limit:
+
+\begin{verbatim}
+@limiter.limit("20/minute")
+async def ask_question(project_id: str, request: Request, ...):
+    ...
+\end{verbatim}
+
+\begin{itemize}
+  \item \textbf{Limit:} 20 requests per minute per client IP address.
+  \item \textbf{Response on breach:} HTTP~\texttt{429 Too Many Requests}.
+  \item \textbf{Scope:} only the \texttt{/ask} endpoint is rate-limited; indexing and search endpoints are unrestricted (they are not exposed in production).
+  \item \textbf{Backend:} in-memory token-bucket via \texttt{slowapi}; no Redis dependency for single-instance deployment.
+\end{itemize}
+
+The global exception handler is registered in \texttt{main.py}:
+
+\begin{verbatim}
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+\end{verbatim}
+
+\subsubsection*{Input Sanitization (Intent Router)}
+
+Before any LLM call, the user's query passes through a six-phase sanitizer inside the intent router:
+
+\begin{enumerate}
+  \item Strip leading/trailing whitespace.
+  \item Remove null bytes (\texttt{\textbackslash x00}).
+  \item Strip ASCII control characters (0x01--0x1F, 0x7F).
+  \item Collapse runs of whitespace to single spaces.
+  \item Truncate to 5\,000 characters.
+  \item (Pydantic) Maximum field length \texttt{max\_length=5000} enforced at the HTTP layer before the router is reached.
+\end{enumerate}
+
+The system prompt sent to the intent-classification LLM includes explicit injection-defence instructions to prevent a malicious query from hijacking the JSON-mode response format.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Evaluation Methodology}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{RAGAS Framework}
+
+All experiments use RAGAS~\cite{es2023ragas} version~0.1.x with the following four metrics:
+
+\begin{description}[leftmargin=3cm, style=sameline]
+  \item[\textbf{Faithfulness}] Fraction of claims in the generated answer that are supported by the retrieved context. Measures hallucination resistance. Range: $[0, 1]$.
+
+  \item[\textbf{Answer Relevancy}] Semantic similarity between the generated answer and the original question, estimated by prompting an LLM to generate $k$ reverse questions from the answer. Range: $[0, 1]$.
+
+  \item[\textbf{Context Precision}] Proportion of relevant chunks among all retrieved chunks (precision of retrieval). Range: $[0, 1]$.
+
+  \item[\textbf{Context Recall}] Fraction of the ground truth information covered by the retrieved context. Requires human-annotated ground truth. Range: $[0, 1]$.
+\end{description}
+
+\subsection{Evaluation LLM}
+
+RAGAS metric computations use \textbf{Google Gemini \texttt{gemini-2.0-flash-lite}} as the primary evaluator LLM (free tier: 1\,500 requests/day, 1\,000\,000 TPM). Groq-hosted \texttt{llama-3.1-8b-instant} is the fallback when no \texttt{GEMINI\_API\_KEY} is set. All runs use \texttt{BAAI/bge-small-en-v1.5} (local SentenceTransformer) for RAGAS embedding metrics.
+
+\subsection{Test Sets}
+
+Three manually annotated test sets are used. All require uploading the corresponding document before evaluation.
+
+\begin{description}[leftmargin=2cm, style=sameline]
+  \item[\textbf{Scientific / Algorithms dataset (25 questions)}] Questions about \emph{Algorithms} by Jeff Erickson~\cite{erickson2019algorithms} (Chapters 1--3, freely available at \url{jeffe.cs.illinois.edu/teaching/algorithms/}). This document contains mathematical equations, algorithm figures, recurrence relations, and rigorous proofs — making it suitable for testing equation-chunk and image-chunk retrieval. Seven difficulty levels: direct lookup (L1), synthesis (L2), reasoning (L3), hallucination resistance (L4), paraphrase (L5), ambiguous (L6), multi-hop (L7). Each level has 3--4 questions.
+
+  \item[\textbf{Backend dataset (15 questions)}] Questions about a backend development lecture (covers servers, databases, proxies, deployment, security). Same 7 difficulty levels, proportionally distributed.
+
+  \item[\textbf{Multimodal dataset (9 questions)}] Tests retrieval of typed chunks produced by the Input Parsing Module: \texttt{equation} and \texttt{image} chunk types. Questions are divided into four sub-types:
+  \begin{itemize}
+    \item \textbf{equation\_explain (3)}: Ask \emph{what} a specific equation in the book means — not to compute it. Expected intent: \texttt{rag\_only}. The system should retrieve the equation chunk (with image), display the image, and explain the formula in context.
+    \item \textbf{image\_explain (2)}: Ask about a figure in the book. Expected intent: \texttt{rag\_only}. The system should retrieve the image chunk, display it, and explain what it shows.
+    \item \textbf{equation\_solve (2)}: Explicit compute requests (``Solve...'', ``Differentiate...''). Expected intent: \texttt{equation\_from\_context}. The system should route to the equation module.
+    \item \textbf{intent\_boundary (2)}: Questions that mention equations but ask for explanation or enumeration. Expected intent: \texttt{rag\_only}. Tests that the router does \emph{not} misfire for non-compute equation questions.
+  \end{itemize}
+  Ground truth for explanation questions is a textual description with inline \LaTeX{} notation where relevant.
+\end{description}
+
+\subsection{Beyond RAGAS: UX-Level Evaluation Criteria}
+\label{sec:ux_eval}
+
+RAGAS measures retrieval and faithfulness at the text level but does not capture the user-facing quality of the system. Table~\ref{tab:ux_criteria} lists additional criteria evaluated manually for each answer.
+
+\begin{table}[H]
+  \centering
+  \caption{UX evaluation criteria (manual, 1--5 Likert scale).}
+  \label{tab:ux_criteria}
+  \begin{tabular}{lp{8.5cm}}
+    \toprule
+    \textbf{Criterion} & \textbf{Description} \\
+    \midrule
+    \textbf{Answer Organisation}    & Is the answer well-structured (headings, bullet points, numbered steps)? Does it avoid repetition and unrelated paragraphs? \\
+    \textbf{Math Rendering}         & Are equations and matrices rendered correctly in LaTeX notation (not ASCII art)? \\
+    \textbf{Conversation Continuity} & When the student asks a follow-up (e.g.\ ``I didn't understand''), does the system use conversation history to re-explain the previous point rather than treating it as a new question? \\
+    \textbf{Hallucination Resistance} & When the context does not contain the answer, does the system correctly say so rather than inventing plausible-sounding but fabricated content? \\
+    \textbf{Irrelevant Context Handling} & When the retrieved chunks are off-topic, does the system recognise this and answer from general knowledge instead of misinterpreting the irrelevant text? \\
+    \textbf{Intent Routing Accuracy} & For equation questions, does the intent router correctly fire \texttt{equation\_from\_context} and forward to the solver module? \\
+    \textbf{Image Chunk Display}    & When the answer involves a figure or diagram, is the chunk image displayed alongside the answer? \\
+    \textbf{Response Latency}       & Is the end-to-end response time acceptable for interactive tutoring ($<$5~s for RAG-only, $<$10~s with reranker)? \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Contextual Retrieval Ablation Methodology}
+
+Because Contextual Retrieval enriches chunk embeddings \emph{at index time}, it cannot be toggled as a query-time flag like the other techniques. The ablation for CR requires two separate indexing runs:
+
+\begin{enumerate}
+  \item \textbf{Index without CR}: set \texttt{CONTEXTUAL\_RETRIEVAL\_ENABLED=False} in \texttt{.env}, then call \texttt{POST /api/v1/nlp/index/push/\{project\_id\}} with \texttt{do\_reset=1}. Run the full five-run ablation. Save results.
+  \item \textbf{Index with CR}: set \texttt{CONTEXTUAL\_RETRIEVAL\_ENABLED=True}, re-index (costs 1 LLM call per chunk; cached in \texttt{contextual\_cache.json} for subsequent runs). Run the same full five-run ablation. Save results.
+\end{enumerate}
+
+The two result sets are compared in Table~\ref{tab:results_cr} (Section~\ref{sec:results_cr}). The \texttt{contextual\_cache.json} file persists LLM-generated descriptions across server restarts, so the CR cost is paid only once per document.
+
+\subsection{Ablation Study Design}
+
+The ablation study follows an \emph{additive} strategy: each run adds exactly one technique on top of the previous run. This isolates the marginal contribution of each component.
+
+\begin{table}[H]
+  \centering
+  \caption{Ablation study configurations.}
+  \label{tab:ablation_configs}
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Run name} & \textbf{Multi-query} & \textbf{Hybrid (BM25+RRF)} & \textbf{Reranker} & \textbf{Compression} \\
+    \midrule
+    Baseline            & \texttimes & \texttimes & \texttimes & \texttimes \\
+    +Multi-query        & \checkmark & \texttimes & \texttimes & \texttimes \\
+    +Hybrid             & \checkmark & \checkmark & \texttimes & \texttimes \\
+    +Reranker           & \checkmark & \checkmark & \checkmark & \texttimes \\
+    +Compression        & \checkmark & \checkmark & \checkmark & \checkmark \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Additionally, a separate experiment tests the effect of Contextual Retrieval (which operates at indexing time and cannot be toggled per-query):
+
+\begin{table}[H]
+  \centering
+  \caption{Contextual Retrieval experiment (full pipeline on/off).}
+  \label{tab:cr_configs}
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{Run} & \textbf{Contextual Retrieval at index time} \\
+    \midrule
+    Full pipeline, no CR & \texttimes \\
+    Full pipeline, with CR & \checkmark \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Results}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Ablation Study — Scientific Dataset (Algorithms-JeffE, Ch.1--3)}
+
+\begin{table}[H]
+  \centering
+  \caption{Ablation results on Scientific dataset (20 questions, all levels).}
+  \label{tab:results_scientific_ablation}
+  \begin{tabular}{lccccr}
+    \toprule
+    \textbf{Run} & \textbf{Faithfulness} & \textbf{Ans. Relevancy} & \textbf{Ctx. Precision} & \textbf{Ctx. Recall} & \textbf{Avg Latency (ms)} \\
+    \midrule
+    Baseline             & 0.597 & 0.971 & 0.689 & 0.333 & --- \\
+    +Hybrid              & 0.375 & 0.979 & 0.844 & 0.500 & --- \\
+    +Reranker            & 0.532 & 0.979 & 0.714 & 0.556 & --- \\
+    +Compression         & 1.000 & 1.000 & 0.250 & N/A & --- \\
+\bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Ablation Study — Backend Dataset}
+
+\begin{table}[H]
+  \centering
+  \caption{Ablation results on Backend dataset (15 questions, all levels).}
+  \label{tab:results_backend_ablation}
+  \begin{tabular}{lccccr}
+    \toprule
+    \textbf{Run} & \textbf{Faithfulness} & \textbf{Ans. Relevancy} & \textbf{Ctx. Precision} & \textbf{Ctx. Recall} & \textbf{Avg Latency (ms)} \\
+    \midrule
+    Baseline            & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{XXXX} \\
+    +Multi-query        & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{XXXX} \\
+    +Hybrid             & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{XXXX} \\
+    +Reranker           & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{XXXX} \\
+    +Compression        & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{XXXX} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Contextual Retrieval Effect}
+\label{sec:results_cr}
+
+\begin{table}[H]
+  \centering
+  \caption{Effect of Contextual Retrieval (full pipeline, Scientific dataset).}
+  \label{tab:results_cr}
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Configuration} & \textbf{Faithfulness} & \textbf{Ans. Relevancy} & \textbf{Ctx. Precision} & \textbf{Ctx. Recall} \\
+    \midrule
+    Full pipeline, no CR  & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    Full pipeline, with CR & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    \midrule
+    $\Delta$ (CR -- no CR) & \todo{±X.XX} & \todo{±X.XX} & \todo{±X.XX} & \todo{±X.XX} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Per-Level Analysis}
+
+Table~\ref{tab:results_levels} breaks down results by difficulty level for the best configuration (full pipeline + CR) on the Scientific dataset.
+
+\begin{table}[H]
+  \centering
+  \caption{Full pipeline results by difficulty level --- Scientific dataset (Algorithms-JeffE Ch.1--3).}
+  \label{tab:results_levels}
+  \begin{tabular}{llcccc}
+    \toprule
+    \textbf{Level} & \textbf{Type} & \textbf{Faithfulness} & \textbf{Ans. Relevancy} & \textbf{Ctx. Precision} & \textbf{Ctx. Recall} \\
+    \midrule
+    L1 & Direct Lookup           & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    L2 & Synthesis               & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    L3 & Reasoning               & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    L4 & Hallucination Resist.   & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    L5 & Paraphrase              & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    L6 & Ambiguous               & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    L7 & Multi-hop               & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    \midrule
+    \multicolumn{2}{l}{\textbf{Overall average}} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} & \todo{X.XX} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Multimodal Retrieval Results}
+
+\begin{table}[H]
+  \centering
+  \caption{Multimodal test set results (full pipeline + CR). ``Type OK'' = correct chunk type in top-3 sources. ``Intent OK'' = router classified correctly. ``Image shown'' = image URL present in response.}
+  \label{tab:results_multimodal}
+  \begin{tabular}{llcccc}
+    \toprule
+    \textbf{Question (sub-type)} & \textbf{Exp.\ chunk} & \textbf{Type OK} & \textbf{Intent OK} & \textbf{Image shown} & \textbf{Quality (1--5)} \\
+    \midrule
+    \multicolumn{6}{l}{\textit{equation\_explain — rag\_only intent}} \\
+    Fibonacci matrix form meaning       & equation & \todo{Y/N} & \todo{Y/N} & \todo{Y/N} & \todo{X} \\
+    MergeSort recurrence terms          & equation & \todo{Y/N} & \todo{Y/N} & \todo{Y/N} & \todo{X} \\
+    Tower of Hanoi recurrence meaning   & equation & \todo{Y/N} & \todo{Y/N} & \todo{Y/N} & \todo{X} \\
+    \midrule
+    \multicolumn{6}{l}{\textit{image\_explain — rag\_only intent}} \\
+    MergeSort pseudocode figure         & image    & \todo{Y/N} & \todo{Y/N} & \todo{Y/N} & \todo{X} \\
+    Edit distance DP table figure       & image    & \todo{Y/N} & \todo{Y/N} & \todo{Y/N} & \todo{X} \\
+    \midrule
+    \multicolumn{6}{l}{\textit{equation\_solve — equation\_from\_context intent}} \\
+    Solve T(n) = 2T(n-1) + 1           & equation & \todo{Y/N} & \todo{Y/N} & N/A        & \todo{X} \\
+    Differentiate x²·sin(x)            & equation & \todo{Y/N} & \todo{Y/N} & N/A        & \todo{X} \\
+    \midrule
+    \multicolumn{6}{l}{\textit{intent\_boundary — must NOT fire equation module}} \\
+    Equation module capabilities        & text     & N/A        & \todo{Y/N} & N/A        & \todo{X} \\
+    Recurrences in Ch.\ 1               & equation & \todo{Y/N} & \todo{Y/N} & N/A        & \todo{X} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{UX Evaluation Results}
+
+\begin{table}[H]
+  \centering
+  \caption{UX evaluation (manual, 1--5 Likert) — full pipeline + CR, 5 sample interactions.}
+  \label{tab:ux_results}
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{Criterion} & \textbf{Score (1--5)} \\
+    \midrule
+    Answer Organisation              & \todo{X} \\
+    Math Rendering (LaTeX)           & \todo{X} \\
+    Conversation Continuity          & \todo{X} \\
+    Hallucination Resistance         & \todo{X} \\
+    Irrelevant Context Handling      & \todo{X} \\
+    Intent Routing Accuracy          & \todo{X} \\
+    Image Chunk Display              & \todo{X} \\
+    Response Latency                 & \todo{X} \\
+    \midrule
+    \textbf{Overall UX Score}        & \todo{X.X} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Latency Breakdown}
+
+\begin{table}[H]
+  \centering
+  \caption{Average per-stage latency for the full pipeline (ms).}
+  \label{tab:latency}
+  \begin{tabular}{lr}
+    \toprule
+    \textbf{Stage} & \textbf{Average latency (ms)} \\
+    \midrule
+    Intent classification          & \todo{XXX} \\
+    Multi-query generation         & \todo{XXX} \\
+    Dense search (Qdrant)          & \todo{XXX} \\
+    BM25 search                    & \todo{XXX} \\
+    RRF fusion                     & \todo{XXX} \\
+    Cross-encoder reranking        & \todo{XXX} \\
+    Contextual compression         & \todo{XXX} \\
+    Answer generation (LLM)        & \todo{XXX} \\
+    \midrule
+    \textbf{Total (endpoint)}       & \todo{XXXX} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Discussion}
+
+\todo{Fill in after running experiments. Example structure:}
+
+\begin{itemize}
+  \item \textbf{Multi-query} improved context recall by \todo{X.XX} on average, with the greatest effect on L5 (paraphrase) and L7 (multi-hop) questions where vocabulary mismatch is highest.
+  \item \textbf{Hybrid BM25+RRF} improved context precision by \todo{X.XX} on keyword-heavy L1 (direct lookup) questions but had minimal effect on reasoning questions.
+  \item \textbf{Cross-encoder reranking} added \todo{XX} ms average latency and improved faithfulness by \todo{X.XX} by pushing the most relevant passages to the top-$k$.
+  \item \textbf{Contextual compression} reduced average context token count by \todo{XX\%} while maintaining or improving answer relevancy.
+  \item \textbf{Contextual Retrieval} produced the largest single-component improvement, increasing context recall by \todo{X.XX} on L3--L7 questions where understanding document structure is important.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{How to Run the Experiments}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Prerequisites}
+\begin{enumerate}
+  \item Both the RAG backend (\texttt{src/}) and the Input Parsing Module must be running.
+  \item Upload the test document (CV PDF or Backend PDF) via the frontend or directly via\\
+    \texttt{POST /api/v1/parse/upload/\{project\_id\}?auto\_index=true}
+  \item Set \texttt{GEMINI\_API\_KEY} (preferred — free tier, 1\,500 RPD) \emph{or} \texttt{GROQ\_API\_KEY} (fallback).
+    The RAGAS evaluator auto-selects Gemini when \texttt{GEMINI\_API\_KEY} is present in the environment.
+\end{enumerate}
+
+\subsection{Running a Single Evaluation (API Dog)}
+
+\textbf{Endpoint:} \texttt{POST /api/v1/nlp/evaluate/\{project\_id\}}
+
+\textbf{Example — full pipeline on scientific (algorithms) dataset:}
+\begin{verbatim}
+POST http://localhost:8000/api/v1/nlp/evaluate/{project_id}
+  ?dataset=scientific
+  &batch_size=20
+  &enable_multi_query=true
+  &enable_hybrid=true
+  &enable_reranker=false
+  &enable_compression=true
+\end{verbatim}
+
+\subsection{Running the Ablation Study (API Dog)}
+
+\textbf{Endpoint:} \texttt{POST /api/v1/nlp/evaluate/ablation/\{project\_id\}}
+
+\textbf{Request body:}
+\begin{verbatim}
+{
+  "runs": [
+    {"name": "baseline",
+     "enable_multi_query": false, "enable_hybrid": false,
+     "enable_reranker": false,   "enable_compression": false},
+    {"name": "+multi_query",
+     "enable_multi_query": true,  "enable_hybrid": false,
+     "enable_reranker": false,   "enable_compression": false},
+    {"name": "+hybrid",
+     "enable_multi_query": true,  "enable_hybrid": true,
+     "enable_reranker": false,   "enable_compression": false},
+    {"name": "+reranker",
+     "enable_multi_query": true,  "enable_hybrid": true,
+     "enable_reranker": true,    "enable_compression": false},
+    {"name": "+compression",
+     "enable_multi_query": true,  "enable_hybrid": true,
+     "enable_reranker": true,    "enable_compression": true}
+  ],
+  "batch_size": 20,
+  "dataset": "scientific"
+}
+\end{verbatim}
+
+Results are saved automatically to \texttt{src/evaluation/results/} with a timestamp.
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Conclusion}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\todo{Write after filling in results. Summarise: which algorithms to keep, which to disable by default (e.g. reranker due to latency), and what the final recommended configuration is.}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\begin{thebibliography}{9}
+% ─────────────────────────────────────────────────────────────────────────────
+
+\bibitem{es2023ragas}
+Shahul Es, Jithin James, Luis Espinosa-Anke, Steven Schockaert.
+\newblock RAGAS: Automated Evaluation of Retrieval Augmented Generation.
+\newblock \textit{arXiv preprint arXiv:2309.15217}, 2023.
+
+\bibitem{cormack2009reciprocal}
+Gordon V. Cormack, Charles L. A. Clarke, Stefan Buettcher.
+\newblock Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods.
+\newblock In \textit{Proceedings of the 32nd SIGIR}, 2009.
+
+\bibitem{anthropic2024contextual}
+Anthropic.
+\newblock Introducing Contextual Retrieval.
+\newblock \textit{Anthropic Blog}, September 2024.
+\newblock \url{https://www.anthropic.com/news/contextual-retrieval}
+
+\bibitem{lewis2020rag}
+Patrick Lewis et al.
+\newblock Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.
+\newblock In \textit{NeurIPS 2020}.
+
+\bibitem{robertson1994okapi}
+S. E. Robertson, S. Walker, S. Jones, M. M. Hancock-Beaulieu, M. Gatford.
+\newblock Okapi at TREC-3.
+\newblock In \textit{TREC-3}, 1994.
+
+\bibitem{gao2022hyde}
+Luyu Gao, Xueguang Ma, Jimmy Lin, Jamie Callan.
+\newblock Precise Zero-Shot Dense Retrieval without Relevance Labels.
+\newblock \textit{arXiv preprint arXiv:2212.10496}, 2022.
+
+\bibitem{erickson2019algorithms}
+Jeff Erickson.
+\newblock \textit{Algorithms}.
+\newblock Self-published, 2019.
+\newblock \url{http://jeffe.cs.illinois.edu/teaching/algorithms/}
+
+\end{thebibliography}
+
+\end{document}
