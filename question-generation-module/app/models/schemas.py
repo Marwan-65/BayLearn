@@ -32,6 +32,7 @@ class GeneratedQuestion(BaseModel):
     explanation: str                                 # Why this is correct
     source_chunk_id: Optional[int] = None           # Which chunk this came from
     difficulty: str
+    validation_report: Optional[dict] = None        # Semantic validation results
 
 # ── What your API returns ──────────────────────────────────────────────────
 class GenerateQuestionsResponse(BaseModel):

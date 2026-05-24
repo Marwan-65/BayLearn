@@ -5,3 +5,8 @@
    groq
    python-dotenv
    httpx
+   scikit-learn
+   numpy
+   sentence-transformers
+   textstat
+   rank-bm25
