@@ -1,7 +1,20 @@
-   fastapi
-   uvicorn[standard]
-   pydantic
-   pydantic-settings
-   groq
-   python-dotenv
-   httpx
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+groq
+python-dotenv
+httpx
+
+# ICL retrieval + BloomBERT runtime
+numpy
+sentence-transformers
+torch
+transformers
+
+# Data prep / training-set build scripts
+pandas
+scikit-learn
+
+# Kaggle dataset downloader (only needed by scripts/, not the API)
+kagglehub
