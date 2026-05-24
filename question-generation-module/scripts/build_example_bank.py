@@ -151,11 +151,13 @@ def sample_balanced(rows: list[dict], per_level: int, seed: int = 42) -> list[di
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--per-level", type=int, default=20,
-                    help="examples per level (default: 20 → 60 total)")
-    ap.add_argument("--allow-no-answer", action="store_true",
-                    help="Allow examples without correct_answer field. "
-                         "Default: require an answer (better LLM format learning).")
+    ap.add_argument("--per-level", type=int, default=50,
+                    help="examples per level (default: 50 → 150 total)")
+    ap.add_argument("--require-answer", action="store_true",
+                    help="Filter to examples that ship an explicit correct_answer. "
+                         "Default: include question-only examples too (better Bloom-level "
+                         "coverage; format adherence is enforced by the prompt's OUTPUT "
+                         "FORMAT spec, not example imitation).")
     args = ap.parse_args()
 
     print("Loading labeled sources...")
@@ -175,14 +177,19 @@ def main() -> int:
     pool = list(seen.values())
     print(f"  pool after dedupe: {len(pool)}")
 
-    # Quality gate: require answers by default. The few-shot block in the LLM
-    # prompt shows Q + A so the LLM imitates both. Examples without an answer
-    # leave the output-format signal incomplete.
-    if not args.allow_no_answer:
+    # Optional quality gate: only filter to answered entries if explicitly
+    # requested. The default is OFF because:
+    #   - the bank's purpose is Bloom-level transfer, not output-format imitation
+    #   - the prompt's OUTPUT FORMAT spec already enforces answer/explanation structure
+    #   - removing the filter unlocks ~40x more diverse examples (3.5k vs 82)
+    if args.require_answer:
         before = len(pool)
         pool = [r for r in pool if r.get("correct_answer")]
         print(f"  filtered to entries WITH answers: {len(pool)}/{before} "
-              f"(pass --allow-no-answer to disable)")
+              f"(--require-answer was passed)")
+    else:
+        print(f"  using all entries regardless of answer presence "
+              f"(pass --require-answer to filter)")
 
     sampled = sample_balanced(pool, per_level=args.per_level)
     print(f"  sampled {len(sampled)} (per_level={args.per_level})")
