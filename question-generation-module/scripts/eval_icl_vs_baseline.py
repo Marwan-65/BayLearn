@@ -200,6 +200,60 @@ def distinct_n(questions: list[str], n: int = 2) -> float:
     return len(set(grams)) / len(grams)
 
 
+def _bleu_4(hyp: list[str], refs: list[list[str]]) -> float:
+    """Simplified BLEU-4 with method-1 smoothing. Self-contained (no nltk).
+
+    Returns score in [0, 1]. Used to compute self-BLEU (each question scored
+    against the OTHER questions in the same batch as references).
+    """
+    import math
+    from collections import Counter
+    if not hyp or not refs:
+        return 0.0
+    weights = [0.25, 0.25, 0.25, 0.25]
+    log_precisions = []
+    for n in range(1, 5):
+        hyp_ngrams = Counter(tuple(hyp[i:i + n]) for i in range(len(hyp) - n + 1))
+        if not hyp_ngrams:
+            log_precisions.append(math.log(1e-9))
+            continue
+        max_ref = Counter()
+        for ref in refs:
+            ref_ngrams = Counter(tuple(ref[i:i + n]) for i in range(len(ref) - n + 1))
+            for k, v in ref_ngrams.items():
+                if v > max_ref[k]:
+                    max_ref[k] = v
+        clipped = sum(min(c, max_ref[k]) for k, c in hyp_ngrams.items())
+        total = sum(hyp_ngrams.values())
+        if clipped == 0:
+            # method-1 smoothing: add tiny epsilon so log doesn't explode
+            log_precisions.append(math.log(0.5 / max(total, 1)))
+        else:
+            log_precisions.append(math.log(clipped / total))
+    hyp_len = len(hyp)
+    closest_ref_len = min((len(r) for r in refs),
+                         key=lambda l: (abs(l - hyp_len), l))
+    bp = 1.0 if hyp_len > closest_ref_len else math.exp(1 - closest_ref_len / max(hyp_len, 1))
+    return bp * math.exp(sum(w * lp for w, lp in zip(weights, log_precisions)))
+
+
+def avg_self_bleu(questions: list[str]) -> float:
+    """Average pairwise self-BLEU across all questions in a batch.
+
+    Lower = more diverse output (questions are lexically distinct from each
+    other). Used as the headline diversity metric per Zhu et al. 2018.
+    """
+    from statistics import mean as _mean
+    if len(questions) < 2:
+        return 0.0
+    tokenized = [q.lower().split() for q in questions]
+    scores = []
+    for i, hyp in enumerate(tokenized):
+        refs = [tokenized[j] for j in range(len(tokenized)) if j != i]
+        scores.append(_bleu_4(hyp, refs))
+    return _mean(scores)
+
+
 def cosine_sim(a, b) -> float:
     import numpy as np
     a = np.asarray(a); b = np.asarray(b)
