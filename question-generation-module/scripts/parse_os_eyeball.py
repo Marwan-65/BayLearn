@@ -47,23 +47,42 @@ EXPLANATION_PATTERNS = [
 ]
 
 
+# Inline image: ![alt](url) — and reference-style: ![alt][ref]
+# We keep the full markdown image syntax in the question text so a downstream
+# consumer can see "this question references a diagram." We never drop them.
+IMAGE_RE = re.compile(r"!\[[^\]]*\](?:\([^)]+\)|\[[^\]]+\])")
+
+
+def has_image(text: str) -> bool:
+    return bool(IMAGE_RE.search(text))
+
+
 def strip_markdown(text: str) -> str:
-    """Light markdown cleanup — remove **, escape backslashes, collapse spaces."""
-    text = re.sub(r"\\([\.\-\\\[\]\(\)])", r"\1", text)  # \\. → .
-    text = re.sub(r"\*{1,2}", "", text)
+    """Light markdown cleanup — remove **, unescape backslash-escaped chars,
+    collapse spaces. Image references (![…](…) or ![…][ref]) are PRESERVED
+    so that questions with diagrams retain that marker.
+    """
+    text = re.sub(r"\\([\.\-\\\[\]\(\)])", r"\1", text)   # \\. → .
+    text = re.sub(r"\*{1,2}", "", text)                    # drop ** wrappers
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
+_LEADING_NUM_HEADER = re.compile(r"^\s*\*{0,2}\s*\d{1,3}\s*[\.\-\\\)]+\s*")
+
+
 def extract_question(block: str) -> str:
-    """Question = everything before the first Answer/Solution marker."""
-    # Find earliest answer marker
+    """Question = everything from after the leading number header to the
+    first Answer/Solution marker (if any), else the whole block."""
+    # Find earliest answer marker (none in the new format — full block is question)
     earliest = len(block)
     for pat in ANSWER_PATTERNS:
         m = pat.search(block)
         if m and m.start() < earliest:
             earliest = m.start()
     q = block[:earliest]
+    # Strip the question's own leading number ("1- ", "10 \- ", "**14. ", etc.)
+    q = _LEADING_NUM_HEADER.sub("", q, count=1)
     return strip_markdown(q)
 
 
@@ -100,44 +119,67 @@ def _has_answer_or_level(block: str) -> bool:
 
 def parse_md(md_path: Path) -> list[dict]:
     text = md_path.read_text(encoding="utf-8")
-    # Find all numbered-header positions
-    starts = [m.start() for m in QUESTION_HEADER_RE.finditer(text)]
-    if not starts:
+    # Capture both position AND question number for each header
+    matches = list(QUESTION_HEADER_RE.finditer(text))
+    if not matches:
         return []
-    starts.append(len(text))
+    starts: list[tuple[int, int | None]] = [
+        (m.start(), int(m.group(1))) for m in matches
+    ]
+    starts.append((len(text), None))
 
-    # Build raw blocks
-    raw_blocks = [text[starts[i]:starts[i + 1]] for i in range(len(starts) - 1)]
+    # Build raw blocks: each block carries its own header number
+    raw_blocks: list[tuple[int | None, str]] = [
+        (starts[i][1], text[starts[i][0]:starts[i + 1][0]])
+        for i in range(len(starts) - 1)
+    ]
 
-    # Merge blocks that don't contain Answer/Solution/Level into the previous
-    # real question block — these are MCQ sub-options ("1- ...", "2- ...").
+    # Merge MCQ sub-options into their parent question.
+    #
+    # Updated format: MCQ options now use letters (a-, b-, ..., e-) which
+    # don't match the numeric question-header regex, so they're naturally
+    # part of the parent question's text — no special merging required.
+    #
+    # We still defensively keep the numeric MCQ-option safety net for the
+    # OLD format (where options used "1-", "2-", "5-"): if a block's number
+    # is small (<=10) AND smaller than the last real question's number, it's
+    # treated as an option and merged into the parent.
     merged: list[str] = []
-    for block in raw_blocks:
-        if _has_answer_or_level(block) or not merged:
-            merged.append(block)
-        else:
-            merged[-1] = merged[-1] + "\n" + block
+    last_real_num: int = -1
+    for num, block in raw_blocks:
+        is_mcq_option = (
+            num is not None
+            and num <= 10
+            and last_real_num > 0
+            and num < last_real_num
+        )
+        if is_mcq_option:
+            if merged:
+                merged[-1] = merged[-1] + "\n" + block
+            continue
+        merged.append(block)
+        if num is not None:
+            last_real_num = num
 
     rows = []
     for block in merged:
         question = extract_question(block)
         answer = extract_answer(block)
-        level = extract_level(block)
+        level = extract_level(block)              # may be "" — no longer required
         explanation = extract_explanation(block)
-        if not question or len(question) < 8:
+        if not question or len(question) < 8 or len(question.split()) < 3:
             continue
-        if not (answer or level):
-            continue  # not a real question after merging
+        # The OS bank is now PURELY test input — never trained on, never used
+        # as ICL bank source. The `level` column is left blank so BloomBERT can
+        # fill it via scripts/relabel_os_with_bloombert.py.
         rows.append({
-            "question": question,
-            "level": level or "unknown",
-            "btl": "",  # unknown — to be filled by BloomBERT later
-            "competence": "",
-            "part": "",
-            "subject": "operating systems (eyeball)",
-            "source_file": md_path.name,
+            "question":       question,
+            "level":          "",                  # filled by BloomBERT later
+            "has_image":      has_image(question),
+            "subject":        "operating systems",
+            "source_file":    md_path.name,
             "correct_answer": answer,
-            "explanation": explanation,
+            "explanation":    explanation,
         })
     return rows
 
@@ -153,8 +195,8 @@ def main(argv: list[str]) -> int:
         return 1
 
     rows = parse_md(src)
-    fieldnames = ["question", "level", "btl", "competence", "part",
-                  "subject", "source_file", "correct_answer", "explanation"]
+    fieldnames = ["question", "level", "has_image", "subject", "source_file",
+                  "correct_answer", "explanation"]
     with OUT_CSV.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
@@ -162,15 +204,14 @@ def main(argv: list[str]) -> int:
             w.writerow(r)
 
     # Report
-    from collections import Counter
-    level_counts = Counter(r["level"] for r in rows)
-    print(f"Parsed {len(rows)} questions from {src.name}")
-    print(f"Level distribution:")
-    for lvl in ("easy", "medium", "hard", "unknown"):
-        print(f"  {lvl:<8} {level_counts.get(lvl, 0)}")
+    n_with_img = sum(1 for r in rows if r["has_image"])
     missing_ans = sum(1 for r in rows if not r["correct_answer"])
-    print(f"Missing answer field: {missing_ans}")
+    print(f"Parsed {len(rows)} questions from {src.name}")
+    print(f"  questions with image references: {n_with_img}")
+    print(f"  questions missing answer field:  {missing_ans}")
     print(f"Output: {OUT_CSV}")
+    print(f"NOTE: 'level' column is blank by design — run "
+          "scripts/relabel_os_with_bloombert.py to fill it from BloomBERT.")
     return 0
 
 

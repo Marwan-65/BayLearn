@@ -1,24 +1,19 @@
 """
-Replace your eyeball labels on the OS question bank with BloomBERT predictions.
+Label the OS question bank using the trained BloomBERT classifier.
 
-Why: your manual labels were your best guess by eye. BloomBERT learned from
-22k educator-labeled questions and should be more consistent. We run the
-classifier over your 133 OS questions and write a new CSV that:
+The OS .md file was originally labeled by eye, but those labels are not trusted
+ground truth. This script runs the fine-tuned classifier over every question
+and writes a CLEAN output CSV whose `level` column is the authoritative model
+prediction. Eyeball labels are dropped from the output (they're kept in
+os_eyeball.csv for traceability if you want to compare manually).
 
-  - keeps the original `level` as `eyeball_level` (so you can compare)
-  - adds `bloombert_level` (the classifier prediction)
-  - adds `bloombert_confidence` (softmax prob)
-  - adds `agreement` (True if eyeball matches bloombert)
-  - uses `bloombert_level` as the new `level` going forward
-
-Output: data/processed/os_eyeball_relabeled.csv
-
-Also prints an agreement report so you see where your eye and the model
-disagree — that's diagnostic information for your project report.
+Output: data/processed/os_bloombert_labeled.csv
+        Columns: question, level, confidence, subject, correct_answer, explanation
+        This file is what scripts/build_example_bank.py consumes for the ICL bank.
 
 Run:
-    python3 scripts/relabel_os_with_bloombert.py
-    python3 scripts/relabel_os_with_bloombert.py --model-dir models/bloom_distilbert
+    python scripts/relabel_os_with_bloombert.py
+    python scripts/relabel_os_with_bloombert.py --model-dir models/bloom_distilbert
 """
 from __future__ import annotations
 
@@ -31,10 +26,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PROC = ROOT / "data" / "processed"
 DEFAULT_MODEL = ROOT / "models" / "bloom_distilbert"
-INPUT_CSV = PROC / "os_eyeball.csv"
-OUTPUT_CSV = PROC / "os_eyeball_relabeled.csv"
+INPUT_CSV  = PROC / "os_eyeball.csv"
+OUTPUT_CSV = PROC / "os_bloombert_labeled.csv"
 
-# Reuse the project's classifier wrapper so behavior matches the API.
 sys.path.insert(0, str(ROOT))
 from app.classifier.bloom_classifier import BloomClassifier  # noqa: E402
 
@@ -44,18 +38,17 @@ def main() -> int:
     ap.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL,
                     help=f"Path to trained BloomBERT (default: {DEFAULT_MODEL})")
     ap.add_argument("--input", type=Path, default=INPUT_CSV,
-                    help=f"OS eyeball CSV to relabel (default: {INPUT_CSV})")
+                    help=f"Parsed OS CSV to label (default: {INPUT_CSV})")
     ap.add_argument("--output", type=Path, default=OUTPUT_CSV,
-                    help=f"Where to write the relabeled CSV (default: {OUTPUT_CSV})")
+                    help=f"Where to write the labeled CSV (default: {OUTPUT_CSV})")
     args = ap.parse_args()
 
     if not args.input.exists():
-        print(f"ERROR: input CSV not found: {args.input}", file=sys.stderr)
+        print(f"ERROR: input CSV not found: {args.input}\n"
+              f"       Run scripts/parse_os_eyeball.py first.", file=sys.stderr)
         return 1
     if not args.model_dir.exists():
-        print(f"ERROR: model dir not found: {args.model_dir}\n"
-              f"       Download /kaggle/working/bloom_distilbert/ from Kaggle "
-              f"and extract here first.", file=sys.stderr)
+        print(f"ERROR: model dir not found: {args.model_dir}", file=sys.stderr)
         return 1
 
     print(f"Loading BloomBERT from {args.model_dir}...")
@@ -65,91 +58,58 @@ def main() -> int:
               "corrupted.", file=sys.stderr)
         return 1
 
-    # Load all questions
     with args.input.open(encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     print(f"Loaded {len(rows)} questions from {args.input.name}")
 
-    # Predict all at once (batched internally)
+    # Predict in batch
     questions = [r["question"] for r in rows]
     preds = clf.predict_batch(questions)
     assert len(preds) == len(rows)
 
-    # Annotate and write
-    out_fields = [
-        "question", "level", "eyeball_level", "bloombert_level",
-        "bloombert_confidence", "agreement",
-        # Keep any additional columns from the input verbatim:
-        "correct_answer", "explanation",
-    ]
-    # Add any extra input columns we didn't anticipate
-    extra_cols = [c for c in (rows[0].keys() if rows else [])
-                  if c not in out_fields and c != "level"]
-    out_fields.extend(extra_cols)
-
-    agree_counter = Counter()
-    confusion: dict[tuple[str, str], int] = Counter()
-    bloombert_dist = Counter()
-    eyeball_dist = Counter()
-
+    # Write CLEAN output — only canonical BloomBERT labels, plus has_image
+    # passthrough so downstream consumers know which questions need diagrams.
+    out_fields = ["question", "level", "confidence", "has_image",
+                  "subject", "correct_answer", "explanation"]
     with args.output.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=out_fields)
         w.writeheader()
         for r, p in zip(rows, preds):
-            eyeball = (r.get("level") or "").lower().strip()
-            bert = p.level or ""
-            agreement = eyeball == bert
-            agree_counter[agreement] += 1
-            confusion[(eyeball, bert)] += 1
-            bloombert_dist[bert] += 1
-            eyeball_dist[eyeball] += 1
+            w.writerow({
+                "question":       r["question"],
+                "level":          p.level or "",
+                "confidence":     f"{p.confidence:.4f}",
+                "has_image":      r.get("has_image", ""),
+                "subject":        r.get("subject", "operating systems"),
+                "correct_answer": r.get("correct_answer", ""),
+                "explanation":    r.get("explanation", ""),
+            })
 
-            out_row = {
-                "question":             r["question"],
-                "level":                bert,                # NEW canonical label
-                "eyeball_level":        eyeball,
-                "bloombert_level":      bert,
-                "bloombert_confidence": f"{p.confidence:.4f}",
-                "agreement":            "yes" if agreement else "no",
-                "correct_answer":       r.get("correct_answer", ""),
-                "explanation":          r.get("explanation", ""),
-            }
-            for c in extra_cols:
-                out_row[c] = r.get(c, "")
-            w.writerow(out_row)
+    # Console summary
+    level_dist = Counter(p.level for p in preds)
+    conf_low  = sum(1 for p in preds if p.confidence < 0.5)
+    conf_high = sum(1 for p in preds if p.confidence >= 0.8)
+    avg_conf  = sum(p.confidence for p in preds) / len(preds)
 
-    # Report
-    total = len(rows)
-    agree_pct = 100 * agree_counter[True] / max(1, total)
     print()
     print("=" * 60)
     print(f"Wrote {args.output}")
     print("=" * 60)
-    print(f"Total questions:         {total}")
-    print(f"BloomBERT == eyeball:    {agree_counter[True]}  ({agree_pct:.1f}%)")
-    print(f"BloomBERT != eyeball:    {agree_counter[False]}  ({100-agree_pct:.1f}%)")
+    print(f"Total questions labeled: {len(rows)}")
     print()
-    print("Label distribution shift:")
-    print(f"  {'level':<8} {'eyeball':>9} {'bloombert':>11}")
+    print("Level distribution (BloomBERT predictions):")
     for lvl in ("easy", "medium", "hard"):
-        e_n = eyeball_dist.get(lvl, 0)
-        b_n = bloombert_dist.get(lvl, 0)
-        print(f"  {lvl:<8} {e_n:>9} {b_n:>11}")
+        n = level_dist.get(lvl, 0)
+        pct = 100 * n / len(rows)
+        print(f"  {lvl:<8} {n:>4}  ({pct:5.1f}%)")
     print()
-    print("Disagreement breakdown (eyeball → bloombert):")
-    for (eye, ber), n in sorted(confusion.items(), key=lambda x: -x[1]):
-        if eye != ber:
-            print(f"  {eye:<7} → {ber:<7}  {n:>3}")
+    print("Confidence summary:")
+    print(f"  mean:                    {avg_conf:.3f}")
+    print(f"  high-confidence (≥0.80): {conf_high}  ({100*conf_high/len(rows):.0f}%)")
+    print(f"  low-confidence  (<0.50): {conf_low}  ({100*conf_low/len(rows):.0f}%)  ← review these")
     print()
-    print(f"Cohen's kappa-equivalent simple agreement: {agree_pct:.1f}%")
-    print()
-    print("Interpretation:")
-    print("  > 80%   strong agreement (your eye matched the model)")
-    print("  60-80%  moderate (typical for human Bloom labeling)")
-    print("  < 60%   model disagrees a lot — review a sample of disagreements")
-    print()
-    print(f"Next step: re-run scripts/build_example_bank.py to refresh the bank")
-    print(f"with cleaner labels.")
+    print(f"Next step: refresh the example bank with these labels:")
+    print(f"  python scripts/build_example_bank.py")
     return 0
 
 
