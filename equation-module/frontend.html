@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BayLearn - Math Equation Solver</title>
+
+    <!-- React CDN -->
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    ></script>
+    <!-- Babel for JSX in browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <!-- MathJax for LaTeX -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script
+      id="MathJax-script"
+      async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        color: #333;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      header {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        color: white;
+        padding: 40px 20px;
+        border-radius: 12px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      }
+
+      header h1 {
+        font-size: 2.5em;
+        margin-bottom: 5px;
+        font-weight: 700;
+      }
+
+      header p {
+        font-size: 1.1em;
+        opacity: 0.95;
+      }
+
+      .card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s ease;
+      }
+
+      .card:hover {
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+      }
+
+      h2 {
+        color: #1e40af;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      h3 {
+        color: #1e40af;
+        margin-bottom: 10px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      textarea,
+      input {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: "Courier New", monospace;
+        transition: border-color 0.3s;
+      }
+
+      textarea:focus,
+      input:focus {
+        outline: none;
+        border-color: #1e40af;
+        box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+      }
+
+      textarea {
+        height: 120px;
+        resize: vertical;
+      }
+
+      button {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 12px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+      }
+
+      button:hover {
+        background: linear-gradient(135deg, #ff8c00 0%, #ffb84d 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 140, 0, 0.4);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .info-box {
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+        border-left: 4px solid #ff8c00;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+      }
+
+      .info-box strong {
+        color: #1e40af;
+      }
+
+      .steps-container {
+        background: #f9fafb;
+        padding: 15px;
+        border-radius: 8px;
+        max-height: 400px;
+        overflow-y: auto;
+        line-height: 1.8;
+        border: 1px solid #e5e7eb;
+      }
+
+      .step-item {
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .step-item:last-child {
+        border-bottom: none;
+      }
+
+      .result-box {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border-left: 4px solid #10b981;
+        padding: 20px;
+        border-radius: 8px;
+        font-size: 18px;
+        margin-top: 15px;
+      }
+
+      .result-latex {
+        margin-top: 10px;
+        padding: 15px;
+        background: white;
+        border-radius: 4px;
+        min-height: 40px;
+        font-size: 1.1em;
+        line-height: 1.8;
+      }
+
+      .graphs-grid {
+        display: block;
+        width: 100%;
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .graph-container {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        min-height: 500px;
+        width: 100%;
+      }
+
+      .trace-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 14px;
+      }
+
+      .trace-table th,
+      .trace-table td {
+        border: 1px solid #e5e7eb;
+        padding: 10px;
+        text-align: center;
+      }
+
+      .trace-table th {
+        background-color: #f3f4f6;
+        font-weight: 600;
+        color: #1e40af;
+      }
+
+      .trace-table tr:hover {
+        background-color: #f9fafb;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+
+      .control-input {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .control-input label {
+        font-size: 12px;
+        margin: 0;
+      }
+
+      .control-input input {
+        padding: 8px;
+        margin: 0;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #1e40af;
+        font-size: 1.2em;
+      }
+
+      .spinner {
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid #1e40af;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .error {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #dc2626;
+        margin-bottom: 20px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .tab-button {
+        background: none;
+        border: none;
+        padding: 10px 15px;
+        margin: 0;
+        box-shadow: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-weight: 600;
+        color: #6b7280;
+        transition: all 0.3s;
+      }
+
+      .tab-button.active {
+        color: #1e40af;
+        border-bottom-color: #1e40af;
+      }
+
+      .tab-button:hover {
+        color: #1e40af;
+        background: none;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState } = React;
+
+      function Header() {
+        return (
+          <header>
+            <h1>BayLearn Math Solver</h1>
+            <p>Equation Solver Integration - Powered by FastAPI & React</p>
+          </header>
+        );
+      }
+
+      function InputForm({ onSubmit, loading }) {
+        const [query, setQuery] = useState("");
+
+        const handleSubmit = (e) => {
+          e.preventDefault();
+          if (query.trim()) {
+            onSubmit(query);
+          }
+        };
+
+        return (
+          <div className="card">
+            <h2>Enter Your Math Problem</h2>
+            <form onSubmit={handleSubmit}>
+              <label htmlFor="query">Math Query:</label>
+              <textarea
+                id="query"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="e.g., Solve 2x + 5 = 11 | Derivative of x^2 | Integrate sin(x)"
+                disabled={loading}
+              />
+              <button type="submit" disabled={loading}>
+                {loading ? "Solving..." : "Solve"}
+              </button>
+            </form>
+          </div>
+        );
+      }
+
+      function ResultsDisplay({ data }) {
+        const [activeTab, setActiveTab] = useState("steps");
+        const stepsRef = React.useRef(null);
+        const resultRef = React.useRef(null);
+
+        React.useEffect(() => {
+          // Render MathJax whenever content changes
+          setTimeout(() => {
+            MathJax.typesetPromise([stepsRef.current, resultRef.current]).catch(
+              console.error,
+            );
+          }, 100);
+        }, [activeTab, data]);
+
+        return (
+          <div className="card">
+            <h2>Results</h2>
+
+            <div className="info-box">
+              <strong>Operation:</strong> {data.operation.toUpperCase()} |
+              <strong style={{ marginLeft: "15px" }}>Time:</strong>{" "}
+              {data.metadata.execution_time_ms}ms
+            </div>
+
+            <div className="tabs">
+              <button
+                className={`tab-button ${activeTab === "steps" ? "active" : ""}`}
+                onClick={() => setActiveTab("steps")}
+              >
+                Steps
+              </button>
+              <button
+                className={`tab-button ${activeTab === "result" ? "active" : ""}`}
+                onClick={() => setActiveTab("result")}
+              >
+                ✓ Final Result
+              </button>
+            </div>
+
+            {activeTab === "steps" && (
+              <div ref={stepsRef} className="steps-container">
+                {data.steps.map((step, idx) => (
+                  <div key={idx} className="step-item">
+                    {step}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "result" && (
+              <div className="result-box">
+                <strong>Final Answer:</strong>
+                <div ref={resultRef} className="result-latex">
+                  {data.final_result}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      function GraphsDisplay({ functions }) {
+        const [xMin, setXMin] = useState(-10);
+        const [xMax, setXMax] = useState(10);
+        const [samples, setSamples] = useState(10);
+
+        React.useEffect(() => {
+          // Plot all functions on one graph
+          plotAllFunctions("combined-graph", functions, xMin, xMax);
+        }, [functions, xMin, xMax]);
+
+        return (
+          <div className="card">
+            <h2>Visualization & Tracing</h2>
+
+            <div className="controls">
+              <div className="control-input">
+                <label>X Min:</label>
+                <input
+                  type="number"
+                  value={xMin}
+                  onChange={(e) => setXMin(parseFloat(e.target.value))}
+                />
+              </div>
+              <div className="control-input">
+                <label>X Max:</label>
+                <input
+                  type="number"
+                  value={xMax}
+                  onChange={(e) => setXMax(parseFloat(e.target.value))}
+                />
+              </div>
+              <div className="control-input">
+                <label>Trace Points:</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="50"
+                  value={samples}
+                  onChange={(e) => setSamples(parseInt(e.target.value))}
+                />
+              </div>
+            </div>
+
+            {/* Single combined graph */}
+            <div className="graph-container" id="combined-graph"></div>
+
+            {/* Single combined trace table */}
+            <CombinedTraceTable
+              functions={functions}
+              xMin={xMin}
+              xMax={xMax}
+              samples={samples}
+            />
+          </div>
+        );
+      }
+
+      function CombinedTraceTable({ functions, xMin, xMax, samples }) {
+        const points = [];
+
+        for (let i = 0; i < samples; i++) {
+          const x = xMin + (xMax - xMin) * (i / (samples - 1));
+          const row = { x: x.toFixed(4) };
+
+          functions.forEach((func) => {
+            const jsExpr = sympyToJavaScript(func.expr);
+            try {
+              const y = eval(jsExpr.replace(/x/g, `(${x})`));
+              if (isFinite(y)) {
+                row[func.name] = y.toFixed(6);
+              }
+            } catch (e) {
+              row[func.name] = "N/A";
+            }
+          });
+
+          points.push(row);
+        }
+
+        return (
+          <table className="trace-table">
+            <thead>
+              <tr>
+                <th>x</th>
+                {functions.map((func, idx) => (
+                  <th key={idx} style={{ color: getColor(idx) }}>
+                    ■ {func.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {points.map((pt, idx) => (
+                <tr key={idx}>
+                  <td>
+                    <strong>{pt.x}</strong>
+                  </td>
+                  {functions.map((func, fidx) => (
+                    <td key={fidx}>{pt[func.name]}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      }
+
+      function getColor(index) {
+        const colors = [
+          "#1e40af",
+          "#dc2626",
+          "#059669",
+          "#f59e0b",
+          "#7c3aed",
+          "#0891b2",
+        ];
+        return colors[index % colors.length];
+      }
+
+      function plotAllFunctions(divId, functions, xMin = -10, xMax = 10) {
+        const traces = [];
+        const colors = [
+          "#1e40af",
+          "#dc2626",
+          "#059669",
+          "#f59e0b",
+          "#7c3aed",
+          "#0891b2",
+        ];
+
+        functions.forEach((func, funcIdx) => {
+          const jsExpr = sympyToJavaScript(func.expr);
+          const points = 200;
+          const xValues = [];
+          const yValues = [];
+
+          for (let i = 0; i < points; i++) {
+            const x = xMin + (xMax - xMin) * (i / points);
+            try {
+              const y = eval(jsExpr.replace(/x/g, `(${x})`));
+              if (isFinite(y)) {
+                xValues.push(x);
+                yValues.push(y);
+              }
+            } catch (e) {
+              // Skip
+            }
+          }
+
+          traces.push({
+            x: xValues,
+            y: yValues,
+            mode: "lines",
+            type: "scatter",
+            line: { color: colors[funcIdx % colors.length], width: 2.5 },
+            name: func.name,
+            hovertemplate: `<b>${func.name}</b><br>x: %{x:.4f}<br>y: %{y:.6f}<extra></extra>`,
+          });
+        });
+
+        const layout = {
+          title: "Function Comparison",
+          xaxis: { title: "x", range: [xMin, xMax] },
+          yaxis: { title: "y" },
+          hovermode: "x unified",
+          margin: { l: 60, r: 60, t: 60, b: 60 },
+          showlegend: true,
+          legend: {
+            x: 1.05,
+            y: 1,
+            xanchor: "left",
+            yanchor: "top",
+          },
+        };
+
+        Plotly.newPlot(divId, traces, layout, { responsive: true });
+      }
+
+      function sympyToJavaScript(expr) {
+        let js = expr;
+        js = js.replace(/exp\(/g, "Math.exp(");
+        js = js.replace(/log\(/g, "Math.log(");
+        js = js.replace(/sin\(/g, "Math.sin(");
+        js = js.replace(/cos\(/g, "Math.cos(");
+        js = js.replace(/tan\(/g, "Math.tan(");
+        js = js.replace(/sqrt\(/g, "Math.sqrt(");
+        js = js.replace(/(\w+)\*\*(\d+)/g, "Math.pow($1, $2)");
+        return js;
+      }
+
+      function App() {
+        const [results, setResults] = useState(null);
+        const [loading, setLoading] = useState(false);
+        const [error, setError] = useState(null);
+
+        const handleSolve = async (query) => {
+          setLoading(true);
+          setError(null);
+          setResults(null);
+
+          try {
+            const response = await fetch("/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`API error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            setResults(data);
+
+            // Trigger MathJax rendering after state update
+            setTimeout(() => {
+              MathJax.typesetPromise().catch((err) =>
+                console.log("MathJax error:", err),
+              );
+            }, 200);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        return (
+          <div className="container">
+            <Header />
+            <InputForm onSubmit={handleSolve} loading={loading} />
+
+            {loading && (
+              <div className="loading">
+                <div className="spinner"></div>
+                Solving...
+              </div>
+            )}
+
+            {error && (
+              <div className="error">
+                <strong>Error:</strong> {error}
+              </div>
+            )}
+
+            {results && (
+              <>
+                <ResultsDisplay data={results} />
+                {results.graphable_functions &&
+                  results.graphable_functions.length > 0 && (
+                    <GraphsDisplay functions={results.graphable_functions} />
+                  )}
+              </>
+            )}
+          </div>
+        );
+      }
+
+      function plotFunction(divId, expr, variable, xMin = -10, xMax = 10) {
+        const jsExpr = sympyToJavaScript(expr);
+
+        const points = 200;
+        const xValues = [];
+        const yValues = [];
+
+        for (let i = 0; i < points; i++) {
+          const x = xMin + (xMax - xMin) * (i / points);
+          try {
+            const y = eval(jsExpr.replace(/x/g, `(${x})`));
+            if (isFinite(y)) {
+              xValues.push(x);
+              yValues.push(y);
+            }
+          } catch (e) {
+            // Skip
+          }
+        }
+
+        const trace = {
+          x: xValues,
+          y: yValues,
+          mode: "lines",
+          type: "scatter",
+          line: { color: "#1e40af", width: 2 },
+          name: expr,
+        };
+
+        const layout = {
+          title: expr,
+          xaxis: { title: variable, range: [xMin, xMax] },
+          yaxis: { title: "y" },
+          hovermode: "closest",
+          margin: { l: 50, r: 50, t: 50, b: 50 },
+        };
+
+        Plotly.newPlot(divId, [trace], layout, { responsive: true });
+      }
+
+      // Render app
+      ReactDOM.render(<App />, document.getElementById("root"));
+    </script>
+  </body>
+</html>
