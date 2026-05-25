@@ -292,7 +292,7 @@ def summarize_batch(questions, target_level_3: str, classifier,
         return {
             "n": 0, "level_match_rate": 0.0, "mean_confidence": 0.0,
             "mean_target_prob": 0.0, "mean_words": 0.0,
-            "distinct_2gram": 0.0, "chunk_similarity": 0.0,
+            "distinct_2gram": 0.0, "self_bleu": 0.0, "chunk_similarity": 0.0,
         }
     q_texts = [q.question_text for q in questions]
     preds   = classifier.predict_batch(q_texts)
@@ -314,6 +314,7 @@ def summarize_batch(questions, target_level_3: str, classifier,
         "mean_target_prob": mean(target_probs),
         "mean_words":       mean(word_counts),
         "distinct_2gram":   distinct_n(q_texts, n=2),
+        "self_bleu":        avg_self_bleu(q_texts),
         "chunk_similarity": mean(sims),
     }
 
@@ -428,11 +429,11 @@ async def main_async(args):
                   f"distinct2={m_icl['distinct_2gram']:.2f}")
 
     # --- Aggregate and print summary -----------------------------------------
-    print("\n" + "=" * 78)
+    print("\n" + "=" * 92)
     print("AGGREGATE RESULTS (averaged across chunks per level)")
-    print("=" * 78)
+    print("=" * 92)
     print(f"{'level':<8}{'condition':<10}{'LMR':>8}{'conf':>8}{'targetP':>9}"
-          f"{'words':>8}{'distinct2':>11}{'chunkSim':>10}")
+          f"{'words':>8}{'distinct2':>11}{'selfBLEU':>10}{'chunkSim':>10}")
     for lvl in levels_3:
         for cond in ("baseline", "icl"):
             batches = aggregate[(cond, lvl)]
@@ -441,21 +442,26 @@ async def main_async(args):
             avg = {k: mean(b[k] for b in batches if b["n"] > 0)
                    for k in ("level_match_rate", "mean_confidence",
                              "mean_target_prob", "mean_words",
-                             "distinct_2gram", "chunk_similarity")}
+                             "distinct_2gram", "self_bleu", "chunk_similarity")}
             print(f"{lvl:<8}{cond:<10}"
                   f"{avg['level_match_rate']:>8.3f}"
                   f"{avg['mean_confidence']:>8.3f}"
                   f"{avg['mean_target_prob']:>9.3f}"
                   f"{avg['mean_words']:>8.1f}"
                   f"{avg['distinct_2gram']:>11.3f}"
+                  f"{avg['self_bleu']:>10.3f}"
                   f"{avg['chunk_similarity']:>10.3f}")
         print()
+    print("Interpretation:")
+    print("  LMR / targetP / chunkSim / distinct2  → HIGHER is better")
+    print("  self_bleu                              → LOWER  is better (less duplication)")
+    print("  conf, words                            → context-dependent (compare per level)")
 
     print(f"parse_rate (% LLM responses that parsed as valid JSON):")
     print(f"  baseline: {mean(parse_rates['baseline']):.2f}")
     print(f"  icl:      {mean(parse_rates['icl']):.2f}")
 
-    # --- Write per-question CSV ---------------------------------------------
+    # --- Write per-question CSV (automatic metrics) -------------------------
     out_csv = OUT_DIR / "eval_icl_vs_baseline_generations.csv"
     with out_csv.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=[
@@ -466,7 +472,57 @@ async def main_async(args):
         for row in all_rows:
             w.writerow(row)
     print(f"\nPer-question generations written to {out_csv}")
-    print("Open it to manually review question quality side-by-side.")
+
+    # --- Write human-rating template ----------------------------------------
+    # A blinded CSV (condition hidden) so the rater isn't biased. Map back
+    # to condition via the key file the script also writes.
+    import random as _random
+    blind = list(all_rows)
+    _random.Random(123).shuffle(blind)   # shuffle so order doesn't reveal cond
+    human_csv = OUT_DIR / "eval_human_ratings_template.csv"
+    key_csv   = OUT_DIR / "eval_human_ratings_key.csv"
+    human_fields = [
+        "anon_id", "chunk_id", "target_level_b6", "question",
+        "fluency_1to5", "relevance_to_chunk_1to5",
+        "difficulty_match_1to5", "originality_1to5",
+        "pedagogical_value_1to5", "notes",
+    ]
+    key_fields = ["anon_id", "condition", "predicted_level", "level_confidence"]
+    with human_csv.open("w", newline="", encoding="utf-8") as fh, \
+         key_csv.open("w", newline="", encoding="utf-8") as fk:
+        wh = csv.DictWriter(fh, fieldnames=human_fields)
+        wk = csv.DictWriter(fk, fieldnames=key_fields)
+        wh.writeheader(); wk.writeheader()
+        for i, row in enumerate(blind):
+            anon_id = f"Q{i + 1:04d}"
+            wh.writerow({
+                "anon_id":                   anon_id,
+                "chunk_id":                  row["chunk_id"],
+                "target_level_b6":           row["target_level_b6"],
+                "question":                  row["question"],
+                "fluency_1to5":              "",   # YOU FILL: 1=broken, 5=natural
+                "relevance_to_chunk_1to5":   "",   # YOU FILL: 1=off-topic, 5=fully grounded
+                "difficulty_match_1to5":     "",   # YOU FILL: 1=wrong level, 5=perfect
+                "originality_1to5":          "",   # YOU FILL: 1=duplicate, 5=fully novel
+                "pedagogical_value_1to5":    "",   # YOU FILL: 1=useless, 5=textbook-quality
+                "notes":                     "",
+            })
+            wk.writerow({
+                "anon_id":          anon_id,
+                "condition":        row["condition"],
+                "predicted_level":  row["predicted_level"],
+                "level_confidence": row["level_confidence"],
+            })
+    print(f"\nHuman-rating template written to {human_csv}")
+    print(f"  (Blinded — questions are shuffled and condition is hidden.")
+    print(f"   The key file mapping anon_id → condition is at {key_csv}.)")
+    print(f"\nWorkflow:")
+    print(f"  1. Open {human_csv.name}")
+    print(f"  2. For each row, fill the 5 rating columns with integers 1-5")
+    print(f"     and optional free-text notes")
+    print(f"  3. Save the file")
+    print(f"  4. Run: python scripts/aggregate_human_ratings.py")
+    print(f"     to produce baseline-vs-ICL means per criterion")
     return 0
 
 
