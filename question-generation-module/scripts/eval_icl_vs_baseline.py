@@ -1,6 +1,4 @@
 """
-Evaluate the ICL question-generation pipeline against a no-ICL baseline.
-
 For each (test chunk, target_level), this script generates N questions in
 TWO conditions:
   - baseline:  no example bank — the LLM only sees the chunk + bloom guidance

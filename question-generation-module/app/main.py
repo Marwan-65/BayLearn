@@ -58,7 +58,7 @@ async def startup():
         chunk_fetcher=chunk_fetcher,
         example_bank=example_bank,
         bloom_classifier=bloom_classifier,
-        few_shot_k=4,
+        few_shot_k=10,
         retry_on_level_mismatch=True,
     )
 

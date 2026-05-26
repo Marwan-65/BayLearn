@@ -1,15 +1,20 @@
 """
 In-memory few-shot example bank for ICL question generation.
 
-Each entry: {question, concept, level, question_type, correct_answer,
-             explanation, embedding}.
+Storage layout (built by scripts/build_example_bank.py):
+    data/processed/example_bank.jsonl              — text rows
+    data/processed/example_bank_embeddings.npy     — (N, 384) float32, L2-normalized
 
-The bank is loaded once at FastAPI startup from a JSONL file. Embeddings are
-computed lazily (only for entries that don't ship one) using the SAME embedding
-model the RAG module uses (sentence-transformers/all-MiniLM-L6-v2 by default)
-so the chunk-to-example similarity score is comparable.
+At startup we read the .npy directly (no re-embedding) and load the JSONL
+text rows. Retrieval is a single matvec on the level-filtered subset of
+the embedding matrix — sub-millisecond for tens of thousands of entries.
 
-Run scripts/build_example_bank.py to (re)generate the JSONL.
+Retrieval semantics:
+  * Filter by `target_level` only (easy/medium/hard).
+  * Rank candidates by cosine similarity to the query.
+  * Return top-K (default 10). Pure top-K — no random sampling, no subject
+    filter, no answer-presence bias. Concept matching is delegated entirely
+    to the embedding similarity.
 """
 from __future__ import annotations
 
@@ -24,15 +29,17 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 EMBEDDING_MODEL_DEFAULT = "sentence-transformers/all-MiniLM-L6-v2"
-EMBEDDING_DIM = 384  # for all-MiniLM-L6-v2
 
 
 @dataclass
 class ExampleEntry:
     question: str
-    concept: str
-    level: str                      # easy | medium | hard
-    question_type: str = "short_answer"   # mcq | short_answer | true_false
+    level: str          # easy | medium | hard
+    source: str = ""
+    # Kept as Optional so the dataclass is forward-compatible with code that
+    # used to read these. Not populated by the new loader.
+    concept: str = ""
+    question_type: str = "short_answer"
     correct_answer: str = ""
     explanation: str = ""
     subject: str = ""
@@ -40,29 +47,35 @@ class ExampleEntry:
 
 
 class ExampleBank:
-    """Holds embedded examples; supports cosine retrieval filtered by level."""
+    """Pure top-K cosine retrieval, level-filtered. No subject filter."""
 
     def __init__(self, embedding_model_name: str = EMBEDDING_MODEL_DEFAULT):
         self.entries: list[ExampleEntry] = []
         self._model_name = embedding_model_name
-        self._model = None       # lazy-loaded SentenceTransformer
-        self._embeddings: Optional[np.ndarray] = None  # (n, dim), L2-normalized
-        self._level_index: dict[str, list[int]] = {}  # level → list of entry indices
+        self._model = None                              # lazy SentenceTransformer
+        self._embeddings: Optional[np.ndarray] = None   # (N, dim), L2-normalized
+        # Pre-bucketed index arrays per level — avoids re-filtering on every call
+        self._level_idx: dict[str, np.ndarray] = {}
 
-    # ----------------------------------------------------------------- loading
+    # ----------------------------------------------------------------- load
     @classmethod
     def load(cls, jsonl_path: str | Path,
              embedding_model_name: str = EMBEDDING_MODEL_DEFAULT) -> "ExampleBank":
+        """Load text rows + pre-computed embeddings from disk.
+
+        If the .npy sibling file is missing we fall back to embedding on
+        startup (slow but functional), but the warning encourages the
+        operator to re-run scripts/build_example_bank.py to fix it.
+        """
         bank = cls(embedding_model_name=embedding_model_name)
-        path = Path(jsonl_path)
-        if not path.exists():
-            logger.warning(
-                "Example bank file not found at %s — bank will be empty (no ICL).",
-                path,
-            )
+        jsonl_path = Path(jsonl_path)
+        if not jsonl_path.exists():
+            logger.warning("Example bank file not found at %s — bank empty.",
+                           jsonl_path)
             return bank
+
         entries: list[ExampleEntry] = []
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in jsonl_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
@@ -71,124 +84,102 @@ class ExampleBank:
             except json.JSONDecodeError as e:
                 logger.warning("Skipping malformed JSONL line: %s", e)
                 continue
-            emb = d.get("embedding")
             entries.append(ExampleEntry(
                 question=d["question"],
-                concept=d.get("concept", ""),
                 level=d.get("level", "medium").lower(),
+                source=d.get("source", ""),
+                # Compatibility fields (may be empty for newer banks):
+                concept=d.get("concept", ""),
                 question_type=d.get("question_type", "short_answer"),
                 correct_answer=d.get("correct_answer", ""),
                 explanation=d.get("explanation", ""),
                 subject=d.get("subject", ""),
-                embedding=np.asarray(emb, dtype=np.float32) if emb else None,
             ))
         bank.entries = entries
-        bank._build_indexes()
-        logger.info("Example bank loaded: %d entries from %s", len(entries), path)
+
+        # Load pre-computed embeddings if present; otherwise compute on the fly.
+        npy_path = jsonl_path.with_name(jsonl_path.stem + "_embeddings.npy")
+        if npy_path.exists():
+            embs = np.load(npy_path)
+            if embs.shape[0] != len(entries):
+                logger.warning(
+                    "Embeddings file row count (%d) does not match JSONL (%d). "
+                    "Re-run scripts/build_example_bank.py to rebuild.",
+                    embs.shape[0], len(entries),
+                )
+                embs = bank._embed_all([e.question for e in entries])
+            else:
+                logger.info("Loaded %d pre-computed embeddings from %s",
+                            embs.shape[0], npy_path.name)
+        else:
+            logger.warning("No %s found — embedding %d entries on startup "
+                           "(slow). Run scripts/build_example_bank.py to "
+                           "pre-compute.", npy_path.name, len(entries))
+            embs = bank._embed_all([e.question for e in entries])
+
+        # Ensure L2-normalized (cosine via dot product)
+        norms = np.linalg.norm(embs, axis=1, keepdims=True)
+        norms[norms == 0] = 1.0
+        bank._embeddings = (embs / norms).astype(np.float32)
+
+        # Pre-bucket indices by level for O(1) candidate selection
+        levels = np.array([e.level for e in entries], dtype=object)
+        for lvl in ("easy", "medium", "hard"):
+            bank._level_idx[lvl] = np.where(levels == lvl)[0]
+
+        logger.info("Example bank ready: %s", bank.stats())
         return bank
 
-    # ---------------------------------------------------------------- internal
-    def _build_indexes(self) -> None:
-        """Embed any entries missing vectors, build matrix + level index."""
-        # Identify entries that still need embedding
-        missing_idx = [i for i, e in enumerate(self.entries) if e.embedding is None]
-        if missing_idx:
-            logger.info("Embedding %d new bank entries...", len(missing_idx))
-            model = self._lazy_model()
-            texts = [self.entries[i].question for i in missing_idx]
-            vecs = model.encode(texts, convert_to_numpy=True, show_progress_bar=False,
-                                normalize_embeddings=True)
-            for i, v in zip(missing_idx, vecs):
-                self.entries[i].embedding = v.astype(np.float32)
-
-        # Stack into one matrix (L2-normalize anything not already normalized)
-        mat = np.stack([e.embedding for e in self.entries]).astype(np.float32)
-        norms = np.linalg.norm(mat, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        self._embeddings = mat / norms
-
-        # Group entry indices by level for O(1) filter
-        self._level_index = {}
-        for i, e in enumerate(self.entries):
-            self._level_index.setdefault(e.level, []).append(i)
-
+    # ----------------------------------------------------------------- embed
     def _lazy_model(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(self._model_name)
         return self._model
 
-    # --------------------------------------------------------------- retrieval
-    def embed_query(self, text: str) -> np.ndarray:
-        """Embed a query string with the same model used for bank entries."""
+    def _embed_all(self, texts: list[str]) -> np.ndarray:
         model = self._lazy_model()
-        v = model.encode([text], convert_to_numpy=True, show_progress_bar=False,
-                         normalize_embeddings=True)[0]
-        return v.astype(np.float32)
+        return model.encode(
+            texts, batch_size=64, show_progress_bar=False,
+            convert_to_numpy=True, normalize_embeddings=True,
+        ).astype(np.float32)
 
-    def retrieve(self, query_text: str, target_level: str, k: int = 4,
+    def embed_query(self, text: str) -> np.ndarray:
+        return self._embed_all([text])[0]
+
+    # ----------------------------------------------------------------- retrieve
+    def retrieve(self, query_text: str, target_level: str, k: int = 10,
                  question_type: Optional[str] = None,
                  subject_hint: Optional[str] = None) -> list[ExampleEntry]:
-        """Return top-K bank entries at `target_level`, ranked by cosine
-        similarity to `query_text`.
+        """Top-K nearest examples at `target_level`, ranked by cosine.
 
-        Filters apply in this order, each with graceful fallback if the filter
-        leaves too few candidates:
-          1. target_level (required) — easy / medium / hard
-          2. question_type (optional) — mcq / short_answer / true_false
-          3. subject_hint (optional) — partial substring match against
-             entry.subject (case-insensitive). If specified, candidates whose
-             subject string CONTAINS the hint are preferred. If fewer than k
-             match the hint, the filter is dropped (we fall back to all
-             level-matching entries).
-
-        subject_hint is the mechanism that lets the LLM see OS-relevant
-        examples when generating OS questions, instead of being swamped by
-        the larger SRM pool covering all engineering subjects. Cosine
-        ranking still runs within the filtered set, so the top-K are both
-        domain-relevant and topically similar to the chunk.
+        Signature keeps `question_type` and `subject_hint` parameters for
+        backward compatibility with existing callers, but the new bank
+        ignores both — concept matching is fully delegated to the embedding
+        similarity. The arguments are silently ignored.
         """
         if not self.entries or self._embeddings is None:
             return []
         target_level = target_level.lower()
-        level_candidates = self._level_index.get(target_level, [])
-        if not level_candidates:
+        idx = self._level_idx.get(target_level)
+        if idx is None or len(idx) == 0:
             return []
 
-        # Tier 1: apply both question_type and subject_hint where supplied
-        candidates = list(level_candidates)
-        if question_type:
-            candidates = [i for i in candidates
-                          if self.entries[i].question_type == question_type]
-        if subject_hint:
-            hint = subject_hint.lower().strip()
-            subj_filtered = [i for i in candidates
-                             if hint in (self.entries[i].subject or "").lower()]
-            # Only honor the subject filter if it leaves enough candidates;
-            # otherwise drop it to avoid returning too few diverse examples.
-            if len(subj_filtered) >= k:
-                candidates = subj_filtered
-            # else: keep the broader candidates list (silent fallback)
-
-        # Fallback tiers if any filter killed everything
-        if not candidates:
-            candidates = [i for i in level_candidates
-                          if not question_type
-                          or self.entries[i].question_type == question_type]
-        if not candidates:
-            candidates = level_candidates  # last resort: just level match
-
-        q = self.embed_query(query_text)
-        cand_emb = self._embeddings[candidates]
-        sims = cand_emb @ q  # cosine since both are L2-normalized
-        top_local = np.argsort(-sims)[:k]
-        return [self.entries[candidates[i]] for i in top_local]
+        q = self.embed_query(query_text)        # (dim,)
+        sims = self._embeddings[idx] @ q        # (n_level,) cosine since L2-normalized
+        if len(idx) <= k:
+            top_local = np.argsort(-sims)
+        else:
+            # argpartition is O(N) — faster than full argsort for big arrays
+            top_local = np.argpartition(-sims, k)[:k]
+            top_local = top_local[np.argsort(-sims[top_local])]
+        return [self.entries[idx[i]] for i in top_local]
 
     # ----------------------------------------------------------------- stats
     def stats(self) -> dict:
         from collections import Counter
         return {
             "total": len(self.entries),
-            "by_level": dict(Counter(e.level for e in self.entries)),
-            "by_type": dict(Counter(e.question_type for e in self.entries)),
+            "by_level":  dict(Counter(e.level for e in self.entries)),
+            "by_source": dict(Counter(e.source for e in self.entries)),
         }
