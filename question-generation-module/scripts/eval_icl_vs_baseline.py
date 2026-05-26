@@ -1,34 +1,27 @@
 """
-For each (test chunk, target_level), this script generates N questions in
-TWO conditions:
-  - baseline:  no example bank — the LLM only sees the chunk + bloom guidance
-  - ICL:       with the few-shot example bank — LLM sees K examples at the
-               requested level retrieved by concept similarity to the chunk
+for each (test chunk, target_level), this script generates N questions in:
+- baseline:  the LLM only sees the chunk + bloom guidance
+- ICL:       the baseline + with the few-shot example bank
 
-It then scores both batches with the trained BloomBERT classifier and embedding
-similarity, producing a per-condition metrics table plus a CSV of every
-generation for manual inspection.
-
-Metrics
-=======
+metrics for measuring performance difference:
 For each batch of N questions at requested level L:
-  * level_match_rate (LMR)    — % of N where BloomBERT prediction == L
-                                 (higher = better difficulty control)
-  * mean_confidence            — average BloomBERT confidence on its own
-                                 predictions (higher = more decisive)
-  * mean_target_prob           — average BloomBERT P(L) on the target class
-                                 (higher = closer to requested level even
-                                  if argmax disagrees)
-  * mean_words                 — average words per question
-                                 (should correlate with target level — easy
-                                  questions should be shorter than hard ones)
-  * distinct_2gram             — unique 2-grams / total 2-grams across the N
+    level_match_rate (LMR)    — % of N where BloomBERT prediction == L
+                                (higher = better difficulty control)
+    mean_confidence            — average BloomBERT confidence on its own
+                                predictions (higher = more decisive)
+    mean_target_prob           — average BloomBERT P(L) on the target class
+                                (higher = closer to requested level even
+                                if argmax disagrees)
+    mean_words                 — average words per question
+                                (should correlate with target level — easy
+                                questions should be shorter than hard ones)
+   distinct_2gram             — unique 2-grams / total 2-grams across the N
                                  questions (higher = more diverse, less
                                  repetitive output)
-  * chunk_similarity           — cosine between each question embedding and
+   chunk_similarity           — cosine between each question embedding and
                                  the chunk embedding, averaged
                                  (higher = more grounded in source material)
-  * parse_rate                 — % of LLM responses that parsed as valid JSON
+   parse_rate                 — % of LLM responses that parsed as valid JSON
                                  (higher = better format adherence)
 
 What "better" looks like for ICL:
@@ -41,12 +34,7 @@ What "better" looks like for ICL:
   → parse_rate roughly equal (format is enforced by the prompt's OUTPUT
     FORMAT spec, not ICL)
 
-Requires:
-  - GROQ_API_KEY in environment (or .env)
-  - Trained BloomBERT in models/bloom_distilbert/
-  - Example bank built at data/processed/example_bank.jsonl
-
-Run:
+run command:
     python scripts/eval_icl_vs_baseline.py
     python scripts/eval_icl_vs_baseline.py --num-questions 3 --levels easy,medium
 """
@@ -57,30 +45,31 @@ import asyncio
 import csv
 import os
 import sys
-from collections import Counter
 from pathlib import Path
 from statistics import mean
+import math
+from statistics import mean as _mean
+from collections import Counter
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# Load .env so GROQ_API_KEY is picked up
 try:
     from dotenv import load_dotenv
     load_dotenv(ROOT / ".env")
 except ImportError:
     pass
 
-from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level  # noqa: E402
-from app.services.example_bank import ExampleBank                             # noqa: E402
-from app.services.question_service import QuestionGenerationService           # noqa: E402
-from app.services.chunk_fetcher import ChunkFetcher                            # noqa: E402
-from app.llm.groq_client import QuestionGenLLMClient                           # noqa: E402
+from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level 
+from app.services.example_bank import ExampleBank                             
+from app.services.question_service import QuestionGenerationService           
+from app.services.chunk_fetcher import ChunkFetcher                           
+from app.llm.groq_client import QuestionGenLLMClient                           
 
 OUT_DIR = ROOT / "data" / "processed"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ---------------------------------------------------------------- test chunks
+# test chunks
 # Self-contained OS topic chunks. Each is realistic exam material.
 # Using fixed chunks (not RAG-fetched) so the eval is reproducible and doesn't
 # depend on the RAG module being running.
@@ -172,7 +161,6 @@ TEST_CHUNKS = [
 
 
 def make_fake_chunk_fetcher(chunk_text: str, chunk_id: str):
-    """Stub ChunkFetcher that always returns one fixed chunk."""
     class _FakeFetcher:
         async def fetch_relevant_chunks(self, project_id, query, limit=20):
             return [{
@@ -186,9 +174,8 @@ def make_fake_chunk_fetcher(chunk_text: str, chunk_id: str):
     return _FakeFetcher()
 
 
-# ----------------------------------------------------------------- metrics
-def distinct_n(questions: list[str], n: int = 2) -> float:
-    """Fraction of unique n-grams across all questions (lexical diversity)."""
+
+def distinct_n_grams(questions: list[str], n: int = 2) -> float:
     grams: list[tuple[str, ...]] = []
     for q in questions:
         toks = q.lower().split()
@@ -199,13 +186,6 @@ def distinct_n(questions: list[str], n: int = 2) -> float:
 
 
 def _bleu_4(hyp: list[str], refs: list[list[str]]) -> float:
-    """Simplified BLEU-4 with method-1 smoothing. Self-contained (no nltk).
-
-    Returns score in [0, 1]. Used to compute self-BLEU (each question scored
-    against the OTHER questions in the same batch as references).
-    """
-    import math
-    from collections import Counter
     if not hyp or not refs:
         return 0.0
     weights = [0.25, 0.25, 0.25, 0.25]
@@ -224,24 +204,22 @@ def _bleu_4(hyp: list[str], refs: list[list[str]]) -> float:
         clipped = sum(min(c, max_ref[k]) for k, c in hyp_ngrams.items())
         total = sum(hyp_ngrams.values())
         if clipped == 0:
-            # method-1 smoothing: add tiny epsilon so log doesn't explode
+            # add tiny epsilon so log doesn't explode
             log_precisions.append(math.log(0.5 / max(total, 1)))
         else:
             log_precisions.append(math.log(clipped / total))
     hyp_len = len(hyp)
     closest_ref_len = min((len(r) for r in refs),
-                         key=lambda l: (abs(l - hyp_len), l))
+                        key=lambda l: (abs(l - hyp_len), l))
     bp = 1.0 if hyp_len > closest_ref_len else math.exp(1 - closest_ref_len / max(hyp_len, 1))
     return bp * math.exp(sum(w * lp for w, lp in zip(weights, log_precisions)))
 
 
-def avg_self_bleu(questions: list[str]) -> float:
-    """Average pairwise self-BLEU across all questions in a batch.
 
-    Lower = more diverse output (questions are lexically distinct from each
-    other). Used as the headline diversity metric per Zhu et al. 2018.
+def avg_self_bleu(questions: list[str]) -> float:
     """
-    from statistics import mean as _mean
+    used as the headline diversity metric in Zhu et al. 2018.
+    """
     if len(questions) < 2:
         return 0.0
     tokenized = [q.lower().split() for q in questions]
@@ -260,7 +238,7 @@ def cosine_sim(a, b) -> float:
     return float(a @ b / (na * nb))
 
 
-# --------------------------------------------------------------- main eval
+# main eval
 async def run_one_condition(service, target_level_b6: str, target_level_3: str,
                             num_questions: int) -> tuple[list, float]:
     """Run generation once, return (questions, parse_success_flag).
@@ -311,42 +289,37 @@ def summarize_batch(questions, target_level_3: str, classifier,
         "mean_confidence":  mean(confs),
         "mean_target_prob": mean(target_probs),
         "mean_words":       mean(word_counts),
-        "distinct_2gram":   distinct_n(q_texts, n=2),
+        "distinct_2gram":   distinct_n_grams(q_texts, n=2),
         "self_bleu":        avg_self_bleu(q_texts),
         "chunk_similarity": mean(sims),
     }
 
 
 async def main_async(args):
-    # --- Load all the building blocks ----------------------------------------
-    print("Loading BloomBERT classifier...")
+    print("Loading BloomBERT classifier")
     classifier = BloomClassifier.load(ROOT / "models" / "bloom_distilbert")
     if classifier.model is None:
-        print("ERROR: classifier in stub mode — train + place weights first.",
+        print("classifier in stub mode — train + place weights first.",
               file=sys.stderr)
         return 1
 
-    print("Loading example bank...")
     bank = ExampleBank.load(ROOT / "data" / "processed" / "example_bank.jsonl")
     if not bank.entries:
-        print("ERROR: empty example bank. Run build_example_bank.py first.",
+        print("empty example bank, run build_example_bank.py first.",
               file=sys.stderr)
         return 1
     embedder = bank._lazy_model()  # reuse the bank's embedding model
 
-    # Embed each test chunk once
-    print("Embedding test chunks...")
+    # embed each test chunk once
     chunk_embs = {
-        ch["id"]: embedder.encode([ch["text"]], convert_to_numpy=True,
-                                  show_progress_bar=False,
-                                  normalize_embeddings=True)[0]
+        ch["id"]: embedder.encode([ch["text"]], convert_to_numpy=True,show_progress_bar=False,
+        normalize_embeddings=True)[0]
         for ch in TEST_CHUNKS
     }
 
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        print("ERROR: GROQ_API_KEY not set. Put it in .env or export it.",
-              file=sys.stderr)
+        print("GROQ_API_KEY not set. Put it in .env or export it.",file=sys.stderr)
         return 1
     model_id = os.environ.get("GROQ_MODEL_ID", "llama-3.1-70b-versatile")
     llm_client = QuestionGenLLMClient(api_key=api_key, model_id=model_id)
@@ -360,7 +333,7 @@ async def main_async(args):
           f"{len(TEST_CHUNKS) * len(levels_b6) * args.num_questions * 2} "
           f"LLM calls.")
 
-    # --- For each (chunk, level), run both conditions ------------------------
+    #  for each (chunk, level), run both conditions 
     all_rows = []
     aggregate = {
         ("baseline", l): [] for l in levels_3
@@ -372,7 +345,7 @@ async def main_async(args):
         fake_fetcher = make_fake_chunk_fetcher(chunk["text"], chunk["id"])
         for level_b6, level_3 in zip(levels_b6, levels_3):
             print(f"\n[{chunk['id']:<16}] level={level_b6} (3-class: {level_3})")
-            # --- baseline (no ICL) -------------------------------------------
+            #  baseline 
             svc_no_icl = QuestionGenerationService(
                 llm_client=llm_client, chunk_fetcher=fake_fetcher,
                 example_bank=None, bloom_classifier=None,  # disable retry too
@@ -382,8 +355,7 @@ async def main_async(args):
                 svc_no_icl, level_b6, level_3, args.num_questions,
             )
             parse_rates["baseline"].append(prate_b)
-            m_base = summarize_batch(qs_base, level_3, classifier,
-                                     chunk_embs[chunk["id"]], embedder)
+            m_base = summarize_batch(qs_base, level_3, classifier, chunk_embs[chunk["id"]], embedder)
             aggregate[("baseline", level_3)].append(m_base)
             for q in qs_base:
                 all_rows.append({
@@ -395,11 +367,11 @@ async def main_async(args):
                     "n_words": len(q.question_text.split()),
                 })
             print(f"  baseline: LMR={m_base['level_match_rate']:.2f} "
-                  f"conf={m_base['mean_confidence']:.2f} "
-                  f"words={m_base['mean_words']:.0f} "
-                  f"distinct2={m_base['distinct_2gram']:.2f}")
+                f"conf={m_base['mean_confidence']:.2f} "
+                f"words={m_base['mean_words']:.0f} "
+                f"distinct2={m_base['distinct_2gram']:.2f}")
 
-            # --- with ICL ----------------------------------------------------
+            # ICL 
             svc_icl = QuestionGenerationService(
                 llm_client=llm_client, chunk_fetcher=fake_fetcher,
                 example_bank=bank, bloom_classifier=classifier,
@@ -422,11 +394,11 @@ async def main_async(args):
                     "n_words": len(q.question_text.split()),
                 })
             print(f"  icl:      LMR={m_icl['level_match_rate']:.2f} "
-                  f"conf={m_icl['mean_confidence']:.2f} "
-                  f"words={m_icl['mean_words']:.0f} "
-                  f"distinct2={m_icl['distinct_2gram']:.2f}")
+                f"conf={m_icl['mean_confidence']:.2f} "
+                f"words={m_icl['mean_words']:.0f} "
+                f"distinct2={m_icl['distinct_2gram']:.2f}")
 
-    # --- Aggregate and print summary -----------------------------------------
+    #  print summary 
     print("\n" + "=" * 92)
     print("AGGREGATE RESULTS (averaged across chunks per level)")
     print("=" * 92)
@@ -459,7 +431,7 @@ async def main_async(args):
     print(f"  baseline: {mean(parse_rates['baseline']):.2f}")
     print(f"  icl:      {mean(parse_rates['icl']):.2f}")
 
-    # --- Write per-question CSV --------------------------------------------
+    #  write per-question CSV 
     out_csv = OUT_DIR / "eval_icl_vs_baseline_generations.csv"
     with out_csv.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=[
@@ -471,7 +443,7 @@ async def main_async(args):
             w.writerow(row)
     print(f"\nPer-question generations written to {out_csv}")
     print("Open it side-by-side with the metrics table above to review "
-          "question quality manually.")
+        "question quality manually.")
     return 0
 
 
@@ -481,7 +453,7 @@ def main():
                     help="questions per (chunk, level, condition) (default: 5)")
     ap.add_argument("--levels", default="remember,apply,evaluate",
                     help="comma-separated 6-level Bloom names to test "
-                         "(default: remember,apply,evaluate — one per 3-class bucket)")
+                        "(default: remember,apply,evaluate — one per 3-class bucket)")
     args = ap.parse_args()
     return asyncio.run(main_async(args))
 

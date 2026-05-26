@@ -26,8 +26,8 @@ REPORT = OUT_DIR / "srm_parse_report.txt"
 
 BTL_TO_LEVEL = {1: "easy", 2: "easy", 3: "medium", 4: "medium", 5: "hard", 6: "hard"}
 BTL_TO_COMPETENCE = {
-    1: "Remember", 2: "Understand", 3: "Apply",
-    4: "Analyze", 5: "Evaluate", 6: "Create",
+    1: "Remembering", 2: "Understanding", 3: "Applying",
+    4: "Analyzing",5: "Evaluating", 6: "Creating",
 }
 
 BTL_RE = re.compile(r"\bBTL[\s\-]?([1-6])\b", re.IGNORECASE)
@@ -57,6 +57,15 @@ COMPETENCE_WORDS = (
     "remembering|understanding|applying|analyzing|evaluating|creating|Designing"
     "remember|understand|apply|analyze|evaluate|create|design"
 )
+
+NAME_TO_BTL = {
+    "remember": 1, "remembering": 1, "knowledge": 1, "recall": 1,
+    "understand": 2, "understanding": 2, "comprehension": 2,
+    "apply": 3, "applying": 3, "application": 3,
+    "analyze": 4, "analyse": 4, "analyzing": 4, "analysing": 4, "analysis": 4,
+    "evaluate": 5, "evaluating": 5, "evaluation": 5,
+    "create": 6, "creating": 6, "synthesis": 6, "synthesise": 6, "synthesize": 6, "design": 6, "designing": 6,
+}
 
 COMPETENCE_RE = re.compile(rf"\b({COMPETENCE_WORDS})\b", re.IGNORECASE)
 
@@ -141,7 +150,6 @@ def parse_pdf(path: Path) -> list[dict]:
             buffer = []
             continue
 
-        # Does this line contain a BTL marker? That CLOSES the current question.
         m_btl = BTL_RE.search(stripped)
         if m_btl:
             btl_num = int(m_btl.group(1))
@@ -155,10 +163,8 @@ def parse_pdf(path: Path) -> list[dict]:
             if not is_quality_question(question):
                 continue  # bogus capture, skip
 
-            # The BTL number is the ground-truth Bloom signal in this dataset.
-            # We use it to derive competence rather than parsing the (sometimes
-            # misaligned) competence word from the line.
             competence = BTL_TO_COMPETENCE[btl_num]
+            
 
             rows.append({
                 "question": question,
@@ -214,10 +220,6 @@ def main() -> int:
             continue
         if key in seen:
             duplicate_count += 1
-            # if the duplicate has a different level, keep the harder one
-            order = {"easy": 0, "medium": 1, "hard": 2}
-            if order[row["level"]] > order[seen[key]["level"]]:
-                seen[key] = row
             continue
         seen[key] = row
 
