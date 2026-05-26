@@ -85,14 +85,22 @@ class QuestionGenerationService:
 
         # 5. ICL: retrieve few-shot examples matching the target Bloom level
         target_level = bloom6_to_level(difficulty)  # 6-level → easy/medium/hard
+
+        # Infer the subject from the topic + chunk metadata so we can prefer
+        # domain-relevant examples (e.g., OS examples when the topic is
+        # "scheduling"). If no useful hint can be inferred, we pass None and
+        # the bank falls back to subject-agnostic ranking.
+        subject_hint = self._infer_subject_hint(topic, selected_chunks)
+
         few_shot = self._retrieve_few_shot(
             query_text=topic or chunks_text[:600],
             target_level=target_level,
             question_type=question_type,
+            subject_hint=subject_hint,
         )
         logger.info(
-            "ICL: %d examples retrieved (target_level=%s, type=%s)",
-            len(few_shot), target_level, question_type,
+            "ICL: %d examples retrieved (target_level=%s, type=%s, subject_hint=%s)",
+            len(few_shot), target_level, question_type, subject_hint,
         )
 
         # 6. Build prompt, call LLM, parse — possibly retry once on level mismatch
@@ -108,14 +116,75 @@ class QuestionGenerationService:
         return questions, len(selected_chunks)
 
     # ------------------------------------------------------------------ helpers
+    # Topic keywords → bank subject substring. Order matters: first hit wins.
+    # The bank match is substring-contains (case-insensitive), so "operating
+    # systems" matches "operating systems", "operating systems-1", etc.
+    # Extend this map as new subjects appear in your bank.
+    _TOPIC_TO_SUBJECT_RULES: tuple = (
+        # (set of trigger keywords, subject substring to search bank by)
+        ({"scheduling", "deadlock", "semaphore", "mutex", "thread", "process",
+          "page replacement", "virtual memory", "paging", "kernel", "syscall",
+          "file system", "inode", "context switch", "operating system", "os"},
+         "operating systems"),
+        ({"b-tree", "btree", "hash table", "linked list", "binary tree",
+          "stack", "queue", "heap", "sort", "data structure"},
+         "data structures"),
+        ({"sql", "database", "normalization", "transaction", "acid",
+          "relational algebra", "indexing", "dbms"},
+         "database"),
+        ({"tcp", "udp", "osi", "routing", "subnet", "ethernet", "ip ",
+          "network protocol", "computer network"},
+         "computer networks"),
+        ({"compiler", "lexical", "parser", "syntax tree", "semantic analysis",
+          "code generation"},
+         "compiler"),
+        ({"turing machine", "regular expression", "context-free", "pumping lemma",
+          "automata", "theory of computation"},
+         "theory of computation"),
+    )
+
+    def _infer_subject_hint(self, topic: Optional[str], chunks: list) -> Optional[str]:
+        """Pick a bank subject to filter by, based on the topic and chunks.
+
+        Returns a substring like 'operating systems' that the bank uses to
+        partial-match entry.subject. None means no hint (retrieval falls
+        back to subject-agnostic ranking).
+
+        Order of evidence:
+          1. Explicit `topic` argument from the request
+          2. doc_title / metadata.doc_title on the first chunk
+          3. Concatenated chunk text (low-priority — keyword scan)
+        """
+        signal = ""
+        if topic:
+            signal += " " + topic
+        for c in chunks[:3]:
+            payload = c.get("payload", {}) if isinstance(c, dict) else {}
+            md = payload.get("metadata", {}) or {}
+            title = md.get("doc_title") or payload.get("doc_id") or ""
+            signal += " " + str(title)
+        signal = signal.lower()
+        if not signal.strip():
+            # Fall back to scanning chunk text content
+            for c in chunks[:2]:
+                payload = c.get("payload", {}) if isinstance(c, dict) else {}
+                signal += " " + (payload.get("text") or "")[:400].lower()
+        for triggers, subject in self._TOPIC_TO_SUBJECT_RULES:
+            for kw in triggers:
+                if kw in signal:
+                    return subject
+        return None
+
     def _retrieve_few_shot(self, query_text: str, target_level: str,
-                           question_type: str) -> list:
+                           question_type: str,
+                           subject_hint: Optional[str] = None) -> list:
         if not self.example_bank or not self.example_bank.entries:
             return []
         try:
             return self.example_bank.retrieve(
                 query_text=query_text, target_level=target_level,
                 k=self.few_shot_k, question_type=question_type,
+                subject_hint=subject_hint,
             )
         except Exception as e:  # never fail generation due to ICL hiccups
             logger.warning("Few-shot retrieval failed: %s — proceeding without ICL", e)

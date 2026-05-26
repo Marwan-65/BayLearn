@@ -127,31 +127,62 @@ class ExampleBank:
         return v.astype(np.float32)
 
     def retrieve(self, query_text: str, target_level: str, k: int = 4,
-                 question_type: Optional[str] = None) -> list[ExampleEntry]:
-        """Return top-K bank entries matching `target_level`, ranked by cosine
-        similarity to `query_text`. Optionally filter to a specific
-        question_type (mcq / short_answer / true_false) so the LLM sees
-        examples in the format it's expected to produce.
+                 question_type: Optional[str] = None,
+                 subject_hint: Optional[str] = None) -> list[ExampleEntry]:
+        """Return top-K bank entries at `target_level`, ranked by cosine
+        similarity to `query_text`.
+
+        Filters apply in this order, each with graceful fallback if the filter
+        leaves too few candidates:
+          1. target_level (required) — easy / medium / hard
+          2. question_type (optional) — mcq / short_answer / true_false
+          3. subject_hint (optional) — partial substring match against
+             entry.subject (case-insensitive). If specified, candidates whose
+             subject string CONTAINS the hint are preferred. If fewer than k
+             match the hint, the filter is dropped (we fall back to all
+             level-matching entries).
+
+        subject_hint is the mechanism that lets the LLM see OS-relevant
+        examples when generating OS questions, instead of being swamped by
+        the larger SRM pool covering all engineering subjects. Cosine
+        ranking still runs within the filtered set, so the top-K are both
+        domain-relevant and topically similar to the chunk.
         """
         if not self.entries or self._embeddings is None:
             return []
         target_level = target_level.lower()
-        candidate_idx = self._level_index.get(target_level, [])
+        level_candidates = self._level_index.get(target_level, [])
+        if not level_candidates:
+            return []
+
+        # Tier 1: apply both question_type and subject_hint where supplied
+        candidates = list(level_candidates)
         if question_type:
-            candidate_idx = [i for i in candidate_idx
-                             if self.entries[i].question_type == question_type]
-        if not candidate_idx:
-            # Fallback: ignore type filter if it killed all candidates
-            candidate_idx = self._level_index.get(target_level, [])
-            if not candidate_idx:
-                # Fallback 2: any level
-                candidate_idx = list(range(len(self.entries)))
+            candidates = [i for i in candidates
+                          if self.entries[i].question_type == question_type]
+        if subject_hint:
+            hint = subject_hint.lower().strip()
+            subj_filtered = [i for i in candidates
+                             if hint in (self.entries[i].subject or "").lower()]
+            # Only honor the subject filter if it leaves enough candidates;
+            # otherwise drop it to avoid returning too few diverse examples.
+            if len(subj_filtered) >= k:
+                candidates = subj_filtered
+            # else: keep the broader candidates list (silent fallback)
+
+        # Fallback tiers if any filter killed everything
+        if not candidates:
+            candidates = [i for i in level_candidates
+                          if not question_type
+                          or self.entries[i].question_type == question_type]
+        if not candidates:
+            candidates = level_candidates  # last resort: just level match
 
         q = self.embed_query(query_text)
-        cand_emb = self._embeddings[candidate_idx]
+        cand_emb = self._embeddings[candidates]
         sims = cand_emb @ q  # cosine since both are L2-normalized
         top_local = np.argsort(-sims)[:k]
-        return [self.entries[candidate_idx[i]] for i in top_local]
+        return [self.entries[candidates[i]] for i in top_local]
 
     # ----------------------------------------------------------------- stats
     def stats(self) -> dict:
