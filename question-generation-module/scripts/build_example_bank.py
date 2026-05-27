@@ -33,12 +33,12 @@ csv.field_size_limit(sys.maxsize)
 EMBED_MODEL_DEFAULT = "sentence-transformers/all-MiniLM-L6-v2"
 
 SOURCES: list[dict] = [
-    {
-    "name": "srm",
-    "path": "srm_questions.csv",
-    "question_col": "question",
-    "level_col":    "level"
-    },
+    # {
+    # "name": "srm",
+    # "path": "srm_questions.csv",
+    # "question_col": "question",
+    # "level_col":    "level"
+    # },
     
     {
     "name": "os_bank",

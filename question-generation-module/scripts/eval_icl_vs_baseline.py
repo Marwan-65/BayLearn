@@ -35,7 +35,7 @@ What "better" looks like for ICL:
     FORMAT spec, not ICL)
 
 run command:
-    python scripts/eval_icl_vs_baseline.py --num-questions 5 --levels easy,medium
+    python scripts/eval_icl_vs_baseline.py 
 """
 from __future__ import annotations
 
