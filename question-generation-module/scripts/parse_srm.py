@@ -54,7 +54,7 @@ MARKS_RE = re.compile(r"\((?:8|16|2|4)\)")
 
 # words on a BTL line, after the BTL token
 COMPETENCE_WORDS = (
-    "remembering|understanding|applying|analyzing|evaluating|creating|Designing"
+    "remembering|understanding|applying|analyzing|evaluating|creating|designing|"
     "remember|understand|apply|analyze|evaluate|create|design"
 )
 
@@ -153,7 +153,14 @@ def parse_pdf(path: Path) -> list[dict]:
         m_btl = BTL_RE.search(stripped)
         if m_btl:
             btl_num = int(m_btl.group(1))
-            # Everything before the BTL marker on this line is still question text
+            m_comp = COMPETENCE_RE.search(stripped)
+            if not m_comp:
+                buffer = []
+                continue
+            expected_btl = NAME_TO_BTL.get(m_comp.group(1).lower())
+            if expected_btl != btl_num:
+                buffer = []
+                continue
             pre = stripped[: m_btl.start()].rstrip()
             if pre:
                 buffer.append(pre)
@@ -161,10 +168,9 @@ def parse_pdf(path: Path) -> list[dict]:
             buffer = []
 
             if not is_quality_question(question):
-                continue  # bogus capture, skip
+                continue
 
             competence = BTL_TO_COMPETENCE[btl_num]
-            
 
             rows.append({
                 "question": question,
@@ -172,6 +178,7 @@ def parse_pdf(path: Path) -> list[dict]:
                 "competence": competence,
                 "level": BTL_TO_LEVEL[btl_num],
                 "part": current_part,
+                "subject": subject_from_filename(path),
                 "source_file": path.name,
             })
             continue
@@ -215,7 +222,7 @@ def main() -> int:
     seen: dict[str, dict] = {}
     duplicate_count = 0
     for row in all_rows:
-        key = normalize_question(r["question"])
+        key = normalize_question(row["question"])
         if not key:
             continue
         if key in seen:
@@ -259,10 +266,6 @@ def main() -> int:
     for btl in range(1, 7):
         pct = 100.0 * btl_counts[btl] / max(1, len(deduped))
         lines.append(f"  BTL-{btl}  {btl_counts[btl]:>6}   ({pct:5.1f}%)")
-    lines.append("")
-    lines.append(f"Top 15 subjects by row count:")
-    for subj, n in subject_counts.most_common(15):
-        lines.append(f"  {n:>5}  {subj}")
     lines.append("")
     lines.append(f"Output: {OUT_CSV}")
 

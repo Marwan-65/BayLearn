@@ -198,13 +198,13 @@ def main() -> int:
     seen: dict[str, dict] = {}
     duplications = 0
     for row in all_rows:
-        key = normalize_question(r["question"])
+        key = normalize_question(row["question"])
         if not key:
             continue
         if key in seen:
             duplications += 1
             # we prefer srm labels (educator-assigned) over external sources
-            if seen[key]["source"] != "srm" and r["source"] == "srm":
+            if seen[key]["source"] != "srm" and row["source"] == "srm":
                 seen[key] = row
             continue
         seen[key] = row

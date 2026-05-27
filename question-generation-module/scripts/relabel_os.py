@@ -1,4 +1,4 @@
-"""output: data/processed/os_bloombert_labeled.csv
+"""output: data/processed/os_labeled.csv
 
 run command:
     python scripts/relabel_os.py

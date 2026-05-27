@@ -42,7 +42,7 @@ SOURCES: list[dict] = [
     
     {
     "name": "os_bank",
-    "path": "os_bloombert_labeled.csv",
+    "path": "os_labeled.csv",
     "question_col": "question",
     "level_col":    "level"
     },

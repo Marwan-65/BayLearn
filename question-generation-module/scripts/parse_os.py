@@ -1,9 +1,8 @@
 """we split the file into blocks at numbered headers, then extract the four fields
 from each block. 
-output schema matches srm_questions.csv.
 
 run command:
-    python3 scripts/parse_os.py /path/to/QuestionBank.md
+    python3 scripts/parse_os.py "/path/to/QuestionBank.md"
 """
 from __future__ import annotations
 import csv
@@ -45,17 +44,8 @@ def strip_markdown(text: str) -> str:
 _LEADING_NUM_HEADER = re.compile(r"^\s*\*{0,2}\s*\d{1,3}\s*[\.\-\\\)]+\s*")
 
 def extract_question(block: str) -> str:
-    """Question = everything from after the leading number header to the
-    first Answer/Solution marker (if any), else the whole block."""
-    # Find earliest answer marker (none in the new format — full block is question)
-    earliest = len(block)
-    for pat in ANSWER_PATTERNS:
-        m = pat.search(block)
-        if m and m.start() < earliest:
-            earliest = m.start()
-    q = block[:earliest]
-    # Strip the question's own leading number ("1- ", "10 \- ", "**14. ", etc.)
-    q = _LEADING_NUM_HEADER.sub("", q, count=1)
+    """question is a block with leading numeric header"""
+    q = _LEADING_NUM_HEADER.sub("", block, count=1)
     return strip_markdown(q)
 
 
