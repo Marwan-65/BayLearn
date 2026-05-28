@@ -6,21 +6,36 @@ Replaces the simulated student with two real API calls:
   - POST /generate  -> sends {topic, difficulty} to question generation module
   - GET  /answer    -> gets {correct: bool} back from the answer checker
 
+The global concept pool is loaded at startup from the Adaptive-Learning-Module
+PostgreSQL database.  Configure the connection and user in .env:
+
+  CONCEPT_DB_URL=postgresql://user:pass@host:5432/adaptive_db
+  EPPO_USER_ID=1
+
 Run:
     python eppo_inference.py
 
 Dependencies (install once):
-    pip install torch sentence-transformers numpy requests
+    pip install torch sentence-transformers numpy requests sqlalchemy psycopg2-binary python-dotenv
 """
+
+import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
+from dotenv import load_dotenv
 from torch.distributions import Categorical
 from sentence_transformers import SentenceTransformer
+from sqlalchemy import Column, Integer, String, ForeignKey, create_engine, text
+from sqlalchemy.orm import declarative_base, relationship, Session
 import warnings
 import os
 import requests
+
+# Load .env from the same directory as this script
+load_dotenv(Path(__file__).parent / ".env")
 
 warnings.filterwarnings("ignore")
 
@@ -35,76 +50,115 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {DEVICE}")
 
 # ---------------------------------------------------------------------------
-# CELL 2: Global Concept Pool
+# CELL 2: Global Concept Pool  (loaded from database)
 # ---------------------------------------------------------------------------
-COURSES = {
-    'algorithms': [
-        ('time complexity analysis',2),('space complexity analysis',2),
-        ('recursion',2),('divide and conquer',3),('sorting algorithms',2),
-        ('merge sort',3),('quick sort',3),('binary search',2),
-        ('binary search tree',3),('balanced BST',4),
-        ('graph traversal BFS DFS',3),('shortest path Dijkstra',4),
-        ('dynamic programming basics',4),('memoization',3),
-        ('greedy algorithms',3),('hash table',2),
-        ('heap and priority queue',3),('dynamic programming advanced',5),
-    ],
-    'operating_systems': [
-        ('process vs thread',2),('process scheduling',3),
-        ('FCFS scheduling',2),('round robin scheduling',3),
-        ('priority scheduling',3),('multilevel queue scheduling',4),
-        ('process synchronization',4),('mutex and semaphore',3),
-        ('deadlock conditions',3),('deadlock prevention',4),
-        ('deadlock detection recovery',4),('memory management basics',3),
-        ('paging',3),('segmentation',4),('virtual memory',4),
-        ('page replacement algorithms',4),('thrashing',5),
-        ('file system structure',3),('disk scheduling',3),('I/O management',4),
-    ],
-    'computer_networks': [
-        ('OSI model layers',2),('TCP IP stack',3),
-        ('IP addressing',2),('subnetting CIDR',3),
-        ('routing fundamentals',3),('routing protocols RIP OSPF',4),
-        ('TCP connection management',3),('TCP congestion control',4),
-        ('UDP vs TCP',2),('DNS',2),('HTTP HTTPS',2),
-        ('network security basics',3),('TLS SSL handshake',4),
-        ('firewalls and NAT',3),('wireless networking',3),
-        ('network performance metrics',3),('software defined networking',5),
-    ],
-    'computer_architecture': [
-        ('binary and number systems',1),('logic gates',2),
-        ('combinational circuits',3),('sequential circuits',3),
-        ('CPU datapath',3),('instruction set architecture',3),
-        ('CPU pipeline stages',4),('pipeline hazards',4),
-        ('branch prediction',4),('cache memory',3),('cache coherence',5),
-        ('memory hierarchy',3),('virtual memory hardware',4),
-        ('multicore architecture',4),('GPU architecture basics',4),('SIMD parallelism',4),
-    ],
-    'software_engineering': [
-        ('software development lifecycle',2),('agile and scrum',2),
-        ('design patterns',3),('SOLID principles',3),
-        ('object oriented design',3),('UML diagrams',3),
-        ('version control git',2),('testing strategies',3),
-        ('unit testing',3),('integration testing',3),
-        ('CI CD pipelines',4),('microservices architecture',4),
-        ('REST API design',3),('database design',3),
-        ('system design scalability',5),('security in software',4),
-        ('code review practices',2),('refactoring',3),
-    ],
-}
 
-GLOBAL_CONCEPTS = []
-GLOBAL_LLM_DIFF = []
-COURSE_CONCEPT_INDICES = {}
+# ── SQLAlchemy models (read-only, lightweight) ───────────────────────────────
+_Base = declarative_base()
 
-for cname, concepts in COURSES.items():
-    idxs = []
-    for name, diff in concepts:
-        GLOBAL_CONCEPTS.append(name)
-        GLOBAL_LLM_DIFF.append(diff)
-        idxs.append(len(GLOBAL_CONCEPTS) - 1)
-    COURSE_CONCEPT_INDICES[cname] = idxs
+
+class _CourseEnrollment(_Base):
+    __tablename__ = "course_enrollments"
+    user_id   = Column(Integer, ForeignKey("courses.id"), primary_key=True)
+    course_id = Column(Integer, ForeignKey("courses.id"), primary_key=True)
+
+
+class _Course(_Base):
+    __tablename__ = "courses"
+    id       = Column(Integer, primary_key=True)
+    name     = Column(String, nullable=False)
+    concepts = relationship("_Concept", back_populates="course",
+                            order_by="_Concept.id")
+
+
+class _Concept(_Base):
+    __tablename__ = "concepts"
+    id         = Column(Integer, primary_key=True)
+    course_id  = Column(Integer, ForeignKey("courses.id"), nullable=False)
+    name       = Column(String, nullable=False)
+    difficulty = Column(Integer, nullable=False)
+    course     = relationship("_Course", back_populates="concepts")
+
+
+def _load_concept_pool_from_db(
+    db_url: str,
+    user_id: int,
+) -> tuple[list[str], list[int], dict[str, list[int]]]:
+    """
+    Query all courses the user is enrolled in and fetch their concepts.
+
+    Returns:
+        global_concepts      — flat list of concept names
+        global_llm_diff      — parallel list of difficulty integers (1-5)
+        course_concept_indices — {course_name: [global_indices]}
+    """
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        # Courses the user is enrolled in
+        enrolled_course_ids = [
+            row[0]
+            for row in session.execute(
+                text("SELECT course_id FROM course_enrollments WHERE user_id = :uid"),
+                {"uid": user_id},
+            )
+        ]
+
+        if not enrolled_course_ids:
+            print(f"[eppo] WARNING: user_id={user_id} has no enrolled courses. "
+                  "Concept pool will be empty.", file=sys.stderr)
+            return [], [], {}
+
+        courses = (
+            session.query(_Course)
+            .filter(_Course.id.in_(enrolled_course_ids))
+            .order_by(_Course.id)
+            .all()
+        )
+
+        global_concepts: list[str] = []
+        global_llm_diff: list[int] = []
+        course_concept_indices: dict[str, list[int]] = {}
+
+        for course in courses:
+            idxs: list[int] = []
+            for concept in course.concepts:
+                global_concepts.append(concept.name)
+                global_llm_diff.append(int(concept.difficulty))
+                idxs.append(len(global_concepts) - 1)
+            # Use a filesystem-safe version of the course name as the key
+            key = course.name.lower().replace(" ", "_")
+            course_concept_indices[key] = idxs
+
+        session.expunge_all()
+
+    return global_concepts, global_llm_diff, course_concept_indices
+
+
+# ── Load from DB at startup ───────────────────────────────────────────────────
+_CONCEPT_DB_URL = os.environ.get("CONCEPT_DB_URL", "").strip()
+_EPPO_USER_ID   = int(os.environ.get("EPPO_USER_ID", "0") or "0")
+
+if not _CONCEPT_DB_URL:
+    print("ERROR: CONCEPT_DB_URL is not set in .env", file=sys.stderr)
+    sys.exit(1)
+if not _EPPO_USER_ID:
+    print("ERROR: EPPO_USER_ID is not set in .env", file=sys.stderr)
+    sys.exit(1)
+
+print(f"[eppo] Loading concept pool for user_id={_EPPO_USER_ID} from DB...")
+GLOBAL_CONCEPTS, GLOBAL_LLM_DIFF, COURSE_CONCEPT_INDICES = _load_concept_pool_from_db(
+    _CONCEPT_DB_URL, _EPPO_USER_ID
+)
 
 N_GLOBAL = len(GLOBAL_CONCEPTS)
-print(f"Global pool: {N_GLOBAL} concepts across {len(COURSES)} courses")
+print(f"[eppo] Global pool: {N_GLOBAL} concepts across "
+      f"{len(COURSE_CONCEPT_INDICES)} courses: "
+      f"{list(COURSE_CONCEPT_INDICES.keys())}")
+
+if N_GLOBAL == 0:
+    print("ERROR: No concepts found. Upload concepts first with concept_extractor.py.",
+          file=sys.stderr)
+    sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # CELL 3: Config
