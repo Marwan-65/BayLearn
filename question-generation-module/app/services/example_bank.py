@@ -29,7 +29,6 @@ class ExampleEntry:
     question: str
     level: str          
     source: str = ""
-    subject: str = ""
     embedding: Optional[np.ndarray] = field(default=None, repr=False)
 
 
@@ -65,7 +64,6 @@ class ExampleBank:
                 question=d["question"],
                 level=d.get("level", "").lower(),
                 source=d.get("source", ""),
-                subject=d.get("subject", ""),
             ))
         bank.entries = entries
 
@@ -87,10 +85,8 @@ class ExampleBank:
             logger.warning("No %s found — embedding %d entries on startup (slow). Run scripts/build_example_bank.py to pre-compute.", npy_path.name, len(entries))
             embs = bank._embed_all([e.question for e in entries])
 
-        # ensure L2-normalized so what happen for cosine is just dot product which is faster
-        # norms = np.linalg.norm(embs, axis=1, keepdims=True)
-        # norms[norms == 0] = 1.0
-        # bank._embeddings = (embs / norms).astype(np.float32)
+        
+        bank._embeddings = embs.astype(np.float32)
 
         # Pre-bucket indices by level for O(1) candidate selection
         levels = np.array([e.level for e in entries], dtype=object)

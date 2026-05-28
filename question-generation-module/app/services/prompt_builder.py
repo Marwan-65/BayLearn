@@ -72,6 +72,10 @@ QUESTION PATTERNS TO USE: {bloom['examples']}
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question structure and content.
 
+The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
+format — generate your questions strictly in the {question_type} format defined
+in the OUTPUT FORMAT section below.
+
 STUDY MATERIAL:
 {chunks_text}
 
@@ -116,6 +120,10 @@ QUESTION PATTERNS TO USE: {bloom['examples']}
 {examples_block}
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
+
+The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
+format — generate your questions strictly in the {question_type} format defined
+in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
 {chunks_text}
@@ -162,6 +170,10 @@ QUESTION PATTERNS TO USE: {bloom['examples']}
 {examples_block}
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question focus and content.
+
+The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
+format — generate your questions strictly in the {question_type} format defined
+in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
 {chunks_text}
