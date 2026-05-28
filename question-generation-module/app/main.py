@@ -49,7 +49,7 @@ async def startup():
     example_bank = ExampleBank.load(EXAMPLE_BANK_PATH)
     logger.info("Example bank stats: %s", example_bank.stats())
 
-    # BloomBERT classifier (stub if weights not yet downloaded from Kaggle)
+    # BloomBERT classifier 
     bloom_classifier = BloomClassifier.load(BLOOM_MODEL_DIR)
 
     # Service with ICL + classifier validation wired in

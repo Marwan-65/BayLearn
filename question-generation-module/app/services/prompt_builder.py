@@ -1,27 +1,12 @@
 from typing import List, Optional
 
-# ── Few-shot ICL helper ─────────────────────────────────────────────────────
-# Renders retrieved example bank entries into a string block that the LLM
-# imitates. Kept tiny so it doesn't blow up the prompt budget.
-
-def format_few_shot_examples(examples: list, question_type: str) -> str:
-    """Render up to K example entries as a labeled block for the LLM.
-
-    Each example shows the question, level tag, and (when available) the
-    expected answer/explanation, so the LLM learns the OUTPUT FORMAT it
-    should produce — not just the question style.
-    """
+def format_few_shot_examples(examples: list) -> str:
     if not examples:
         return ""
-    lines = ["EXAMPLES of questions at the requested level "
-             "(imitate their style, depth, and answer format):"]
+    lines = ["Examples of questions at the requested level (imitate their style and depth):"]
     for i, ex in enumerate(examples, 1):
         lines.append(f"\nExample {i} [level={ex.level}]:")
         lines.append(f"  Q: {ex.question}")
-        if ex.correct_answer:
-            lines.append(f"  A: {ex.correct_answer[:280]}")
-        if ex.explanation:
-            lines.append(f"  Why: {ex.explanation[:200]}")
     return "\n".join(lines) + "\n"
 
 
@@ -69,7 +54,7 @@ def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str,
     few_shot_examples: Optional list of ExampleEntry objects (from ExampleBank.retrieve)
     """
     bloom = BLOOM_GUIDANCE.get(difficulty.lower(), BLOOM_GUIDANCE["understand"])
-    examples_block = format_few_shot_examples(few_shot_examples or [], "mcq")
+    examples_block = format_few_shot_examples(few_shot_examples or [])
 
     system_prompt = (
         "You are an expert university professor who creates high-quality quiz questions.\n"
@@ -112,9 +97,9 @@ Generate {num_questions} diverse questions now:
 
 
 def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: str,
-                              few_shot_examples: Optional[list] = None) -> tuple[str, str]:
+                            few_shot_examples: Optional[list] = None) -> tuple[str, str]:
     bloom = BLOOM_GUIDANCE.get(difficulty.lower(), BLOOM_GUIDANCE["understand"])
-    examples_block = format_few_shot_examples(few_shot_examples or [], "short_answer")
+    examples_block = format_few_shot_examples(few_shot_examples or [])
 
     system_prompt = (
         "You are an expert university professor creating short-answer exam questions.\n"
@@ -160,7 +145,7 @@ Generate {num_questions} diverse questions now:
 def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: str,
                             few_shot_examples: Optional[list] = None) -> tuple[str, str]:
     bloom = BLOOM_GUIDANCE.get(difficulty.lower(), BLOOM_GUIDANCE["understand"])
-    examples_block = format_few_shot_examples(few_shot_examples or [], "true_false")
+    examples_block = format_few_shot_examples(few_shot_examples or [])
 
     system_prompt = (
         "You are an expert university professor creating true/false quiz questions.\n"

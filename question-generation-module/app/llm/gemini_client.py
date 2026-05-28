@@ -1,9 +1,3 @@
-"""
-Thin Gemini wrapper that mirrors QuestionGenLLMClient's interface.
-
-Same shape as app/llm/groq_client.py so the eval script and service can swap
-providers without changing call-sites.
-"""
 import logging
 
 from google import genai
@@ -13,7 +7,6 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiQuestionGenClient:
-    """Gemini API client matching the QuestionGenLLMClient.generate() signature."""
 
     def __init__(self, api_key: str, model_id: str = "gemini-2.0-flash"):
         self.client = genai.Client(api_key=api_key)

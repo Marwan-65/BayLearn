@@ -1,20 +1,12 @@
 """
-In-memory few-shot example bank for ICL question generation.
+we need these files in the 'data/processed' directory:
+    data/processed/example_bank.jsonl              
+    data/processed/example_bank_embeddings.npy     
 
-Storage layout (built by scripts/build_example_bank.py):
-    data/processed/example_bank.jsonl              — text rows
-    data/processed/example_bank_embeddings.npy     — (N, 384) float32, L2-normalized
-
-At startup we read the .npy directly (no re-embedding) and load the JSONL
-text rows. Retrieval is a single matvec on the level-filtered subset of
-the embedding matrix — sub-millisecond for tens of thousands of entries.
-
-Retrieval semantics:
-  * Filter by `target_level` only (easy/medium/hard).
-  * Rank candidates by cosine similarity to the query.
-  * Return top-K (default 10). Pure top-K — no random sampling, no subject
-    filter, no answer-presence bias. Concept matching is delegated entirely
-    to the embedding similarity.
+flow for retrieval:
+  - first filter by `target_level` only (easy/medium/hard).
+  - then rank candidates by cosine similarity to the query.
+  - then return top-K (default 3).
 """
 from __future__ import annotations
 
@@ -23,6 +15,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+from collections import Counter
 
 import numpy as np
 
@@ -34,44 +27,28 @@ EMBEDDING_MODEL_DEFAULT = "sentence-transformers/all-MiniLM-L6-v2"
 @dataclass
 class ExampleEntry:
     question: str
-    level: str          # easy | medium | hard
+    level: str          
     source: str = ""
-    # Kept as Optional so the dataclass is forward-compatible with code that
-    # used to read these. Not populated by the new loader.
-    concept: str = ""
-    question_type: str = "short_answer"
-    correct_answer: str = ""
-    explanation: str = ""
     subject: str = ""
     embedding: Optional[np.ndarray] = field(default=None, repr=False)
 
 
 class ExampleBank:
-    """Pure top-K cosine retrieval, level-filtered. No subject filter."""
 
     def __init__(self, embedding_model_name: str = EMBEDDING_MODEL_DEFAULT):
         self.entries: list[ExampleEntry] = []
         self._model_name = embedding_model_name
-        self._model = None                              # lazy SentenceTransformer
-        self._embeddings: Optional[np.ndarray] = None   # (N, dim), L2-normalized
-        # Pre-bucketed index arrays per level — avoids re-filtering on every call
+        # model is loaded on first use to avoid unnecessary overhead
+        self._model = None                             
+        self._embeddings: Optional[np.ndarray] = None  
         self._level_idx: dict[str, np.ndarray] = {}
 
-    # ----------------------------------------------------------------- load
     @classmethod
-    def load(cls, jsonl_path: str | Path,
-             embedding_model_name: str = EMBEDDING_MODEL_DEFAULT) -> "ExampleBank":
-        """Load text rows + pre-computed embeddings from disk.
-
-        If the .npy sibling file is missing we fall back to embedding on
-        startup (slow but functional), but the warning encourages the
-        operator to re-run scripts/build_example_bank.py to fix it.
-        """
+    def load(cls, jsonl_path: str | Path,embedding_model_name: str = EMBEDDING_MODEL_DEFAULT) -> "ExampleBank":
         bank = cls(embedding_model_name=embedding_model_name)
         jsonl_path = Path(jsonl_path)
         if not jsonl_path.exists():
-            logger.warning("Example bank file not found at %s — bank empty.",
-                           jsonl_path)
+            logger.warning("Example bank file not found at %s — bank empty.",jsonl_path)
             return bank
 
         entries: list[ExampleEntry] = []
@@ -86,25 +63,20 @@ class ExampleBank:
                 continue
             entries.append(ExampleEntry(
                 question=d["question"],
-                level=d.get("level", "medium").lower(),
+                level=d.get("level", "").lower(),
                 source=d.get("source", ""),
-                # Compatibility fields (may be empty for newer banks):
-                concept=d.get("concept", ""),
-                question_type=d.get("question_type", "short_answer"),
-                correct_answer=d.get("correct_answer", ""),
-                explanation=d.get("explanation", ""),
                 subject=d.get("subject", ""),
             ))
         bank.entries = entries
 
-        # Load pre-computed embeddings if present; otherwise compute on the fly.
+        # Load pre-computed embeddings if present, otherwise compute.
         npy_path = jsonl_path.with_name(jsonl_path.stem + "_embeddings.npy")
         if npy_path.exists():
             embs = np.load(npy_path)
             if embs.shape[0] != len(entries):
                 logger.warning(
-                    "Embeddings file row count (%d) does not match JSONL (%d). "
-                    "Re-run scripts/build_example_bank.py to rebuild.",
+                    "Embeddings file row count (%d) does not match JSONL (%d)"
+                    "Re-run scripts/build_example_bank.py to rebuild",
                     embs.shape[0], len(entries),
                 )
                 embs = bank._embed_all([e.question for e in entries])
@@ -112,15 +84,13 @@ class ExampleBank:
                 logger.info("Loaded %d pre-computed embeddings from %s",
                             embs.shape[0], npy_path.name)
         else:
-            logger.warning("No %s found — embedding %d entries on startup "
-                           "(slow). Run scripts/build_example_bank.py to "
-                           "pre-compute.", npy_path.name, len(entries))
+            logger.warning("No %s found — embedding %d entries on startup (slow). Run scripts/build_example_bank.py to pre-compute.", npy_path.name, len(entries))
             embs = bank._embed_all([e.question for e in entries])
 
-        # Ensure L2-normalized (cosine via dot product)
-        norms = np.linalg.norm(embs, axis=1, keepdims=True)
-        norms[norms == 0] = 1.0
-        bank._embeddings = (embs / norms).astype(np.float32)
+        # ensure L2-normalized so what happen for cosine is just dot product which is faster
+        # norms = np.linalg.norm(embs, axis=1, keepdims=True)
+        # norms[norms == 0] = 1.0
+        # bank._embeddings = (embs / norms).astype(np.float32)
 
         # Pre-bucket indices by level for O(1) candidate selection
         levels = np.array([e.level for e in entries], dtype=object)
@@ -130,7 +100,6 @@ class ExampleBank:
         logger.info("Example bank ready: %s", bank.stats())
         return bank
 
-    # ----------------------------------------------------------------- embed
     def _lazy_model(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
@@ -147,17 +116,7 @@ class ExampleBank:
     def embed_query(self, text: str) -> np.ndarray:
         return self._embed_all([text])[0]
 
-    # ----------------------------------------------------------------- retrieve
-    def retrieve(self, query_text: str, target_level: str, k: int = 10,
-                 question_type: Optional[str] = None,
-                 subject_hint: Optional[str] = None) -> list[ExampleEntry]:
-        """Top-K nearest examples at `target_level`, ranked by cosine.
-
-        Signature keeps `question_type` and `subject_hint` parameters for
-        backward compatibility with existing callers, but the new bank
-        ignores both — concept matching is fully delegated to the embedding
-        similarity. The arguments are silently ignored.
-        """
+    def retrieve(self, query_text: str, target_level: str, k: int = 3) -> list[ExampleEntry]:
         if not self.entries or self._embeddings is None:
             return []
         target_level = target_level.lower()
@@ -165,19 +124,17 @@ class ExampleBank:
         if idx is None or len(idx) == 0:
             return []
 
-        q = self.embed_query(query_text)        # (dim,)
-        sims = self._embeddings[idx] @ q        # (n_level,) cosine since L2-normalized
+        q = self.embed_query(query_text)       
+        sims = self._embeddings[idx] @ q        
         if len(idx) <= k:
             top_local = np.argsort(-sims)
         else:
-            # argpartition is O(N) — faster than full argsort for big arrays
+            # argpartition is O(N) instead of argsort which is O(N log N) if available questions are big 
             top_local = np.argpartition(-sims, k)[:k]
             top_local = top_local[np.argsort(-sims[top_local])]
         return [self.entries[idx[i]] for i in top_local]
 
-    # ----------------------------------------------------------------- stats
     def stats(self) -> dict:
-        from collections import Counter
         return {
             "total": len(self.entries),
             "by_level":  dict(Counter(e.level for e in self.entries)),

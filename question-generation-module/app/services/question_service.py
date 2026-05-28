@@ -73,7 +73,7 @@ class QuestionGenerationService:
 
         if not raw_chunks:
             raise ValueError(f"No indexed content found for project '{project_id}'. "
-                             "Make sure the project has been uploaded and indexed first.")
+                            "Make sure the project has been uploaded and indexed first.")
 
         # 3. Randomly sample from the fetched chunks for diversity
         # Use at most 10 but pick randomly to avoid always using the same top ones
@@ -109,7 +109,7 @@ class QuestionGenerationService:
 
         return questions, len(selected_chunks)
 
-    # ------------------------------------------------------------------ helpers
+    # helpers
     def _retrieve_few_shot(self, query_text: str, target_level: str) -> list:
         if not self.example_bank or not self.example_bank.entries:
             return []
@@ -118,7 +118,7 @@ class QuestionGenerationService:
                 query_text=query_text, target_level=target_level,
                 k=self.few_shot_k,
             )
-        except Exception as e:  # never fail generation due to ICL hiccups
+        except Exception as e:  # never fail generation due to ICL 
             logger.warning("Few-shot retrieval failed: %s — proceeding without ICL", e)
             return []
 
@@ -163,7 +163,7 @@ class QuestionGenerationService:
                 if q.predicted_level and q.predicted_level != target_level
             )
             if mismatches <= len(last_questions) // 2:
-                break  # majority correct → accept
+                break  # majority correct -> accept , to overcome classifier noise
             logger.info(
                 "ICL retry: %d/%d questions had wrong level on attempt %d "
                 "(target=%s). Retrying with lower temperature.",
@@ -172,8 +172,7 @@ class QuestionGenerationService:
 
         return last_questions
 
-    def _classify_predicted_levels(self, questions: List[GeneratedQuestion]
-                                   ) -> List[GeneratedQuestion]:
+    def _classify_predicted_levels(self, questions: List[GeneratedQuestion]) -> List[GeneratedQuestion]:
         """Annotate each question with predicted_level / confidence from BloomBERT."""
         if not self.bloom_classifier or not questions:
             return questions

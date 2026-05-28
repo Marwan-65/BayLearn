@@ -22,7 +22,6 @@ The summary is the metric you put in the report:
 
 Run:
     python scripts/llm_judge_baseline_vs_icl.py
-    python scripts/llm_judge_baseline_vs_icl.py --judge-provider gemini
 """
 from __future__ import annotations
 
