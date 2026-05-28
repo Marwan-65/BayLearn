@@ -44,6 +44,7 @@ import asyncio
 import csv
 import os
 import sys
+import time
 from pathlib import Path
 from statistics import mean
 import math
@@ -63,7 +64,8 @@ from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
 from app.services.example_bank import ExampleBank                             
 from app.services.question_service import QuestionGenerationService           
 from app.services.chunk_fetcher import ChunkFetcher                           
-from app.llm.groq_client import QuestionGenLLMClient                           
+from app.llm.groq_client import QuestionGenLLMClient
+# from app.llm.gemini_client import GeminiQuestionGenClient
 
 OUT_DIR = ROOT / "data" / "processed"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -316,12 +318,31 @@ async def main_async(args):
         for ch in TEST_CHUNKS
     }
 
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        print("GROQ_API_KEY not set. Put it in .env or export it.",file=sys.stderr)
-        return 1
-    model_id = os.environ.get("GROQ_MODEL_ID", "llama-3.1-70b-versatile")
-    llm_client = QuestionGenLLMClient(api_key=api_key, model_id=model_id)
+    provider = (os.environ.get("LLM_PROVIDER", "groq") or "groq").lower()
+    if provider == "gemini":
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            print("GEMINI_API_KEY not set. Put it in .env or export it.", file=sys.stderr)
+            return 1
+        model_id = os.environ.get("GEMINI_MODEL_ID", "gemini-2.5-flash-lite")
+        llm_client = GeminiQuestionGenClient(api_key=api_key, model_id=model_id)
+        default_sleep = 4.0   # Gemini free tier ~15 RPM → 1 every 4s safe
+        print(f"Using Gemini ({model_id})")
+    else:
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            print("GROQ_API_KEY not set. Put it in .env or export it.", file=sys.stderr)
+            return 1
+        model_id = os.environ.get("GROQ_MODEL_ID",
+                                  "meta-llama/llama-4-scout-17b-16e-instruct")
+        llm_client = QuestionGenLLMClient(api_key=api_key, model_id=model_id)
+        default_sleep = 1.0   # Groq RPM is generous; 1s is a safety margin
+        print(f"Using Groq ({model_id})")
+
+    # Per-call sleep (between LLM calls) to stay under provider rate limits.
+    # Override with SLEEP_BETWEEN_CALLS=N (seconds) in env if needed.
+    sleep_secs = float(os.environ.get("SLEEP_BETWEEN_CALLS", default_sleep))
+    print(f"Sleeping {sleep_secs:.1f}s between LLM calls.")
 
     levels_b6 = args.levels.split(",")
     # Map 6-level requested → 3-level target for evaluation
@@ -369,12 +390,14 @@ async def main_async(args):
                 f"conf={m_base['mean_confidence']:.2f} "
                 f"words={m_base['mean_words']:.0f} "
                 f"distinct2={m_base['distinct_2gram']:.2f}")
+            if sleep_secs > 0:
+                time.sleep(sleep_secs)
 
             # ICL 
             svc_icl = QuestionGenerationService(
                 llm_client=llm_client, chunk_fetcher=fake_fetcher,
                 example_bank=bank, bloom_classifier=classifier,
-                few_shot_k=4, retry_on_level_mismatch=False,
+                few_shot_k=3, retry_on_level_mismatch=False,
             )
             qs_icl, prate_i = await run_one_condition(
                 svc_icl, level_b6, level_3, args.num_questions,
@@ -396,6 +419,8 @@ async def main_async(args):
                 f"conf={m_icl['mean_confidence']:.2f} "
                 f"words={m_icl['mean_words']:.0f} "
                 f"distinct2={m_icl['distinct_2gram']:.2f}")
+            if sleep_secs > 0:
+                time.sleep(sleep_secs)
 
     #  print summary 
     print("\n" + "=" * 92)
@@ -406,9 +431,11 @@ async def main_async(args):
     for lvl in levels_3:
         for cond in ("baseline", "icl"):
             batches = aggregate[(cond, lvl)]
-            if not batches:
+            usable = [b for b in batches if b["n"] > 0]
+            if not usable:
+                print(f"{lvl:<8}{cond:<10}  (no successful batches — all calls failed)")
                 continue
-            avg = {k: mean(b[k] for b in batches if b["n"] > 0)
+            avg = {k: mean(b[k] for b in usable)
                    for k in ("level_match_rate", "mean_confidence",
                              "mean_target_prob", "mean_words",
                              "distinct_2gram", "self_bleu", "chunk_similarity")}
