@@ -3,6 +3,9 @@ uvicorn
 pydantic
 python-dotenv
 python-multipart
+SQLAlchemy
+psycopg2-binary
+alembic
 requests>=2.32.5
 numpy
 PyMuPDF
@@ -18,3 +21,4 @@ paddleocr
 transformers
 torch
 chardet<6
+# ffmpeg is also required at runtime as a system executable on PATH.

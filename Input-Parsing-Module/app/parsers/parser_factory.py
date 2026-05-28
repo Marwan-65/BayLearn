@@ -9,8 +9,8 @@ class ParserFactory:
             return PDFParser()
 
         elif file_type == "image":
-            from app.parsers.handwritten_parser import HandwrittenParser
-            return HandwrittenParser()
+            from app.parsers.image_parser import ImageParser
+            return ImageParser()
 
         elif file_type == "audio":
             from app.parsers.audio_parser import AudioParser
