@@ -36,7 +36,7 @@ app.add_middleware(
 async def startup():
     settings = get_settings()
 
-    # LLM client (Groq)
+    
     llm_client = QuestionGenLLMClient(
         api_key=settings.GROQ_API_KEY,
         model_id=settings.GROQ_MODEL_ID,

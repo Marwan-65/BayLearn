@@ -3,3 +3,6 @@ app/models/bloom_distilbert/
 models/
 *.safetensors
 *.bin
+*.env
+__pycache__
+.venv

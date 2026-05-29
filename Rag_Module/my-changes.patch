@@ -1,0 +1,302 @@
+diff --git a/src/controllers/__pycache__/nlp.cpython-312.pyc b/src/controllers/__pycache__/nlp.cpython-312.pyc
+index fd505bf..953f9b8 100644
+Binary files a/src/controllers/__pycache__/nlp.cpython-312.pyc and b/src/controllers/__pycache__/nlp.cpython-312.pyc differ
+diff --git a/src/controllers/nlp.py b/src/controllers/nlp.py
+index 1fdbe03..fc4f4d6 100644
+--- a/src/controllers/nlp.py
++++ b/src/controllers/nlp.py
+@@ -171,58 +171,89 @@ class NLPController(BaseController):
+             )
+         )
+         
+-
+-    def generate_augmented_answer(self, project_id: str, question: str, top_k: int = 5):
++    def generate_augmented_answer(self, project_id: str, question: str, top_k: int = 5, 
++                                score_threshold: float = 0.4):
+         collection_name = self.create_collection_name(project_id)
+ 
+-        # Embed query
++        # Step 1: Embed the query
+         query_vector = self.embedding_client.embed_text(
+             text=question,
+             document_type=DocumentTypeEnum.QUERY.value
+         )
+-
+         if not query_vector:
+             return {"error": "Query embedding failed"}
+ 
+-        # Search vector DB
++        # Step 2: Search vector DB
+         search_results = self.vectordb_client.search_by_vector(
+             collection_name=collection_name,
+             query_vector=query_vector,
+             limit=top_k
+         )
+-
+         if not search_results:
+             return {"error": "No relevant documents found"}
+ 
+-        # Extract retrieved texts - search_results is a list of dicts
+-        retrieved_chunks = [
+-            result["payload"].get("text", "")  # Changed from result.payload
+-            for result in search_results
+-        ]
+-
+-        # Construct RAG context
+-        context = "\n\n".join(retrieved_chunks)
++        # Step 3: Filter by similarity score threshold
++        # WHY: A chunk with score 0.3 is nearly irrelevant.
++        # Feeding it to the LLM as "context" causes hallucination.
++        # We only keep chunks that are genuinely similar to the query.
++        filtered_results = [r for r in search_results if r["score"] >= score_threshold]
++        
++        if not filtered_results:
++            return {
++                "query": question,
++                "answer": "I could not find relevant information in the uploaded materials to answer this question.",
++                "sources": [],
++                "num_sources": 0
++            }
++
++        # Step 4: Build numbered context so LLM can cite sources
++        # WHY: Numbering chunks lets the LLM say "according to source 2"
++        # which makes answers more grounded and traceable
++        context_parts = []
++        for i, result in enumerate(filtered_results, 1):
++            text = result["payload"].get("text", "")
++            score = result["score"]
++            context_parts.append(f"[Source {i}] (relevance: {score:.2f})\n{text}")
++        
++        context = "\n\n".join(context_parts)
+ 
+-        augmented_prompt = f"""You are a helpful AI assistant.
++        # Step 5: System prompt — defines Llama2's behavior as a grounded tutor
++        # WHY: This is the "contract" that tells Llama2 to stay grounded
++        # and not make things up. Llama2 specifically needs this as a
++        # separate system role message, not mixed into the user message.
++        system_prompt = """You are an expert engineering tutor helping university students.
++    Your answers must be based STRICTLY on the context provided below.
++    Rules you must follow:
++    1. If the answer is clearly in the context, answer it step by step.
++    2. If the context is partially relevant, use what is available and say what is missing.
++    3. If the context does not contain the answer, say exactly: "This topic is not covered in the uploaded materials."
++    4. Never invent facts, formulas, or explanations not present in the context.
++    5. When possible, refer to which source your answer comes from (e.g. "According to Source 1...")."""
+ 
+-Use ONLY the following context to answer the question.
+-If the answer is not in the context, say you don't know.
++        # Step 6: User message with context and question
++        user_prompt = f"""Context from uploaded study materials:
+ 
+-Context:
+-{context}
++    {context}
+ 
+-Question: {question}
++    Student question: {question}
+ 
+-Answer:"""
++    Answer:"""
+ 
+-        # Generate answer
++        # Step 7: Generate with proper chat format
++        # WHY: We pass system prompt as chat_history so it becomes the
++        # first message in the conversation, which is how Llama2 expects it
+         answer = self.generation_client.generate_text(
+-            prompt=augmented_prompt
++            prompt=user_prompt,
++            chat_history=[
++                {"role": "system", "content": system_prompt}
++            ]
+         )
+ 
+         return {
+             "query": question,
+             "answer": answer,
+-            "sources": retrieved_chunks,
+-            "num_sources": len(retrieved_chunks)
+-        }
+\ No newline at end of file
++            "sources": [r["payload"].get("text", "") for r in filtered_results],
++            "scores": [r["score"] for r in filtered_results],
++            "num_sources": len(filtered_results)
++        }
++    
+\ No newline at end of file
+diff --git a/src/helpers/__pycache__/config.cpython-312.pyc b/src/helpers/__pycache__/config.cpython-312.pyc
+index e54832a..99d964b 100644
+Binary files a/src/helpers/__pycache__/config.cpython-312.pyc and b/src/helpers/__pycache__/config.cpython-312.pyc differ
+diff --git a/src/helpers/config.py b/src/helpers/config.py
+index a0c9c0e..7ca4e65 100644
+--- a/src/helpers/config.py
++++ b/src/helpers/config.py
+@@ -11,7 +11,7 @@ class Settings(BaseSettings):
+     # Generation / Embedding backends
+     GENERATION_BACKEND: str
+     EMBEDDING_BACKEND: str
+-
++    GROQ_API_KEY: Optional[str] = None
+     # Model identifiers
+     GENERATION_MODEL_ID: Optional[str] = None
+     EMBEDDING_MODEL_ID: Optional[str] = None
+diff --git a/src/poetry.lock b/src/poetry.lock
+index bf440cd..6105a01 100644
+--- a/src/poetry.lock
++++ b/src/poetry.lock
+@@ -466,6 +466,18 @@ files = [
+     {file = "diskcache-5.6.3.tar.gz", hash = "sha256:2c3a3fa2743d8535d832ec61c2054a1641f41775aa7c556758a109941e33e4fc"},
+ ]
+ 
++[[package]]
++name = "distro"
++version = "1.9.0"
++description = "Distro - an OS platform information API"
++optional = false
++python-versions = ">=3.6"
++groups = ["main"]
++files = [
++    {file = "distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2"},
++    {file = "distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed"},
++]
++
+ [[package]]
+ name = "faiss-cpu"
+ version = "1.13.2"
+@@ -779,6 +791,29 @@ files = [
+ docs = ["Sphinx", "furo"]
+ test = ["objgraph", "psutil", "setuptools"]
+ 
++[[package]]
++name = "groq"
++version = "1.1.1"
++description = "The official Python library for the groq API"
++optional = false
++python-versions = ">=3.10"
++groups = ["main"]
++files = [
++    {file = "groq-1.1.1-py3-none-any.whl", hash = "sha256:6b7932c0fd3189ad1842fbc294f57fbf014713e01f72037451cb60a138c4b846"},
++    {file = "groq-1.1.1.tar.gz", hash = "sha256:ea971eca72d88e875a78567904bfb46a2f2e43907bfe400fc36a81150a4066d8"},
++]
++
++[package.dependencies]
++anyio = ">=3.5.0,<5"
++distro = ">=1.7.0,<2"
++httpx = ">=0.23.0,<1"
++pydantic = ">=1.9.0,<3"
++sniffio = "*"
++typing-extensions = ">=4.10,<5"
++
++[package.extras]
++aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.9)"]
++
+ [[package]]
+ name = "grpcio"
+ version = "1.78.0"
+@@ -2803,6 +2838,18 @@ enabler = ["pytest-enabler (>=2.2)"]
+ test = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21) ; python_version >= \"3.9\" and sys_platform != \"cygwin\"", "jaraco.envs (>=2.2)", "jaraco.path (>=3.7.2)", "jaraco.test (>=5.5)", "packaging (>=24.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.*)", "pytest-home (>=0.5)", "pytest-perf ; sys_platform != \"cygwin\"", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel (>=0.44.0)"]
+ type = ["importlib_metadata (>=7.0.2) ; python_version < \"3.10\"", "jaraco.develop (>=7.21) ; sys_platform != \"cygwin\"", "mypy (==1.18.*)", "pytest-mypy"]
+ 
++[[package]]
++name = "sniffio"
++version = "1.3.1"
++description = "Sniff out which async library your code is running under"
++optional = false
++python-versions = ">=3.7"
++groups = ["main"]
++files = [
++    {file = "sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"},
++    {file = "sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc"},
++]
++
+ [[package]]
+ name = "sqlalchemy"
+ version = "2.0.48"
+@@ -3770,4 +3817,4 @@ propcache = ">=0.2.1"
+ [metadata]
+ lock-version = "2.1"
+ python-versions = ">=3.12,<3.13"
+-content-hash = "28b171459b28ad62746e14c209fdedd401c5d344f98f555344ff549d3ae49511"
++content-hash = "1a8b53ad1ccc55a30858df95f71e2c63a2fba98f33a88fb446ea293eddbb3507"
+diff --git a/src/pyproject.toml b/src/pyproject.toml
+index 9f6717a..4b7361b 100644
+--- a/src/pyproject.toml
++++ b/src/pyproject.toml
+@@ -22,6 +22,7 @@ sentence-transformers = ">=5.2.3,<6.0.0"
+ faiss-cpu = "^1.13.2"
+ qdrant-client = ">=1.17.0,<2.0.0"
+ packaging = ">=23.2,<25.0"
++groq = "^1.1.1"
+ 
+ [build-system]
+ requires = ["poetry-core>=2.0.0,<3.0.0"]
+diff --git a/src/stores/LLM/LLMEnum.py b/src/stores/LLM/LLMEnum.py
+index 3139bac..bb18fec 100644
+--- a/src/stores/LLM/LLMEnum.py
++++ b/src/stores/LLM/LLMEnum.py
+@@ -4,11 +4,13 @@ from enum import Enum
+ class LLMEnum(str, Enum):
+     LLAMA_2 = "llama2"
+     MISTRAL = "mistral"
++    
++
+ 
+ 
+ class LLMBackendEnum(str, Enum):
+     LOCAL = "LOCAL"
+-
++    GROQ = "GROQ"
+ 
+ class ChatRoleEnum(str, Enum):
+     SYSTEM = "system"
+diff --git a/src/stores/LLM/LLMProviderFactory.py b/src/stores/LLM/LLMProviderFactory.py
+index aab0c3b..b436291 100644
+--- a/src/stores/LLM/LLMProviderFactory.py
++++ b/src/stores/LLM/LLMProviderFactory.py
+@@ -1,15 +1,21 @@
+-from .providers.LocalProvider import LocalProvider
+-
++from .providers import LocalProvider , GroqProvider
++from LLMEnum import LLMBackendEnum
+ class LLMProviderFactory:
+     def __init__(self, config):
+         self.config = config
+ 
+     def create(self, provider: str):
+-        if provider == "LOCAL":
++        if provider == LLMBackendEnum.LOCAL.value:
+             return LocalProvider(
+                 default_input_max_characters=self.config.INPUT_DEFAULT_MAX_CHARACTERS,
+                 default_generation_max_output_tokens=self.config.GENERATION_DEFAULT_MAX_TOKENS,
+                 default_generation_temperature=self.config.GENERATION_DEFAULT_TEMPERATURE
+             )
++        if provider == LLMBackendEnum.GROQ.value:
++            return GroqProvider(
++                api_key=self.config.GROQ_API_KEY,
++                default_generation_max_output_tokens=self.config.GENERATION_DEFAULT_MAX_TOKENS,
++                default_generation_temperature=self.config.GENERATION_DEFAULT_TEMPERATURE
++            )
+ 
+         return None
+\ No newline at end of file
+diff --git a/src/stores/LLM/__pycache__/LLMEnum.cpython-312.pyc b/src/stores/LLM/__pycache__/LLMEnum.cpython-312.pyc
+index d6357a5..a406eee 100644
+Binary files a/src/stores/LLM/__pycache__/LLMEnum.cpython-312.pyc and b/src/stores/LLM/__pycache__/LLMEnum.cpython-312.pyc differ
+diff --git a/src/stores/LLM/__pycache__/LLMProviderFactory.cpython-312.pyc b/src/stores/LLM/__pycache__/LLMProviderFactory.cpython-312.pyc
+index 1e4b31b..a0a06b0 100644
+Binary files a/src/stores/LLM/__pycache__/LLMProviderFactory.cpython-312.pyc and b/src/stores/LLM/__pycache__/LLMProviderFactory.cpython-312.pyc differ
+diff --git a/src/stores/LLM/providers/LocalProvider.py b/src/stores/LLM/providers/LocalProvider.py
+index 3ba744c..ee25539 100644
+--- a/src/stores/LLM/providers/LocalProvider.py
++++ b/src/stores/LLM/providers/LocalProvider.py
+@@ -54,7 +54,7 @@ class LocalProvider(LLMInterface):
+         temperature = temperature or self.default_generation_temperature
+ 
+         messages = chat_history + [
+-            {"role": "user", "content": self.process_text(prompt)}
++            {"role": "user", "content": prompt}
+         ]
+ 
+         response = self.llm.create_chat_completion(
+diff --git a/src/stores/LLM/providers/__pycache__/LocalProvider.cpython-312.pyc b/src/stores/LLM/providers/__pycache__/LocalProvider.cpython-312.pyc
+index 4a07466..6eac97a 100644
+Binary files a/src/stores/LLM/providers/__pycache__/LocalProvider.cpython-312.pyc and b/src/stores/LLM/providers/__pycache__/LocalProvider.cpython-312.pyc differ
