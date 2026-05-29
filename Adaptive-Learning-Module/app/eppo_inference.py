@@ -44,7 +44,7 @@ warnings.filterwarnings("ignore")
 # ---------------------------------------------------------------------------
 QUESTION_API_URL = "http://localhost:5000/generate"   # POST {topic, difficulty}
 ANSWER_API_URL   = "http://localhost:5000/answer"     # GET  -> {correct: bool}
-MODEL_PATH       = os.path.join(os.path.dirname(__file__), "models", "eppo_latest_model.pt")
+MODEL_PATH       = os.path.join(os.path.dirname(__file__), "models", "eppo_ep2500.pt")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {DEVICE}")
@@ -627,12 +627,14 @@ if __name__ == "__main__":
     tracker.reset_global()          # fresh student; load prior history here if resuming
 
     rng = np.random.default_rng(42)
+    # Pick the first enrolled course automatically, or set by name
+    course_name = list(COURSE_CONCEPT_INDICES.keys())[0]
+    print(f"Running session on course: '{course_name}'")
 
-    # Example: run one session on algorithms
     result = run_session(
         actor,
         tracker,
-        course_name="algorithms",
+        course_name=course_name,
         rng=rng,
         verbose=True,
     )
