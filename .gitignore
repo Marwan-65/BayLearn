@@ -1,0 +1,5 @@
+*changes/
+*UNKNOWN.egg-info/
+*.pyc
+*.pyo
+*/__pycache__/
