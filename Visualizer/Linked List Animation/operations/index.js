@@ -1,5 +1,5 @@
 /**
- * OPERATIONS — BARREL EXPORT
+ * OPERATIONS --, BARREL EXPORT
  *
  * Re-exports every operation and its associated pseudocode.
  * Import from here rather than individual files.

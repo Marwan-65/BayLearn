@@ -1,5 +1,5 @@
 /**
- * APP.JS — WIRING LOGIC
+ * APP.JS --, WIRING LOGIC
  *
  * This file is the only place in the entire codebase where all three layers
  * (Animation, Narrative, Playback) are imported and connected together.
@@ -63,7 +63,7 @@ const OPS_NEEDING_INDEX = new Set(['insertAtIndex', 'deleteAtIndex']);
 
 /**
  * Map an operation key + parameters to the correct operation function call.
- * Returns a Step[] array. Pure — no side effects.
+ * Returns a Step[] array. Pure --, no side effects.
  *
  * @param {string}    op
  * @param {ListState} list
@@ -150,7 +150,7 @@ function runOperation() {
     progress:     1,
   }));
 
-  // 6. Render the first frame immediately — before the user presses play.
+  // 6. Render the first frame immediately --, before the user presses play.
   //    Without this the canvas is blank on load.
   animLayer.render(steps[0]);
   narrLayer.update(steps[0]);
@@ -316,10 +316,56 @@ window.addEventListener('load', async () => {
 
   syncParamVisibility();
 
+  // If a run_id is present in the URL, fetch the run payload from the
+  // Transform API and convert it into a local scenario object. Otherwise
+  // fall back to loading the local scenario file.
+  const params = new URLSearchParams(window.location.search);
+  const runId = params.get('run_id');
+
+  if (runId) {
+    try {
+      const apiBase = 'http://localhost:8010';
+      const res = await fetch(`${apiBase}/v1/runs/${runId}/payload`);
+      if (res.ok) {
+        const payload = await res.json();
+        const extraction = payload.extraction;
+        // Convert extraction to the visualizer scenario format if needed.
+        if (extraction) {
+          // If the orchestrator already wrote the simplified visualizer
+          // schema (initialList / operations), prefer it.
+          if (extraction.initialList || extraction.operations) {
+            scenario = {
+              initialList: extraction.initialList || extraction.initial_list || [],
+              operations: extraction.operations || extraction.operations || [],
+            };
+          } else {
+            // Map from orchestrator's extraction schema to visualizer schema.
+            scenario = {
+              initialList: extraction.initial_list || [],
+              operations: (extraction.operations || []).map(op => ({
+                op: op.op,
+                value: ('value' in op) ? op.value : null,
+                index: ('index' in op) ? op.index : null,
+              })),
+            };
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore and fallback to local scenario
+      console.warn('Failed to load run payload:', e);
+    }
+  }
+
   await loadScenario();
 
   // Keep the original behavior for manual mode only.
   if (!scenario) runOperation();
+  else {
+    // If scenario was loaded (from run payload or file), prefill and run once
+    prefillFromScenarioStart();
+    runOperation();
+  }
 });
 
 // ─── Expose to HTML onclick attributes ───────────────────────────────────────
@@ -329,7 +375,7 @@ window.runOperation  = runOperation;
 window.scrubTo       = scrubTo;
 window.onSpeedChange = onSpeedChange;
 
-// Playback button handlers — proxy to controller so HTML doesn't need to
+// Playback button handlers --, proxy to controller so HTML doesn't need to
 // know controller exists
 window.ctrlPlay        = () => controller?.togglePlay();
 window.ctrlStepFwd     = () => controller?.stepForward();

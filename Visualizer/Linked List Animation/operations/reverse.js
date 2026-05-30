@@ -3,8 +3,8 @@
  *
  * Reverses the linked list in-place using three pointers: prev, current, next.
  *
- * Time complexity:  O(n) — single pass
- * Space complexity: O(1) — no extra data structures
+ * Time complexity:  O(n) --, single pass
+ * Space complexity: O(1) --, no extra data structures
  *
  * This is one of the most instructive linked list operations because:
  *   1. It uses THREE simultaneous pointers (prev, current, next)
@@ -51,7 +51,7 @@ export function reverse(list) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are going to reverse the list in-place. This means we flip every "next" pointer so that each node points to its previous neighbour instead of its next one. We will use three pointers (prev, current, next) and do this in a single O(n) pass — no extra list needed.`,
+    explanation:  `We are going to reverse the list in-place. This means we flip every "next" pointer so that each node points to its previous neighbour instead of its next one. We will use three pointers (prev, current, next) and do this in a single O(n) pass --, no extra list needed.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    {},
     pseudocodeLine: null,
@@ -118,7 +118,7 @@ export function reverse(list) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.CHECK_WHILE_CONDITION,
-      explanation:  `Loop condition: is current null? No — current points to the node with value ${node.value}. We enter the loop.`,
+      explanation:  `Loop condition: is current null? No --, current points to the node with value ${node.value}. We enter the loop.`,
       nodeHighlights: [
         { nodeId: currentId, role: NODE_ROLES.VISITING },
         ...(prevId ? [{ nodeId: prevId, role: NODE_ROLES.PREV }] : []),
@@ -133,7 +133,7 @@ export function reverse(list) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.SAVE_NEXT,
-      explanation:  `next ← current.next. We MUST save the next node (${nextId ? `value: ${state.nodes[nextId].value}` : 'null'}) before overwriting current.next in the next step. If we skip this, we lose our only reference to the rest of the list — it becomes unreachable. This is the most common bug students introduce.`,
+      explanation:  `next ← current.next. We MUST save the next node (${nextId ? `value: ${state.nodes[nextId].value}` : 'null'}) before overwriting current.next in the next step. If we skip this, we lose our only reference to the rest of the list --, it becomes unreachable. This is the most common bug students introduce.`,
       nodeHighlights: [
         { nodeId: currentId, role: NODE_ROLES.VISITING },
         ...(nextId ? [{ nodeId: nextId, role: NODE_ROLES.COMPARING }] : []),
@@ -210,7 +210,7 @@ export function reverse(list) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.CHECK_WHILE_CONDITION,
-    explanation:  `current is null — all pointers have been reversed. "prev" currently points to what was the last node of the original list, which is now the new head.`,
+    explanation:  `current is null --, all pointers have been reversed. "prev" currently points to what was the last node of the original list, which is now the new head.`,
     nodeHighlights: prevId ? [{ nodeId: prevId, role: NODE_ROLES.VISITING }] : [],
     variables:    { prev: prevId, current: null },
     pseudocodeLine: 7,

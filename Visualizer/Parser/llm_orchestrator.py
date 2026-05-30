@@ -73,10 +73,10 @@ def gemini_generate_json(api_key: str, model: str, prompt: str, temperature: flo
 def build_classification_prompt(document_text: str) -> str:
     return (
         "You are a strict classifier for algorithm animation routing.\n"
-        "Classify the document into exactly one category: linked_list, scheduler, or unknown.\n"
+        "Classify the document into exactly one category: linked_list, scheduler, btree, or unknown.\n"
         "Return JSON only with this schema:\n"
         "{\n"
-        "  \"animation_type\": \"linked_list\" | \"scheduler\" | \"unknown\",\n"
+        "  \"animation_type\": \"linked_list\" | \"scheduler\" | \"btree\" | \"unknown\",\n"
         "  \"confidence\": number between 0 and 1,\n"
         "  \"evidence\": string[]\n"
         "}\n\n"
@@ -141,8 +141,36 @@ def build_scheduler_extraction_prompt(document_text: str) -> str:
     )
 
 
+def build_btree_extraction_prompt(document_text: str) -> str:
+    return (
+        "You extract B-Tree operation sequences from text.\n"
+        "Return JSON only with this schema:\n"
+        "{\n"
+        "  \"animation_type\": \"btree\",\n"
+        "  \"confidence\": number between 0 and 1,\n"
+        "  \"name\": string,\n"
+        "  \"description\": string,\n"
+        "  \"t\": integer,\n"
+        "  \"initialKeys\": [integer],\n"
+        "  \"operations\": [\n"
+        "    {\n"
+        "      \"op\": \"insert\" | \"delete\" | \"search\",\n"
+        "      \"key\": integer\n"
+        "    }\n"
+        "  ],\n"
+        "  \"pauseMs\": 1500\n"
+        "}\n"
+        "Rules:\n"
+        "- Extract sequential operations in the exact order found in text.\n"
+        "- t is the minimum degree of the B-Tree (usually 2 or 3). Default to 2 if not explicitly stated.\n"
+        "- initialKeys are any keys that should already be in the tree before the main operations begin.\n\n"
+        "Document:\n"
+        f"{document_text}\n"
+    )
+
+
 def validate_classification(result: Dict[str, Any]) -> None:
-    allowed = {"linked_list", "scheduler", "unknown"}
+    allowed = {"linked_list", "scheduler", "btree", "unknown"}
     t = result.get("animation_type")
     if t not in allowed:
         raise ValueError(f"Invalid animation_type: {t}")
@@ -167,6 +195,13 @@ def validate_scheduler(result: Dict[str, Any]) -> None:
                 raise ValueError(f"Missing key in process: {key}")
 
 
+def validate_btree(result: Dict[str, Any]) -> None:
+    if result.get("animation_type") != "btree":
+        raise ValueError("B-Tree extraction did not return animation_type=btree")
+    if not isinstance(result.get("operations"), list):
+        raise ValueError("operations must be a list")
+
+
 def write_scheduler_processes_txt(path: Path, scheduler_data: Dict[str, Any]) -> None:
     lines = ["#id arrival runtime priority memsize"]
     processes = sorted(scheduler_data["processes"], key=lambda p: int(p["id"]))
@@ -176,6 +211,43 @@ def write_scheduler_processes_txt(path: Path, scheduler_data: Dict[str, Any]) ->
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_linked_list_json(path: Path, linked_data: Dict[str, Any]) -> None:
+    # Convert extraction schema to visualizer expected schema.
+    out = {}
+    out["initialList"] = linked_data.get("initial_list", [])
+    ops = []
+    for op in linked_data.get("operations", []) or []:
+        entry: Dict[str, Any] = {"op": op.get("op")}
+        # Ensure explicit nulls when values/indices are not provided.
+        entry["value"] = op.get("value") if "value" in op else None
+        entry["index"] = op.get("index") if "index" in op else None
+        ops.append(entry)
+    out["operations"] = ops
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def write_btree_json(path: Path, btree_data: Dict[str, Any]) -> None:
+    out = {
+        "name": btree_data.get("name", "B-Tree Scenario"),
+        "description": btree_data.get("description", ""),
+        "t": btree_data.get("t", 2),
+        "initialKeys": btree_data.get("initialKeys", []),
+        "operations": [],
+        "pauseMs": btree_data.get("pauseMs", 1500)
+    }
+    for op in btree_data.get("operations", []) or []:
+        if "op" in op and "key" in op:
+            out["operations"].append({
+                "op": op["op"],
+                "key": op["key"]
+            })
+            
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def maybe_windowed_extract(
@@ -193,6 +265,8 @@ def maybe_windowed_extract(
     if use_single:
         if animation_type == "linked_list":
             return gemini_generate_json(api_key, model, build_linked_list_extraction_prompt(full_text))
+        elif animation_type == "btree":
+            return gemini_generate_json(api_key, model, build_btree_extraction_prompt(full_text))
         return gemini_generate_json(api_key, model, build_scheduler_extraction_prompt(full_text))
 
     # Map-reduce fallback for long docs.
@@ -201,6 +275,8 @@ def maybe_windowed_extract(
         header = f"WINDOW {i}/{len(windows)}\n"
         if animation_type == "linked_list":
             partial = gemini_generate_json(api_key, model, build_linked_list_extraction_prompt(header + win))
+        elif animation_type == "btree":
+            partial = gemini_generate_json(api_key, model, build_btree_extraction_prompt(header + win))
         else:
             partial = gemini_generate_json(api_key, model, build_scheduler_extraction_prompt(header + win))
         partials.append(partial)
@@ -283,6 +359,8 @@ def run_orchestration(
 
     if animation_type == "linked_list":
         validate_linked_list(extraction)
+    elif animation_type == "btree":
+        validate_btree(extraction)
     else:
         validate_scheduler(extraction)
 
@@ -320,7 +398,17 @@ def main() -> None:
     max_single_tokens = get_env_int("LLM_MAX_SINGLE_TOKENS", 24000)
     scheduler_txt_value = get_env_str(
         "LLM_SCHEDULER_TXT",
-        "../Scheduler Animation/scheduler/processes_from_llm.txt",
+        "../Scheduler Animation/scheduler/processes.txt",
+    )
+
+    linkedlist_json_value = get_env_str(
+        "LLM_LINKEDLIST_JSON",
+        "../Linked List Animation/linked-list-sequence.json",
+    )
+
+    btree_json_value = get_env_str(
+        "LLM_BTREE_JSON",
+        "../btree-visualizer/user-scenario.json",
     )
 
     out_dir = Path(out_dir_value)
@@ -330,6 +418,14 @@ def main() -> None:
     scheduler_txt_path = Path(scheduler_txt_value)
     if not scheduler_txt_path.is_absolute():
         scheduler_txt_path = script_dir / scheduler_txt_path
+
+    linkedlist_json_path = Path(linkedlist_json_value)
+    if not linkedlist_json_path.is_absolute():
+        linkedlist_json_path = script_dir / linkedlist_json_path
+
+    btree_json_path = Path(btree_json_value)
+    if not btree_json_path.is_absolute():
+        btree_json_path = script_dir / btree_json_path
 
     payload = read_json(payload_path)
 
@@ -350,6 +446,19 @@ def main() -> None:
 
     if animation_type == "linked_list" and extraction is not None:
         write_json(out_dir / "linked_list_extraction.json", extraction)
+        # Also write a visualizer-friendly linked-list sequence file so
+        # the Linked List Animation app can load the scenario.
+        try:
+            write_linked_list_json(linkedlist_json_path, extraction)
+        except Exception:
+            # Do not fail the whole run if writing the visualizer file fails.
+            pass
+    elif animation_type == "btree" and extraction is not None:
+        write_json(out_dir / "btree_extraction.json", extraction)
+        try:
+            write_btree_json(btree_json_path, extraction)
+        except Exception:
+            pass
     elif animation_type == "scheduler" and extraction is not None:
         write_json(out_dir / "scheduler_extraction.json", extraction)
         write_scheduler_processes_txt(scheduler_txt_path, extraction)

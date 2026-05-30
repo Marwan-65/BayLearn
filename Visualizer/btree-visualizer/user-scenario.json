@@ -1,0 +1,19 @@
+{
+  "name": "Student Enrollment System",
+  "description": "A university records system indexes student IDs into a B-tree. Watch insertions trigger splits, then see search and deletion in action.",
+  "t": 2,
+  "initialKeys": [15, 25, 35],
+  "operations": [
+    { "op": "insert", "key": 10 },
+    { "op": "insert", "key": 20 },
+    { "op": "insert", "key": 5  },
+    { "op": "insert", "key": 30 },
+    { "op": "insert", "key": 40 },
+    { "op": "search", "key": 20 },
+    { "op": "search", "key": 99 },
+    { "op": "delete", "key": 25 },
+    { "op": "delete", "key": 5  },
+    { "op": "insert", "key": 50 }
+  ],
+  "pauseMs": 1500
+}

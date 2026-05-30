@@ -1,256 +1,71 @@
 {
   "quantum": 3,
   "algorithm": {
-    "key": "multiqueue",
-    "name": "Multilevel Queue",
-    "shortName": "MLQ"
+    "key": "sjf",
+    "name": "Shortest Job First",
+    "shortName": "SJF"
   },
-  "schFlag": 3,
+  "schFlag": 0,
   "processes": [
     {
       "id": "P1",
-      "arrival": 1,
-      "burst": 10,
+      "arrival": 0,
+      "burst": 8,
       "color": "#4285F4"
     },
     {
       "id": "P2",
-      "arrival": 3,
-      "burst": 19,
+      "arrival": 1,
+      "burst": 4,
       "color": "#0F9D58"
     },
     {
       "id": "P3",
-      "arrival": 5,
-      "burst": 13,
+      "arrival": 2,
+      "burst": 9,
       "color": "#F4B400"
     },
     {
       "id": "P4",
-      "arrival": 7,
-      "burst": 6,
+      "arrival": 3,
+      "burst": 5,
       "color": "#DB4437"
-    },
-    {
-      "id": "P5",
-      "arrival": 7,
-      "burst": 8,
-      "color": "#AA46BB"
-    },
-    {
-      "id": "P6",
-      "arrival": 9,
-      "burst": 11,
-      "color": "#FF6D00"
-    },
-    {
-      "id": "P7",
-      "arrival": 10,
-      "burst": 3,
-      "color": "#00ACC1"
-    },
-    {
-      "id": "P8",
-      "arrival": 100,
-      "burst": 3,
-      "color": "#E91E63"
     }
   ],
   "sequence": [
     {
       "id": "P1",
-      "start": 1,
-      "end": 4,
+      "start": 0,
+      "end": 8,
       "color": "#4285F4",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P1",
-      "start": 4,
-      "end": 7,
-      "color": "#4285F4",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P3",
-      "start": 7,
-      "end": 10,
-      "color": "#F4B400",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P6",
-      "start": 10,
-      "end": 13,
-      "color": "#FF6D00",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P3",
-      "start": 13,
-      "end": 16,
-      "color": "#F4B400",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P6",
-      "start": 16,
-      "end": 19,
-      "color": "#FF6D00",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P3",
-      "start": 19,
-      "end": 22,
-      "color": "#F4B400",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P6",
-      "start": 22,
-      "end": 25,
-      "color": "#FF6D00",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P2",
-      "start": 25,
-      "end": 28,
-      "color": "#0F9D58",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P4",
-      "start": 28,
-      "end": 31,
-      "color": "#DB4437",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P1",
-      "start": 31,
-      "end": 34,
-      "color": "#4285F4",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P3",
-      "start": 34,
-      "end": 37,
-      "color": "#F4B400",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P6",
-      "start": 37,
-      "end": 39,
-      "color": "#FF6D00",
       "endReason": "COMPLETED"
     },
     {
       "id": "P2",
-      "start": 39,
-      "end": 42,
+      "start": 8,
+      "end": 12,
       "color": "#0F9D58",
-      "endReason": "QUANTUM_EXPIRE+STARVATION_RESET"
-    },
-    {
-      "id": "P3",
-      "start": 42,
-      "end": 43,
-      "color": "#F4B400",
-      "endReason": "COMPLETED"
-    },
-    {
-      "id": "P5",
-      "start": 43,
-      "end": 46,
-      "color": "#AA46BB",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P1",
-      "start": 46,
-      "end": 47,
-      "color": "#4285F4",
-      "endReason": "COMPLETED"
-    },
-    {
-      "id": "P5",
-      "start": 47,
-      "end": 50,
-      "color": "#AA46BB",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P5",
-      "start": 50,
-      "end": 52,
-      "color": "#AA46BB",
       "endReason": "COMPLETED"
     },
     {
       "id": "P4",
-      "start": 52,
-      "end": 55,
+      "start": 12,
+      "end": 17,
       "color": "#DB4437",
       "endReason": "COMPLETED"
     },
     {
-      "id": "P2",
-      "start": 55,
-      "end": 58,
-      "color": "#0F9D58",
-      "endReason": "QUANTUM_EXPIRE+DEMOTED"
-    },
-    {
-      "id": "P7",
-      "start": 58,
-      "end": 61,
-      "color": "#00ACC1",
-      "endReason": "COMPLETED"
-    },
-    {
-      "id": "P2",
-      "start": 61,
-      "end": 64,
-      "color": "#0F9D58",
-      "endReason": "QUANTUM_EXPIRE+STARVATION_RESET"
-    },
-    {
-      "id": "P2",
-      "start": 64,
-      "end": 67,
-      "color": "#0F9D58",
-      "endReason": "QUANTUM_EXPIRE+STARVATION_RESET"
-    },
-    {
-      "id": "P2",
-      "start": 67,
-      "end": 70,
-      "color": "#0F9D58",
-      "endReason": "QUANTUM_EXPIRE+STARVATION_RESET"
-    },
-    {
-      "id": "P2",
-      "start": 70,
-      "end": 71,
-      "color": "#0F9D58",
-      "endReason": "COMPLETED"
-    },
-    {
-      "id": "P8",
-      "start": 100,
-      "end": 103,
-      "color": "#E91E63",
+      "id": "P3",
+      "start": 17,
+      "end": 26,
+      "color": "#F4B400",
       "endReason": "COMPLETED"
     }
   ],
   "stats": {
-    "cpuUtilization": 70.87,
-    "avgWTA": 5.68,
-    "avgWait": 32.0,
-    "avgTurnaround": 41.12
+    "cpuUtilization": 96.15,
+    "avgWTA": 2.3,
+    "avgWait": 7.75,
+    "avgTurnaround": 14.25
   }
 }

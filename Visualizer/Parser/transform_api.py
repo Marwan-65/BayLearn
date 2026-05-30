@@ -7,13 +7,28 @@ from typing import Any, Dict, Optional
 
 import requests
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from preprocess_json import prepare_llm_payload
-from llm_orchestrator import run_orchestration
+from llm_orchestrator import (
+    run_orchestration,
+    write_scheduler_processes_txt,
+    write_btree_json,
+    write_linked_list_json,
+)
 
 
 app = FastAPI(title="Visualizer Transform API", version="1.0.0")
+
+# Allow browser-based viewers to fetch run payloads
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 RUNS_DIR = BASE_DIR / "runs"
@@ -83,11 +98,14 @@ def _read_run(run_id: str) -> RunRecord:
 def _build_viewer_url(animation_type: str, run_id: str) -> str:
     linked_base = _get_env("LINKED_LIST_VIEWER_URL", "http://localhost:8081")
     scheduler_base = _get_env("SCHEDULER_VIEWER_URL", "http://localhost:8082")
+    btree_base = _get_env("BTREE_VIEWER_URL", "http://localhost:8083")
 
     if animation_type == "linked_list":
         return f"{linked_base}?run_id={run_id}"
     if animation_type == "scheduler":
         return f"{scheduler_base}?run_id={run_id}"
+    if animation_type == "btree":
+        return f"{btree_base}?run_id={run_id}"
     return f"http://localhost:8010/unknown?run_id={run_id}"
 
 
@@ -155,6 +173,49 @@ async def ingest_transform(
 def launch(req: LaunchRequest) -> LaunchResponse:
     if req.extraction is None:
         raise HTTPException(status_code=400, detail="Cannot launch without extraction payload")
+
+    # Write the LLM extractions to the local file system for the visualizers to use
+    if req.animation_type == "scheduler":
+        scheduler_dir = BASE_DIR.parent / "Scheduler Animation"
+        scheduler_txt_path = scheduler_dir / "scheduler" / "processes.txt"
+        try:
+            write_scheduler_processes_txt(scheduler_txt_path, req.extraction)
+        except Exception as e:
+            print(f"Warning: Failed to write processes.txt: {e}")
+
+    elif req.animation_type == "btree":
+        btree_json_path = BASE_DIR.parent / "btree-visualizer" / "user-scenario.json"
+        try:
+            write_btree_json(btree_json_path, req.extraction)
+        except Exception as e:
+            print(f"Warning: Failed to write btree user-scenario.json: {e}")
+
+    elif req.animation_type == "linked_list":
+        linked_json_path = BASE_DIR.parent / "Linked List Animation" / "linked-list-sequence.json"
+        try:
+            write_linked_list_json(linked_json_path, req.extraction)
+        except Exception as e:
+            print(f"Warning: Failed to write linked-list-sequence.json: {e}")
+
+    if req.animation_type == "scheduler":
+        import subprocess
+        scheduler_dir = BASE_DIR.parent / "Scheduler Animation"
+        algo = req.extraction.get("algorithm", "RR") if req.extraction else "RR"
+        algo_map = {"SJF": 0, "HPF": 1, "RR": 2, "MLQ": 3}
+        sch_id = algo_map.get(algo, 2)
+        q = req.extraction.get("quantum") if req.extraction else 3
+        if q is None:
+            q = 3
+        
+        try:
+            # Automate the C-backend execution so no manual script running is needed
+            subprocess.run(
+                ["powershell.exe", "-ExecutionPolicy", "Bypass", "-File", "run_scheduler.ps1", "-SCH", str(sch_id), "-Q", str(q), "-ProcessFile", "processes.txt"],
+                cwd=str(scheduler_dir),
+                check=True
+            )
+        except Exception as e:
+            print(f"Warning: Failed to auto-run scheduler simulation: {e}")
 
     run_id = uuid.uuid4().hex
     viewer_url = _build_viewer_url(req.animation_type, run_id)

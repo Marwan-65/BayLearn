@@ -23,7 +23,7 @@ export class ComplexityPanel {
    * Load complexity info for an operation. Call once when the user
    * selects a new operation, before the first step is rendered.
    *
-   * @param {string} operationKey  — key into COMPLEXITY_MAP
+   * @param {string} operationKey  --, key into COMPLEXITY_MAP
    */
   loadOperation(operationKey) {
     this._render(COMPLEXITY_MAP[operationKey] ?? null);
@@ -37,7 +37,7 @@ export class ComplexityPanel {
 
   _render(info) {
     if (!info) {
-      this._el.innerHTML = '<span class="cx-empty">—</span>';
+      this._el.innerHTML = '<span class="cx-empty">--,</span>';
       return;
     }
 

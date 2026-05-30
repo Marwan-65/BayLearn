@@ -2,7 +2,7 @@
  * OPERATIONS / SHARED UTILITIES
  *
  * Helpers used by every operation module.
- * Nothing here is exported from the public API — it is internal plumbing.
+ * Nothing here is exported from the public API --, it is internal plumbing.
  */
 
 // ─── State Cloning ────────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ export function cloneState(state) {
 
 /**
  * Generates the next available node ID and increments the counter.
- * Mutates list._nextId — call this on your working copy, not the original.
+ * Mutates list._nextId --, call this on your working copy, not the original.
  *
  * @param {ListState} list  (working copy)
  * @returns {string}        e.g. "n3"
@@ -71,7 +71,7 @@ export function createStep({
 }) {
   return {
     stepIndex,
-    state:    cloneState(state),   // snapshot — immutable after creation
+    state:    cloneState(state),   // snapshot --, immutable after creation
     action,
     explanation,
     highlights: {

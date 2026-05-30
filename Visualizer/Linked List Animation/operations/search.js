@@ -7,7 +7,7 @@
  * Time complexity: O(n) in the worst case (target not present or at tail).
  *
  * Teaching points:
- *   - Linked lists have O(n) search — no random access, no binary search
+ *   - Linked lists have O(n) search --, no random access, no binary search
  *   - Every node must be inspected in sequence
  *   - Contrast with arrays (O(1) index access) and hash maps (O(1) average)
  */
@@ -48,7 +48,7 @@ export function searchByValue(list, target) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are searching for the value ${target}. In a linked list we have no choice but to start at the head and check each node one by one — this is a linear search, O(n) in the worst case.`,
+    explanation:  `We are searching for the value ${target}. In a linked list we have no choice but to start at the head and check each node one by one --, this is a linear search, O(n) in the worst case.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    { current: null },
     pseudocodeLine: null,
@@ -97,7 +97,7 @@ export function searchByValue(list, target) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.CHECK_WHILE_CONDITION,
-      explanation:  `current ≠ null — we are at index ${position} (value: ${node.value}). We check if this is our target.`,
+      explanation:  `current ≠ null --, we are at index ${position} (value: ${node.value}). We check if this is our target.`,
       nodeHighlights: [{ nodeId: currentId, role: NODE_ROLES.VISITING }],
       variables:    { current: currentId, index: position },
       pseudocodeLine: 2,
@@ -154,7 +154,7 @@ export function searchByValue(list, target) {
         stepIndex: idx++,
         state,
         action:       ACTIONS.ADVANCE_CURRENT_TO_NULL,
-        explanation:  `current ← current.next. The current node (value: ${node.value}) is the tail. current becomes null — the loop will exit.`,
+        explanation:  `current ← current.next. The current node (value: ${node.value}) is the tail. current becomes null --, the loop will exit.`,
         nodeHighlights: [{ nodeId: currentId, role: NODE_ROLES.TAIL }],
         variables:    { current: null, index: position + 1 },
         pseudocodeLine: 6,
@@ -171,7 +171,7 @@ export function searchByValue(list, target) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.VALUE_NOT_FOUND,
-    explanation:  `current is null — we have exhausted the list without finding ${target}. Returning −1. The search required ${position} comparison${position !== 1 ? 's' : ''}.`,
+    explanation:  `current is null --, we have exhausted the list without finding ${target}. Returning −1. The search required ${position} comparison${position !== 1 ? 's' : ''}.`,
     nodeHighlights: [],
     variables:    { current: null, index: position },
     pseudocodeLine: 9,
