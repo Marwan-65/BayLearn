@@ -32,7 +32,11 @@ class GeneratedQuestion(BaseModel):
     explanation: str                                 # Why this is correct
     source_chunk_id: Optional[int] = None           # Which chunk this came from
     difficulty: str
-    validation_report: Optional[dict] = None        # Semantic validation results
+    validation_report: Optional[dict] = None        # Semantic validation result
+    # ICL/classifier metadata — populated when BloomBERT weights are present.
+    # predicted_level is None when running without a trained classifier.
+    predicted_level: Optional[str] = None            # easy | medium | hard | None
+    level_confidence: Optional[float] = None         # softmax prob of predicted_level
 
 # ── What your API returns ──────────────────────────────────────────────────
 class GenerateQuestionsResponse(BaseModel):

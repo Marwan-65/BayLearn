@@ -1,2 +1,0 @@
-# this folder is for saving all the enums {constants} used in the project
-from .Response import Response_Signal
