@@ -1,0 +1,57 @@
+# Environment variables
+.env
+.env.*
+*.env
+
+# Python virtual environments
+.venv/
+venv/
+env/
+virtualenv/
+*_env/
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+
+# Build and distribution artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+
+# Testing and coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+
+# IDE / Editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.db
+*.sqlite3
+
+# Data and upload directories
+# These should typically not be in version control.
+# Add any specific data folders your application uses.
+data/
+uploads/
+output/
+*changes/
