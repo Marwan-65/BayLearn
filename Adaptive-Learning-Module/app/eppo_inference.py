@@ -20,7 +20,6 @@ scope-value is always comma-separated — supports multiple courses or files.
 Static config in .env:
     CONCEPT_DB_URL
     QUESTION_API_URL    (default: http://localhost:5000/generate)
-    ANSWER_API_URL      (default: http://localhost:5000/answer)
 
 Dependencies:
     pip install torch sentence-transformers==2.7.0 transformers==4.40.2
@@ -57,8 +56,6 @@ warnings.filterwarnings("ignore")
 CONCEPT_DB_URL   = os.environ.get("CONCEPT_DB_URL", "").strip()
 QUESTION_API_URL = os.environ.get("QUESTION_API_URL",
                                   "http://localhost:5000/generate")
-ANSWER_API_URL   = os.environ.get("ANSWER_API_URL",
-                                  "http://localhost:5000/answer")
 MODEL_PATH       = os.path.join(os.path.dirname(__file__),
                                 "models", "eppo_latest_model.pt")
 
@@ -739,17 +736,32 @@ def load_actor(model_path: str) -> EPPOActor:
 # API helpers
 # ---------------------------------------------------------------------------
 
-def api_send_question(topic: str, difficulty: str) -> None:
-    resp = requests.post(QUESTION_API_URL,
-                         json={"topic": topic, "difficulty": difficulty},
-                         timeout=30)
-    resp.raise_for_status()
+def api_send_question(topic: str, difficulty: str) -> bool:
+    """
+    POST /generate to the question generation module and block until
+    the student answers.
 
+    The module handles everything internally — generating the question,
+    delivering it to the frontend (WebSocket, SSE, polling, whatever),
+    waiting for the student answer, evaluating it, then returning the result.
 
-def api_get_answer() -> bool:
-    resp = requests.get(ANSWER_API_URL, timeout=60)
+    eppo_inference.py only cares about the contract:
+        POST /generate  body: {topic, difficulty}
+                        returns: {"correct": bool}
+
+    timeout=None — waits however long the student needs.
+    """
+    resp = requests.post(
+        QUESTION_API_URL,
+        json={
+            "topic":      topic,
+            "difficulty": difficulty,
+        },
+        timeout=None,
+    )
     resp.raise_for_status()
     return bool(resp.json()["correct"])
+
 
 
 # ---------------------------------------------------------------------------
@@ -816,8 +828,7 @@ def run_session(
         difficulty_name = cfg.LEVEL_NAMES[level]
         course_label    = idx_to_course.get(global_ci, "?")
 
-        api_send_question(concept_name, difficulty_name)
-        correct = api_get_answer()
+        correct = api_send_question(concept_name, difficulty_name)
 
         p_before, p_after = tracker.update(global_ci, level, int(correct))
         p_hard_now = tracker.predict(global_ci, 2)
