@@ -2,10 +2,10 @@
  * OPERATION: DELETE
  *
  * Four variants:
- *   deleteAtHead   — O(1)
- *   deleteAtTail   — O(n), must find second-to-last node
- *   deleteByValue  — O(n), two-pointer technique (prev + current)
- *   deleteAtIndex  — O(n), two-pointer technique
+ *   deleteAtHead   --, O(1)
+ *   deleteAtTail   --, O(n), must find second-to-last node
+ *   deleteByValue  --, O(n), two-pointer technique (prev + current)
+ *   deleteAtIndex  --, O(n), two-pointer technique
  *
  * Key teaching points:
  *   - deleteAtHead is O(1) because head is directly accessible
@@ -100,7 +100,7 @@ export function deleteAtHead(list) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are going to delete the head node. This is O(1) — no traversal needed, because we always have a direct reference to the head.`,
+    explanation:  `We are going to delete the head node. This is O(1) --, no traversal needed, because we always have a direct reference to the head.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    {},
     pseudocodeLine: null,
@@ -113,7 +113,7 @@ export function deleteAtHead(list) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.LIST_EMPTY,
-      explanation:  `The list is empty — there is no head node to delete. The operation is a no-op.`,
+      explanation:  `The list is empty --, there is no head node to delete. The operation is a no-op.`,
       nodeHighlights: [],
       variables:    {},
       pseudocodeLine: 0,
@@ -175,7 +175,7 @@ export function deleteAtHead(list) {
 
 /**
  * Removes the tail node and returns its value.
- * Time complexity: O(n) — must find the second-to-last node.
+ * Time complexity: O(n) --, must find the second-to-last node.
  *
  * @param {ListState} list
  * @returns {Step[]}
@@ -189,7 +189,7 @@ export function deleteAtTail(list) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are going to delete the tail node. This is O(n) — even though we want the last node, we need the second-to-last node to update its "next" pointer to null. There is no way to go backwards in a singly linked list.`,
+    explanation:  `We are going to delete the tail node. This is O(n) --, even though we want the last node, we need the second-to-last node to update its "next" pointer to null. There is no way to go backwards in a singly linked list.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    {},
     pseudocodeLine: null,
@@ -342,7 +342,7 @@ export function deleteByValue(list, target) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are going to delete the first node with value ${target}. We will use two pointers — "prev" and "current" — so that when we find the target we can immediately update prev.next to skip over it.`,
+    explanation:  `We are going to delete the first node with value ${target}. We will use two pointers --, "prev" and "current" --, so that when we find the target we can immediately update prev.next to skip over it.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    {},
     pseudocodeLine: null,
@@ -439,7 +439,7 @@ export function deleteByValue(list, target) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.COMPARE_VALUE,
-      explanation:  `Is current.value (${currentNode.value}) === ${target}? ${currentNode.value === target ? 'Yes — found the target!' : 'No — keep searching.'}`,
+      explanation:  `Is current.value (${currentNode.value}) === ${target}? ${currentNode.value === target ? 'Yes --, found the target!' : 'No --, keep searching.'}`,
       nodeHighlights: [
         { nodeId: prevId,    role: NODE_ROLES.PREV },
         { nodeId: currentId, role: NODE_ROLES.COMPARING },
@@ -450,7 +450,7 @@ export function deleteByValue(list, target) {
     }));
 
     if (currentNode.value === target) {
-      // Found — bypass the current node
+      // Found --, bypass the current node
       const nextId = currentNode.next;
       delete state.nodes[currentId];
       state.nodes[prevId].next = nextId;
@@ -511,7 +511,7 @@ export function deleteByValue(list, target) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.VALUE_NOT_FOUND,
-    explanation:  `current is now null — we have reached the end of the list without finding the value ${target}. No node was deleted. The list is unchanged.`,
+    explanation:  `current is now null --, we have reached the end of the list without finding the value ${target}. No node was deleted. The list is unchanged.`,
     nodeHighlights: [],
     variables:    { prev: prevId, current: null },
     pseudocodeLine: 17,
@@ -568,7 +568,7 @@ export function deleteAtIndex(list, index) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.CHECK_WHILE_CONDITION,
-      explanation:  `Index is 0 — this is a head deletion. Delegating to deleteAtHead.`,
+      explanation:  `Index is 0 --, this is a head deletion. Delegating to deleteAtHead.`,
       nodeHighlights: [],
       variables:    {},
       pseudocodeLine: 1,

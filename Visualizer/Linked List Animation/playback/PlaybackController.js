@@ -9,7 +9,7 @@
  *   - On every index change, fires two independent events:
  *       "frame"     → consumed by the Animation Layer (SVG/D3)
  *       "narrative" → consumed by the Narrative Layer (text, code, variables)
- *   - Has no knowledge of D3, SVG, DOM, or React — it is pure JS
+ *   - Has no knowledge of D3, SVG, DOM, or React --, it is pure JS
  *
  * ─── Event contract ───────────────────────────────────────────────────────────
  *
@@ -18,7 +18,7 @@
  *   "statusChange"      → { status, currentIndex, totalSteps, progress }
  *   "complete"          → fires once when the last step is reached during play()
  *
- * Both layers receive the SAME step object — they just read different fields from it.
+ * Both layers receive the SAME step object --, they just read different fields from it.
  *
  * ─── Usage ────────────────────────────────────────────────────────────────────
  *

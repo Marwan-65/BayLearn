@@ -1,5 +1,5 @@
 /**
- * APP.JS — WIRING LOGIC
+ * APP.JS --, WIRING LOGIC
  *
  * This file is the only place in the entire codebase where all three layers
  * (Animation, Narrative, Playback) are imported and connected together.
@@ -26,6 +26,7 @@
 
 import {
   fromArray,
+  toArray,
   traverse,
   insertAtHead, insertAtTail, insertAtIndex,
   deleteAtHead, deleteAtTail, deleteByValue, deleteAtIndex,
@@ -45,6 +46,13 @@ let animLayer  = null;
 let narrLayer  = null;
 let controller = null;
 
+let scenario = null;
+let scenarioIndex = 0;
+let scenarioWorkingList = null;
+let scenarioWorkingListText = null;
+
+const SCENARIO_FILE = './linked-list-sequence.json';
+
 // ─── Operation dispatcher ─────────────────────────────────────────────────────
 
 const OPS_NEEDING_VALUE = new Set([
@@ -55,7 +63,7 @@ const OPS_NEEDING_INDEX = new Set(['insertAtIndex', 'deleteAtIndex']);
 
 /**
  * Map an operation key + parameters to the correct operation function call.
- * Returns a Step[] array. Pure — no side effects.
+ * Returns a Step[] array. Pure --, no side effects.
  *
  * @param {string}    op
  * @param {ListState} list
@@ -94,7 +102,12 @@ function runOperation() {
     .filter(Boolean)
     .map(s => (isNaN(s) ? s : Number(s)));
 
-  const list  = fromArray(values);
+  const normalizedRawList = normalizeListText(rawList);
+  const useScenarioState = Boolean(
+    scenario && scenarioWorkingList && scenarioWorkingListText === normalizedRawList
+  );
+
+  const list  = useScenarioState ? scenarioWorkingList : fromArray(values);
   const op    = document.getElementById('op-select').value;
   const value = (() => {
     const v = document.getElementById('param-value').value;
@@ -106,6 +119,9 @@ function runOperation() {
   const steps = buildSteps(op, list, value, index);
   if (!steps.length) return;
 
+  // In scenario mode, treat the resulting list as the next input seed.
+  syncScenarioAfterRun(steps);
+
   // 3. Pre-flight: load the correct pseudocode + complexity into the narrative
   //    layer BEFORE the controller fires its first event.
   narrLayer.loadOperation(op);
@@ -113,6 +129,9 @@ function runOperation() {
   // 4. Destroy the old controller to stop any running timers and clear
   //    old event listeners. Skipping this would double-fire events.
   if (controller) controller.destroy();
+
+  // Reset animation history so the next operation is rendered as a fresh run.
+  if (animLayer) animLayer._prev = null;
 
   controller = new PlaybackController(steps, {
     speed:            currentSpeed(),
@@ -131,7 +150,7 @@ function runOperation() {
     progress:     1,
   }));
 
-  // 6. Render the first frame immediately — before the user presses play.
+  // 6. Render the first frame immediately --, before the user presses play.
   //    Without this the canvas is blank on load.
   animLayer.render(steps[0]);
   narrLayer.update(steps[0]);
@@ -144,6 +163,78 @@ function runOperation() {
     totalSteps:   steps.length,
     progress:     0,
   });
+}
+
+function applyScenarioStep(step) {
+  if (!step || typeof step !== 'object') return;
+
+  document.getElementById('op-select').value = step.op ?? 'traverse';
+
+  if ('value' in step) {
+    document.getElementById('param-value').value = step.value;
+  }
+
+  if ('index' in step) {
+    document.getElementById('param-index').value = step.index;
+  }
+
+  syncParamVisibility();
+}
+
+function prefillFromScenarioStart() {
+  if (!scenario) return;
+
+  const listText = scenario.initialList.map(v => String(v)).join(', ');
+  document.getElementById('input-list').value = listText;
+  scenarioWorkingList = fromArray(scenario.initialList);
+  scenarioWorkingListText = listText;
+
+  scenarioIndex = 0;
+  applyScenarioStep(scenario.operations[scenarioIndex]);
+}
+
+function syncScenarioAfterRun(steps) {
+  if (!scenario || !Array.isArray(steps) || steps.length === 0) return;
+
+  const lastStep = steps[steps.length - 1];
+  scenarioWorkingList = lastStep.state;
+  const nextList = toArray(lastStep.state);
+  const nextListText = nextList.join(', ');
+  document.getElementById('input-list').value = nextListText;
+  scenarioWorkingListText = nextListText;
+
+  scenarioIndex += 1;
+  if (scenarioIndex < scenario.operations.length) {
+    applyScenarioStep(scenario.operations[scenarioIndex]);
+  }
+}
+
+function normalizeListText(text) {
+  return text
+    .split(',')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+async function loadScenario() {
+  try {
+    const res = await fetch(SCENARIO_FILE);
+    if (!res.ok) return;
+
+    const parsed = await res.json();
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+    if (!Array.isArray(parsed.initialList) || !Array.isArray(parsed.operations)) return;
+    if (parsed.operations.length === 0) return;
+
+    const hasInvalidOp = parsed.operations.some(item => !item || typeof item.op !== 'string');
+    if (hasInvalidOp) return;
+
+    scenario = parsed;
+    prefillFromScenarioStart();
+  } catch {
+    // Scenario mode is optional. If loading fails, keep normal manual mode.
+  }
 }
 
 // ─── Playback UI chrome ───────────────────────────────────────────────────────
@@ -205,7 +296,7 @@ function syncParamVisibility() {
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   // Instantiate long-lived singletons
   animLayer = new AnimationLayer(
     document.getElementById('viz-svg'),
@@ -225,8 +316,56 @@ window.addEventListener('load', () => {
 
   syncParamVisibility();
 
-  // Run the default operation immediately so the canvas isn't blank
-  runOperation();
+  // If a run_id is present in the URL, fetch the run payload from the
+  // Transform API and convert it into a local scenario object. Otherwise
+  // fall back to loading the local scenario file.
+  const params = new URLSearchParams(window.location.search);
+  const runId = params.get('run_id');
+
+  if (runId) {
+    try {
+      const apiBase = 'http://localhost:8010';
+      const res = await fetch(`${apiBase}/v1/runs/${runId}/payload`);
+      if (res.ok) {
+        const payload = await res.json();
+        const extraction = payload.extraction;
+        // Convert extraction to the visualizer scenario format if needed.
+        if (extraction) {
+          // If the orchestrator already wrote the simplified visualizer
+          // schema (initialList / operations), prefer it.
+          if (extraction.initialList || extraction.operations) {
+            scenario = {
+              initialList: extraction.initialList || extraction.initial_list || [],
+              operations: extraction.operations || extraction.operations || [],
+            };
+          } else {
+            // Map from orchestrator's extraction schema to visualizer schema.
+            scenario = {
+              initialList: extraction.initial_list || [],
+              operations: (extraction.operations || []).map(op => ({
+                op: op.op,
+                value: ('value' in op) ? op.value : null,
+                index: ('index' in op) ? op.index : null,
+              })),
+            };
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore and fallback to local scenario
+      console.warn('Failed to load run payload:', e);
+    }
+  }
+
+  await loadScenario();
+
+  // Keep the original behavior for manual mode only.
+  if (!scenario) runOperation();
+  else {
+    // If scenario was loaded (from run payload or file), prefill and run once
+    prefillFromScenarioStart();
+    runOperation();
+  }
 });
 
 // ─── Expose to HTML onclick attributes ───────────────────────────────────────
@@ -236,7 +375,7 @@ window.runOperation  = runOperation;
 window.scrubTo       = scrubTo;
 window.onSpeedChange = onSpeedChange;
 
-// Playback button handlers — proxy to controller so HTML doesn't need to
+// Playback button handlers --, proxy to controller so HTML doesn't need to
 // know controller exists
 window.ctrlPlay        = () => controller?.togglePlay();
 window.ctrlStepFwd     = () => controller?.stepForward();

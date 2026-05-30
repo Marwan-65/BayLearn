@@ -1,5 +1,5 @@
 /**
- * TESTS — PlaybackController
+ * TESTS --, PlaybackController
  *
  * Run with:  node tests/playback.test.js
  */
@@ -78,7 +78,7 @@ test('currentStep returns step 0 initially', () => {
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 
-section('Navigation — stepForward / stepBack / jumpTo');
+section('Navigation --, stepForward / stepBack / jumpTo');
 
 test('stepForward advances index by 1', () => {
   const { ctrl } = makeCtrl();
@@ -174,7 +174,7 @@ test('progress is between 0 and 1 in the middle', () => {
 
 // ─── Events ───────────────────────────────────────────────────────────────────
 
-section('Events — frame / narrative / statusChange');
+section('Events --, frame / narrative / statusChange');
 
 test('stepForward fires frame event with correct step', () => {
   const { ctrl, steps } = makeCtrl();
@@ -276,7 +276,7 @@ test('loadSteps throws on empty array', () => {
 
 // ─── Async: play / pause / complete ──────────────────────────────────────────
 
-section('Async — play / pause / complete');
+section('Async --, play / pause / complete');
 
 await testAsync('play() reaches complete and fires complete event', () => {
   return new Promise((resolve, reject) => {

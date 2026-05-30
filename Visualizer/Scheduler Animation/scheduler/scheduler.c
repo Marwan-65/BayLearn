@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
         if (prev_clk == getClk())
             continue;
         prev_clk = getClk();
-        sleep(0.03);
+        sleep(0.08);
         tempnode= noMemoryQ.peek(&noMemoryQ);
         if(tempnode!=NULL){
           while(tempnode!=NULL&&algo.add(algo.algo_obj,tempnode->data)){

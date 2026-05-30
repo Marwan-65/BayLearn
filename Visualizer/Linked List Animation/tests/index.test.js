@@ -1,9 +1,9 @@
 /**
- * TESTS — Data Layer & Operations
+ * TESTS --, Data Layer & Operations
  *
  * Run with:  node tests/index.test.js
  *
- * No test framework needed — pure Node.js assertions.
+ * No test framework needed --, pure Node.js assertions.
  */
 
 import assert from 'node:assert/strict';
@@ -55,7 +55,7 @@ function stepsHaveIncreasingIndices(steps) {
 
 // ─── Schema tests ─────────────────────────────────────────────────────────────
 
-section('Schema — createList / fromArray / toArray');
+section('Schema --, createList / fromArray / toArray');
 
 test('createList returns empty list', () => {
   const l = createList();
