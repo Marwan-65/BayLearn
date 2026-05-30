@@ -34,7 +34,11 @@ class GeneratedQuestion(BaseModel):
     keywords_to_match: Optional[List[str]] = None    # Short-answer grading hints
     explanation: str                                 # Why this is correct
     source_chunk_id: Optional[int] = None           # Which chunk this came from
-    difficulty: str
+    difficulty: str                                  # Requested Bloom 6-level
+    # ICL/classifier metadata — populated when BloomBERT weights are present.
+    # predicted_level is None when running without a trained classifier.
+    predicted_level: Optional[str] = None            # easy | medium | hard | None
+    level_confidence: Optional[float] = None         # softmax prob of predicted_level
 
 # ── What your API returns ──────────────────────────────────────────────────
 class GenerateQuestionsResponse(BaseModel):

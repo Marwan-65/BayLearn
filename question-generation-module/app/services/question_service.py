@@ -11,6 +11,8 @@ from app.services.prompt_builder import (
     build_true_false_prompt,
 )
 from app.models.schemas import GeneratedQuestion, QuestionOption
+from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
+from app.services.example_bank import ExampleBank
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +36,17 @@ class QuestionGenerationService:
                         → return GeneratedQuestion list
     """
 
-    def __init__(self, llm_client: QuestionGenLLMClient, chunk_fetcher: ChunkFetcher):
+    def __init__(self, llm_client: QuestionGenLLMClient, chunk_fetcher: ChunkFetcher,
+                 example_bank: Optional[ExampleBank] = None,
+                 bloom_classifier: Optional[BloomClassifier] = None,
+                 few_shot_k: int = 10,
+                 retry_on_level_mismatch: bool = True):
         self.llm_client = llm_client
         self.chunk_fetcher = chunk_fetcher
+        self.example_bank = example_bank
+        self.bloom_classifier = bloom_classifier
+        self.few_shot_k = few_shot_k
+        self.retry_on_level_mismatch = retry_on_level_mismatch
 
     async def generate(
         self,
@@ -63,7 +73,7 @@ class QuestionGenerationService:
 
         if not raw_chunks:
             raise ValueError(f"No indexed content found for project '{project_id}'. "
-                             "Make sure the project has been uploaded and indexed first.")
+                            "Make sure the project has been uploaded and indexed first.")
 
         # 3. Randomly sample from the fetched chunks for diversity
         # Use at most 10 but pick randomly to avoid always using the same top ones
@@ -73,28 +83,105 @@ class QuestionGenerationService:
         # 4. Join chunk texts, but don't exceed the LLM context limit
         chunks_text = self._prepare_context(selected_chunks)
 
-        # 5. Build prompt based on question type
-        if question_type == "mcq":
-            system_prompt, user_prompt = build_mcq_prompt(chunks_text, num_questions, difficulty)
-        elif question_type == "short_answer":
-            system_prompt, user_prompt = build_short_answer_prompt(chunks_text, num_questions, difficulty)
-        elif question_type == "true_false":
-            system_prompt, user_prompt = build_true_false_prompt(chunks_text, num_questions, difficulty)
-        else:
-            raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
-
-        # 6. Call the LLM with higher temperature for diversity
-        raw_response = self.llm_client.generate(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            temperature=0.85,  # Increased from 0.7 for more variety
-            max_tokens=min(900, 220 + (num_questions * 140)),
+        # 5. ICL: retrieve few-shot examples by cosine similarity to the
+        #    chunk/topic, level-filtered. The bank no longer uses subject
+        #    filtering — concept matching is fully delegated to the embedding
+        #    similarity (the query encodes the concept directly).
+        target_level = bloom6_to_level(difficulty)  # 6-level → easy/medium/hard
+        few_shot = self._retrieve_few_shot(
+            query_text=topic or chunks_text[:600],
+            target_level=target_level,
+        )
+        logger.info(
+            "ICL: %d examples retrieved (target_level=%s)",
+            len(few_shot), target_level,
         )
 
-        # 7. Parse the JSON the LLM returned
-        questions = self._parse_llm_response(raw_response, question_type)
+        # 6. Build prompt, call LLM, parse — possibly retry once on level mismatch
+        questions = await self._generate_with_retry(
+            question_type=question_type,
+            chunks_text=chunks_text,
+            num_questions=num_questions,
+            difficulty=difficulty,
+            target_level=target_level,
+            few_shot=few_shot,
+        )
 
         return questions, len(selected_chunks)
+
+    # helpers
+    def _retrieve_few_shot(self, query_text: str, target_level: str) -> list:
+        if not self.example_bank or not self.example_bank.entries:
+            return []
+        try:
+            return self.example_bank.retrieve(
+                query_text=query_text, target_level=target_level,
+                k=self.few_shot_k,
+            )
+        except Exception as e:  # never fail generation due to ICL 
+            logger.warning("Few-shot retrieval failed: %s — proceeding without ICL", e)
+            return []
+
+    def _build_prompt(self, question_type, chunks_text, num_questions,
+                      difficulty, few_shot):
+        if question_type == "mcq":
+            return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot)
+        if question_type == "short_answer":
+            return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot)
+        if question_type == "true_false":
+            return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot)
+        raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
+
+    async def _generate_with_retry(self, question_type, chunks_text,
+                                   num_questions, difficulty, target_level,
+                                   few_shot) -> List[GeneratedQuestion]:
+        """Generate, classify output, retry once if too many wrong-level questions."""
+        attempts = 0
+        max_attempts = 2 if self.retry_on_level_mismatch else 1
+        last_questions: List[GeneratedQuestion] = []
+
+        while attempts < max_attempts:
+            attempts += 1
+            system_prompt, user_prompt = self._build_prompt(
+                question_type, chunks_text, num_questions, difficulty, few_shot,
+            )
+            raw_response = self.llm_client.generate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                # Slightly lower temperature on retry to converge on correct level
+                temperature=0.85 if attempts == 1 else 0.6,
+                max_tokens=min(900, 220 + (num_questions * 140)),
+            )
+            questions = self._parse_llm_response(raw_response, question_type)
+            last_questions = self._classify_predicted_levels(questions)
+
+            # Decide if we need a retry
+            if not self.bloom_classifier or attempts == max_attempts:
+                break
+            mismatches = sum(
+                1 for q in last_questions
+                if q.predicted_level and q.predicted_level != target_level
+            )
+            if mismatches <= len(last_questions) // 2:
+                break  # majority correct -> accept , to overcome classifier noise
+            logger.info(
+                "ICL retry: %d/%d questions had wrong level on attempt %d "
+                "(target=%s). Retrying with lower temperature.",
+                mismatches, len(last_questions), attempts, target_level,
+            )
+
+        return last_questions
+
+    def _classify_predicted_levels(self, questions: List[GeneratedQuestion]) -> List[GeneratedQuestion]:
+        """Annotate each question with predicted_level / confidence from BloomBERT."""
+        if not self.bloom_classifier or not questions:
+            return questions
+        texts = [q.question_text for q in questions]
+        preds = self.bloom_classifier.predict_batch(texts)
+        for q, p in zip(questions, preds):
+            q.predicted_level = p.level
+            q.level_confidence = p.confidence
+        return questions
 
     def _prepare_context(self, raw_chunks: list) -> str:
         """

@@ -1,4 +1,3 @@
-
 # BayLearn - Input Parsing Module
 
 This repository contains the Input Parsing API used to parse uploaded files into structured content for downstream RAG/LLM workflows.
@@ -51,7 +50,7 @@ alembic upgrade head
 
 6. Install ffmpeg if it is not already available on your machine.
 
-	On Windows, one option is:
+   On Windows, one option is:
 
 ```powershell
 winget install Gyan.FFmpeg
@@ -309,22 +308,24 @@ Audio and video uploads now return the same `ParsedContent` structure as PDF/ima
 ### Schema Definitions
 
 - `ParsedContent`
-	- `source_type: string`
-	- `title: string | null`
-	- `sections: Section[]`
-	- `total_chunks: number`
+
+  - `source_type: string`
+  - `title: string | null`
+  - `sections: Section[]`
+  - `total_chunks: number`
 
 - `Section`
-	- `id: string`
-	- `heading: string | null`
-	- `page: number | null`
-	- `chunks: Chunk[]`
+
+  - `id: string`
+  - `heading: string | null`
+  - `page: number | null`
+  - `chunks: Chunk[]`
 
 - `Chunk`
-	- `id: string`
-	- `content: string`
-	- `chunk_index: number`
-	- `metadata: object`
+  - `id: string`
+  - `content: string`
+  - `chunk_index: number`
+  - `metadata: object`
 
 ### Chunk Metadata (current PDF parser)
 
@@ -347,4 +348,3 @@ Audio and video uploads now return the same `ParsedContent` structure as PDF/ima
 curl -X POST "http://localhost:8000/upload" \
 	-F "file=@sample.pdf"
 ```
-
