@@ -16,7 +16,7 @@
  */
 
 import { cloneState, createStep } from './shared.js';
-import { NODE_ROLES, POINTER_ROLES, ACTIONS } from '../schema/index.js';
+import { NODE_ROLES, POINTER_ROLES, ACTIONS, getOrderedIds } from '../schema/index.js';
 
 // ─── Pseudocode ───────────────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ export function reverse(list) {
   const steps = [];
   let idx = 0;
   const state = cloneState(list);
+  state._orderedIds = getOrderedIds(list);
 
   // ── Announce ───────────────────────────────────────────────────────────
 
@@ -232,6 +233,8 @@ export function reverse(list) {
     pseudocodeLine: 8,
     isKeyStep:    true,
   }));
+
+  delete state._orderedIds;
 
   steps.push(createStep({
     stepIndex: idx++,
