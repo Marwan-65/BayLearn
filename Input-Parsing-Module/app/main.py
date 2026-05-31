@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .controllers.upload_controller import router
 from .controllers.course_controller import router as course_router
 from .config import load_environment
@@ -9,6 +10,13 @@ from .controllers.user_controller import router as user_router
 load_environment()
 
 app = FastAPI(title="Input Parsing Module")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def startup():
