@@ -1,15 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
-# ── Bloom's Taxonomy Levels ────────────────────────────────────────────────
+# ── Difficulty Levels ─────────────────────────────────────────────────
 """
-Bloom's Taxonomy (Revised):
-1. Remember - recall facts and definitions
-2. Understand - explain ideas or concepts
-3. Apply - use information in a new situation
-4. Analyze - distinguish between different parts
-5. Evaluate - justify a decision or choice
-6. Create - combine elements to produce original work
+Difficulty Levels:
+1. Easy - Recall facts, definitions, and basic concepts
+2. Medium - Explain ideas, concepts, and apply knowledge
+3. Hard - Analyze, evaluate, and create original solutions
 """
 
 # ── What the caller sends to your API ──────────────────────────────────────
@@ -17,7 +14,7 @@ class GenerateQuestionsRequest(BaseModel):
     project_id: str = Field(..., description="The ID of the indexed project/document")
     topic: Optional[str] = Field(None, description="Optional: focus questions on a topic")
     num_questions: int = Field(default=5, ge=1, le=20, description="How many questions to generate")
-    difficulty: str = Field(default="understand", description="remember | understand | apply | analyze | evaluate | create")
+    difficulty: str = Field(default="medium", description="easy | medium | hard")
     question_type: str = Field(default="mcq", description="mcq | short_answer | true_false")
 
 # ── One generated question ─────────────────────────────────────────────────
@@ -35,6 +32,11 @@ class GeneratedQuestion(BaseModel):
     explanation: str                                 # Why this is correct
     source_chunk_id: Optional[int] = None           # Which chunk this came from
     difficulty: str
+    validation_report: Optional[dict] = None        # Semantic validation result
+    # ICL/classifier metadata — populated when BloomBERT weights are present.
+    # predicted_level is None when running without a trained classifier.
+    predicted_level: Optional[str] = None            # easy | medium | hard | None
+    level_confidence: Optional[float] = None         # softmax prob of predicted_level
 
 # ── What your API returns ──────────────────────────────────────────────────
 class GenerateQuestionsResponse(BaseModel):

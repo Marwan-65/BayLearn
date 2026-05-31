@@ -112,7 +112,7 @@ export const COMPLEXITY_MAP = {
   },
   insertAtHead: {
     time: 'O(1)', space: 'O(1)',
-    note: 'Head is directly accessible — two pointer updates, no traversal.',
+    note: 'Head is directly accessible --, two pointer updates, no traversal.',
   },
   insertAtTail: {
     time: 'O(n)', space: 'O(1)',
@@ -124,11 +124,11 @@ export const COMPLEXITY_MAP = {
   },
   deleteAtHead: {
     time: 'O(1)', space: 'O(1)',
-    note: 'Head is directly accessible — one pointer update, no traversal.',
+    note: 'Head is directly accessible --, one pointer update, no traversal.',
   },
   deleteAtTail: {
     time: 'O(n)', space: 'O(1)',
-    note: 'Need the second-to-last node to nullify its next — requires a full walk.',
+    note: 'Need the second-to-last node to nullify its next --, requires a full walk.',
   },
   deleteByValue: {
     time: 'O(n)', space: 'O(1)',
@@ -140,7 +140,7 @@ export const COMPLEXITY_MAP = {
   },
   searchByValue: {
     time: 'O(n)', space: 'O(1)',
-    note: 'No random access, no sorted order — every node must be checked.',
+    note: 'No random access, no sorted order --, every node must be checked.',
   },
   reverse: {
     time: 'O(n)', space: 'O(1)',

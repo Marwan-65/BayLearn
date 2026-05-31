@@ -1,0 +1,10 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+scheduler/*.out
+scheduler/Scheduler_log.txt
+scheduler/Memory_log.txt
+scheduler/reason_log.txt
+scheduler/Scheduler_perf.txt
+visualizer/data/processes.json

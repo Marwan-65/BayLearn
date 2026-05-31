@@ -2,7 +2,7 @@
  * NARRATIVE LAYER
  *
  * The public face of the entire narrative subsystem.
- * app.js imports only this class — the four sub-panels are an
+ * app.js imports only this class --, the four sub-panels are an
  * implementation detail invisible to the outside world.
  *
  * Responsibilities:
@@ -34,10 +34,10 @@ import { PSEUDOCODES }       from './constants.js';
 export class NarrativeLayer {
   /**
    * @param {object} elements
-   * @param {HTMLElement} elements.complexityEl   — container for complexity badges
-   * @param {HTMLElement} elements.codeEl         — container for pseudocode lines
-   * @param {HTMLElement} elements.explanationEl  — container for explanation text
-   * @param {HTMLElement} elements.varListEl      — container for variable chips
+   * @param {HTMLElement} elements.complexityEl   --, container for complexity badges
+   * @param {HTMLElement} elements.codeEl         --, container for pseudocode lines
+   * @param {HTMLElement} elements.explanationEl  --, container for explanation text
+   * @param {HTMLElement} elements.varListEl      --, container for variable chips
    */
   constructor({ complexityEl, codeEl, explanationEl, varListEl }) {
     this._explanation = new ExplanationPanel(explanationEl);
@@ -83,7 +83,7 @@ export class NarrativeLayer {
 
   /**
    * Reset to a blank state (e.g. before a new operation loads).
-   * Does not destroy sub-panels — they can be reused after reset.
+   * Does not destroy sub-panels --, they can be reused after reset.
    */
   reset() {
     this._prevStep = null;

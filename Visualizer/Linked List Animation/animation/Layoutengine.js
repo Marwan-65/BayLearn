@@ -1,7 +1,7 @@
 /**
  * ANIMATION / LAYOUT ENGINE
  *
- * Pure function — takes a ListState and returns a positions map.
+ * Pure function --, takes a ListState and returns a positions map.
  * No side effects, no DOM, no D3.
  *
  * Keeping this separate means you can swap layouts (horizontal,
@@ -11,7 +11,7 @@
 import { getOrderedIds } from '../schema/index.js';
 
 /**
- * Horizontal layout — nodes spaced evenly along a single row.
+ * Horizontal layout --, nodes spaced evenly along a single row.
  *
  * @param {ListState} state
  * @param {object}    theme  - needs nodeValueW, nodeNextW, nodeGap, rowY
