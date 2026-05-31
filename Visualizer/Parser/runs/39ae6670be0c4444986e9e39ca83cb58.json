@@ -1,0 +1,66 @@
+{
+  "run_id": "39ae6670be0c4444986e9e39ca83cb58",
+  "status": "ready",
+  "created_at": "2026-05-30T19:32:15.801467+00:00",
+  "animation_type": "scheduler",
+  "viewer_url": "http://localhost:8082?run_id=39ae6670be0c4444986e9e39ca83cb58",
+  "classification": {
+    "animation_type": "scheduler",
+    "confidence": 1.0,
+    "evidence": [
+      "CPU Scheduling Scenario",
+      "Highest Priority First (HPF) algorithm",
+      "processes arrive at the system",
+      "runtime",
+      "priority"
+    ]
+  },
+  "extraction": {
+    "animation_type": "scheduler",
+    "confidence": 1.0,
+    "algorithm": "HPF",
+    "quantum": null,
+    "processes": [
+      {
+        "id": 1,
+        "arrival": 0,
+        "runtime": 8,
+        "priority": 2,
+        "memsize": 1
+      },
+      {
+        "id": 2,
+        "arrival": 1,
+        "runtime": 4,
+        "priority": 1,
+        "memsize": 1
+      },
+      {
+        "id": 3,
+        "arrival": 2,
+        "runtime": 9,
+        "priority": 3,
+        "memsize": 1
+      },
+      {
+        "id": 4,
+        "arrival": 3,
+        "runtime": 5,
+        "priority": 1,
+        "memsize": 1
+      },
+      {
+        "id": 5,
+        "arrival": 4,
+        "runtime": 6,
+        "priority": 2,
+        "memsize": 1
+      }
+    ]
+  },
+  "llm_payload_meta": {
+    "document_id": "untitled-document",
+    "window_count": 1,
+    "full_text_chars": 608
+  }
+}

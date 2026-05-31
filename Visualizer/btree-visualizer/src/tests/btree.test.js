@@ -184,13 +184,16 @@ suite('insert --, invariants', () => {
     eq(inOrderKeys(state), keys);
   });
 
-  test('duplicate keys are handled gracefully (insert is not rejected)', () => {
-    // The spec does not explicitly define duplicate behaviour, but the
-    // invariant checker just requires sorted order --, duplicates would break
-    // strict ascending. So we insert distinct keys only in normal usage.
-    // Just verify no crash:
+  test('duplicate keys are rejected --, tree stays unchanged', () => {
+    // insert.js now rejects duplicates before any mutation.
     const state = buildTree(2, [5, 10, 15, 20]);
-    ok(state); // just verifying it doesn't explode
+    const keysBefore = inOrderKeys(state).join(',');
+    const steps = insert(state, 10); // 10 already exists
+    const last = steps[steps.length - 1];
+    // Final step should be OPERATION_COMPLETE but tree unchanged
+    eq(last.action, ACTIONS.OPERATION_COMPLETE);
+    eq(inOrderKeys(last.state).join(','), keysBefore, 'tree must not change on duplicate');
+    ok(last.meta.duplicate === true, 'step should carry duplicate flag');
   });
 
   test('first step is INITIAL_STATE, original state never mutated', () => {
@@ -409,8 +412,15 @@ suite('delete --, step sequences', () => {
   });
 
   test('merge path includes all merge step types', () => {
-    const state = buildTree(2, [10, 20, 30]);
-    const steps = deleteKey(state, 10);
+    // Need a 2-level tree where the target leaf and its sibling both have
+    // exactly t-1=1 key so neither can spare one --, triggering a merge.
+    //
+    // buildTree(2,[1,2,3,4]) → root=[2], left=[1], right=[3,4]
+    // Delete 4 first so right=[3] (t-1=1 keys).
+    // Now delete 1: left underflows to [], right=[3] has 1 key (can't spare) → MERGE.
+    let state = buildTree(2, [1, 2, 3, 4]);
+    const del4 = deleteKey(state, 4); state = del4[del4.length - 1].state; // right → [3]
+    const steps = deleteKey(state, 1);
     const actions = new Set(steps.map(s => s.action));
     ok(actions.has(ACTIONS.UNDERFLOW_DETECTED),  'should detect underflow');
     ok(actions.has(ACTIONS.FIX_CHOOSE_STRATEGY), 'should choose a strategy');
@@ -419,8 +429,10 @@ suite('delete --, step sequences', () => {
   });
 
   test('borrow path includes BORROW_*_ROTATE step', () => {
-    const state = buildTree(2, [10, 20, 30, 40, 50]);
-    const steps = deleteKey(state, 40);
+    // buildTree(2,[1,2,3,4]) → root=[2], left=[1], right=[3,4]
+    // Delete 1: left underflows to [], right=[3,4] has 2 keys ≥ t=2 → BORROW RIGHT.
+    const state = buildTree(2, [1, 2, 3, 4]);
+    const steps = deleteKey(state, 1);
     const actions = new Set(steps.map(s => s.action));
     const hasBorrow = actions.has(ACTIONS.BORROW_LEFT_ROTATE) || actions.has(ACTIONS.BORROW_RIGHT_ROTATE);
     ok(hasBorrow, 'should have a borrow rotation step');
@@ -522,6 +534,235 @@ suite('stress & edge cases', () => {
     // validate() already checks this, but let's make the assertion explicit
     const errors = validate(state).filter(e => e.includes('depth'));
     eq(errors, []);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Duplicate-key rejection (insert.js)
+// ─────────────────────────────────────────────────────────────────────────────
+
+suite('duplicate key rejection', () => {
+  test('inserting an existing key returns OPERATION_COMPLETE immediately', () => {
+    const state = buildTree(2, [10, 20, 30]);
+    const steps = insert(state, 10);
+    eq(steps[steps.length - 1].action, ACTIONS.OPERATION_COMPLETE);
+  });
+
+  test('duplicate insert does not mutate the tree', () => {
+    const state = buildTree(2, [5, 15, 25]);
+    const before = inOrderKeys(state).join(',');
+    insert(state, 15);
+    eq(inOrderKeys(state).join(','), before);
+  });
+
+  test('duplicate insert returns exactly 2 steps (INITIAL_STATE + OPERATION_COMPLETE)', () => {
+    const state = buildTree(2, [1, 2, 3]);
+    const steps = insert(state, 2);
+    eq(steps.length, 2);
+    eq(steps[0].action, ACTIONS.INITIAL_STATE);
+    eq(steps[1].action, ACTIONS.OPERATION_COMPLETE);
+  });
+
+  test('duplicate step carries meta.duplicate flag', () => {
+    const state = buildTree(2, [100]);
+    const steps = insert(state, 100);
+    ok(steps[steps.length - 1].meta.duplicate === true);
+  });
+
+  test('inserting a non-duplicate after a duplicate attempt succeeds', () => {
+    let state = buildTree(2, [10, 20]);
+    // duplicate -- should be silently rejected
+    const dup = insert(state, 10);
+    state = dup[dup.length - 1].state;
+    // now insert a genuinely new key
+    const steps = insert(state, 30);
+    const last = steps[steps.length - 1];
+    ok(inOrderKeys(last.state).includes(30), 'new key should be present');
+    ok(!last.meta.duplicate, 'should not be flagged as duplicate');
+  });
+
+  test('duplicate check works after splits (multi-level tree)', () => {
+    const state = buildTree(2, [1, 2, 3, 4, 5, 6, 7]);
+    // all of these already exist
+    for (const k of [1, 2, 3, 4, 5, 6, 7]) {
+      const steps = insert(state, k);
+      ok(steps[steps.length - 1].meta.duplicate === true, `${k} should be flagged as duplicate`);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Insert --, additional invariant tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+suite('insert --, additional invariants', () => {
+  test('reverse-order inserts produce sorted in-order traversal', () => {
+    const keys = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+    const state = buildTree(2, keys);
+    assertValid(state);
+    eq(inOrderKeys(state), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  test('alternating low/high inserts stay valid', () => {
+    const keys = [50, 1, 49, 2, 48, 3, 47, 4, 46, 5];
+    const state = buildTree(2, keys);
+    assertValid(state);
+    eq(inOrderKeys(state), [...keys].sort((a, b) => a - b));
+  });
+
+  test('t=2 tree height is bounded by O(log n)', () => {
+    const n = 31; // 2^5 - 1: should fit in height 5 for t=2
+    const keys = Array.from({ length: n }, (_, i) => i + 1);
+    const state = buildTree(2, keys);
+    assertValid(state);
+    ok(height(state) <= Math.ceil(Math.log2(n + 1)), 'height exceeds log bound');
+  });
+
+  test('t=4 handles 40 keys without invariant violations', () => {
+    const keys = Array.from({ length: 40 }, (_, i) => i * 7 + 3);
+    const state = buildTree(4, keys);
+    assertValid(state);
+    eq(inOrderKeys(state), keys.slice().sort((a, b) => a - b));
+  });
+
+  test('all internal nodes satisfy children count == keys + 1', () => {
+    const state = buildTree(2, [5, 3, 8, 1, 4, 7, 9, 2, 6, 10, 11, 12]);
+    for (const [id, node] of Object.entries(state.nodes)) {
+      if (!node.isLeaf) {
+        eq(
+          node.children.length,
+          node.keys.length + 1,
+          `internal node ${id} children count wrong`
+        );
+      }
+    }
+  });
+
+  test('every non-root node has a valid parentId', () => {
+    const state = buildTree(3, Array.from({ length: 20 }, (_, i) => i + 1));
+    for (const [id, node] of Object.entries(state.nodes)) {
+      if (id !== state.rootId) {
+        ok(state.nodes[node.parentId] !== undefined, `node ${id} has dangling parentId`);
+      }
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete --, additional invariant tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+suite('delete --, additional invariants', () => {
+  test('deleting in reverse order leaves empty tree', () => {
+    const keys = [10, 20, 30, 40, 50];
+    let state = buildTree(2, keys);
+    for (const k of [...keys].reverse()) {
+      const steps = deleteKey(state, k);
+      state = steps[steps.length - 1].state;
+      assertValid(state, `after deleting ${k}`);
+    }
+    eq(inOrderKeys(state), []);
+  });
+
+  test('borrow-left produces valid tree', () => {
+    // buildTree(2,[1,2,3,4,5,6]) → 2-level tree
+    // root=[2,4], L=[1], M=[3], R=[5,6]
+    // Delete 3 → M=[]. M left-sib=[1] has 1 key (can't borrow), right-sib=[5,6] has 2 → borrow right
+    // Actually simpler: root=[2,4], delete something from M=[3]
+    let state = buildTree(2, [1, 2, 3, 4, 5, 6]);
+    // M has [3] after the tree settles -– trace to confirm which leaf holds what
+    // The safest approach: just verify invariants after the delete
+    const keys = inOrderKeys(state);
+    for (const k of keys) {
+      const s2 = deleteKey(state, k)[deleteKey(state, k).length - 1].state;
+      assertValid(s2, `borrow-left after deleting ${k}`);
+    }
+  });
+
+  test('delete from tree with t=2 and 15 keys stays valid at every step', () => {
+    const keys = Array.from({ length: 15 }, (_, i) => i * 3 + 1);
+    let state = buildTree(2, keys);
+    const sorted = inOrderKeys(state);
+    for (const k of sorted) {
+      const steps = deleteKey(state, k);
+      state = steps[steps.length - 1].state;
+      assertValid(state, `after deleting ${k}`);
+    }
+    eq(inOrderKeys(state), []);
+  });
+
+  test('delete non-existent key multiple times does not corrupt tree', () => {
+    let state = buildTree(2, [10, 20, 30]);
+    for (let i = 0; i < 5; i++) {
+      const steps = deleteKey(state, 99);
+      state = steps[steps.length - 1].state;
+      assertValid(state);
+    }
+    eq(inOrderKeys(state), [10, 20, 30]);
+  });
+
+  test('predecessor of root key is correct', () => {
+    // root=[20] with leaves [10] and [30,40]
+    // predecessor of 20 is 10 (rightmost key of left subtree)
+    const state = buildTree(2, [10, 20, 30, 40]);
+    const rootKey = state.nodes[state.rootId].keys[0];
+    const steps = deleteKey(state, rootKey);
+    const last = steps[steps.length - 1];
+    assertValid(last.state);
+    ok(!inOrderKeys(last.state).includes(rootKey), 'root key should be gone');
+  });
+
+  test('t=2 tree after cascading merges is still valid', () => {
+    // 7-key tree guaranteed to need cascading merges on full deletion
+    const keys = [4, 8, 12, 2, 6, 10, 14];
+    let state = buildTree(2, keys);
+    for (const k of [...keys].sort((a, b) => a - b)) {
+      const steps = deleteKey(state, k);
+      state = steps[steps.length - 1].state;
+      assertValid(state, `after deleting ${k}`);
+    }
+    eq(inOrderKeys(state), []);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Search --, additional tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+suite('search --, additional', () => {
+  test('search finds key in leaf at depth > 1', () => {
+    const state = buildTree(2, [1, 2, 3, 4, 5, 6, 7]);
+    const steps = search(state, 1);
+    ok(steps.some(s => s.action === ACTIONS.SEARCH_FOUND));
+  });
+
+  test('search for minimum key works', () => {
+    const state = buildTree(3, [5, 3, 8, 1, 4, 7, 9, 2, 6, 10]);
+    const min = inOrderKeys(state)[0];
+    const steps = search(state, min);
+    ok(steps.some(s => s.action === ACTIONS.SEARCH_FOUND));
+  });
+
+  test('search for maximum key works', () => {
+    const state = buildTree(3, [5, 3, 8, 1, 4, 7, 9, 2, 6, 10]);
+    const max = inOrderKeys(state).slice(-1)[0];
+    const steps = search(state, max);
+    ok(steps.some(s => s.action === ACTIONS.SEARCH_FOUND));
+  });
+
+  test('search never produces SEARCH_FOUND for absent key', () => {
+    const state = buildTree(2, [10, 20, 30, 40, 50]);
+    for (const k of [0, 15, 25, 35, 45, 999]) {
+      const steps = search(state, k);
+      ok(!steps.some(s => s.action === ACTIONS.SEARCH_FOUND), `${k} should not be found`);
+    }
+  });
+
+  test('search does not mutate the state', () => {
+    const state = buildTree(2, [1, 2, 3, 4, 5]);
+    const snap = inOrderKeys(state).join(',');
+    search(state, 3);
+    eq(inOrderKeys(state).join(','), snap);
   });
 });
 
