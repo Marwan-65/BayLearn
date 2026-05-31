@@ -1,3 +1,8 @@
-*__pycache__/
 *changes/
-/cache
+*UNKNOWN.egg-info/
+*.pyc
+*.pyo
+*__pycache__/
+node_modules/
+dist/
+cache/
