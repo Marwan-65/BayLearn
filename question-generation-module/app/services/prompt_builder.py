@@ -58,7 +58,7 @@ IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from t
 Do NOT generate near-duplicate or redundant questions. Vary question structure and content.
 
 The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
-format — generate your questions strictly in the mcq format defined
+format — generate your questions strictly in the multiple choice question format defined
 in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
@@ -108,7 +108,7 @@ IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from t
 Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
 
 The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
-format — generate your questions strictly in the short answer format defined
+format — generate your questions strictly in the short answer question format defined
 in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
@@ -160,7 +160,7 @@ IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from t
 Do NOT generate near-duplicate or redundant questions. Vary question focus and content.
 
 The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
-format — generate your questions strictly in the true false format defined
+format — generate your questions strictly in the true/false question format defined
 in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:

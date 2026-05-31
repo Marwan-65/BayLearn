@@ -1,7 +1,6 @@
 """output: data/processed/os_labeled.csv
 
 run command:
-    python scripts/relabel_os.py
     python scripts/relabel_os.py --model-dir models/bloom_distilbert
 """
 from __future__ import annotations

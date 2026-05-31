@@ -1,24 +1,9 @@
 """
 LLM-as-judge: blinded pairwise comparison of baseline vs ICL question sets.
 
-For each (chunk, target_level) cell from the earlier eval, this script
-presents the LLM judge with TWO anonymous sets of questions ("Set A" and
-"Set B") generated from the same chunk at the same target level. The judge
-picks which set is better per criterion (level appropriateness, cognitive
-depth, chunk specificity, diversity, overall) without knowing which set is
-baseline and which is ICL. The mapping is randomized per cell to remove
-position bias.
-
-reads:
-    data/processed/eval_icl_vs_baseline_generations.csv
-
 writes:
     data/processed/llm_judge_per_cell.csv      one row per cell with the judge's verdict
     data/processed/llm_judge_summary.txt       aggregate win rates + interpretation
-
-The summary is the metric you put in the report:
-    "Across N pairwise comparisons, ICL won M (XX%) on overall preference,
-     YY% on level appropriateness, ZZ% on chunk specificity..."
 
 Run:
     python scripts/llm_judge_baseline_vs_icl.py
@@ -55,7 +40,6 @@ GENERATIONS_CSV = ROOT / "data" / "processed" / "eval_icl_vs_baseline_generation
 OUT_PER_CELL   = ROOT / "data" / "processed" / "llm_judge_per_cell.csv"
 OUT_SUMMARY    = ROOT / "data" / "processed" / "llm_judge_summary.txt"
 
-# Matching the TEST_CHUNKS in eval_icl_vs_baseline.py so the judge sees source
 TEST_CHUNKS = {
     "paging": ("virtual memory and paging",
         "In a paging system, the virtual address space is divided into "
@@ -95,7 +79,7 @@ TEST_CHUNKS = {
         "priority and resources held."),
 }
 
-LEVEL_DESCR = {
+LEVEL_DESCRIPTION = {
     "remember":   "easy",
     "understand": "easy",
     "apply":      "medium",
@@ -104,11 +88,11 @@ LEVEL_DESCR = {
     "create":     "hard",
 }
 
-LEVEL_3_GUIDANCE = {
+LEVEL_GUIDANCE = {
     "easy":   "recall, definition, single-fact retrieval — short and direct",
     "medium": "apply a procedure or compare components — multi-step but bounded",
     "hard":   "evaluate / justify / design — requires reasoning over multiple "
-              "dimensions, trade-offs, or original synthesis",
+            "dimensions, trade-offs, or original synthesis",
 }
 
 JUDGE_SYSTEM_PROMPT = (
@@ -120,17 +104,17 @@ JUDGE_SYSTEM_PROMPT = (
 )
 
 
-def build_judge_prompt(chunk_text: str, chunk_topic: str, target_b6: str,
+def build_judge_prompt(chunk_text: str, target_b6: str,
                        set_a: list[str], set_b: list[str]) -> str:
-    level_3 = LEVEL_DESCR.get(target_b6, "medium")
-    guidance = LEVEL_3_GUIDANCE[level_3]
+    level_description = LEVEL_DESCRIPTION.get(target_b6, "medium")
+    level_guidance = LEVEL_GUIDANCE[level_description]
     a_block = "\n".join(f"  A{i+1}. {q}" for i, q in enumerate(set_a))
     b_block = "\n".join(f"  B{i+1}. {q}" for i, q in enumerate(set_b))
     return f"""
-SOURCE MATERIAL (topic: {chunk_topic}):
+SOURCE MATERIAL:
 {chunk_text}
 
-TARGET DIFFICULTY: {level_3.upper()} ({guidance})
+TARGET DIFFICULTY: {level_description.upper()} ({level_guidance})
 
 Two sets of questions were generated from the source above. Evaluate them
 HEAD TO HEAD on four criteria. For each criterion, pick "A", "B", or "tie",
@@ -147,22 +131,16 @@ CRITERIA:
                          material, without the student needing to guess
                          missing parameters or invent context? Which set
                          scores better overall?
-2. constraint_density  — Count the explicit parameters, scenarios, rules, or
-                         dimensions named in each question (e.g., "with 3
-                         frames", "under LRU", "in terms of access speed and
-                         fragmentation"). Which set has more constraint
-                         density on average?
-3. difficulty_match    — Which set's questions better match the TARGET
+2. difficulty_match    — Which set's questions better match the TARGET
                          DIFFICULTY shown above? Easy questions should be
                          short and direct; medium should apply or compare;
                          hard should require multi-dimensional reasoning,
                          justification, or design.
-4. overall             — Which set would you prefer for a real OS exam?
+3. overall             — Which set would you prefer for a real exam?
 
 OUTPUT FORMAT — return ONLY this JSON, no other text:
 {{
   "answerability":      {{"winner": "A" | "B" | "tie", "reason": "..."}},
-  "constraint_density": {{"winner": "A" | "B" | "tie", "reason": "..."}},
   "difficulty_match":   {{"winner": "A" | "B" | "tie", "reason": "..."}},
   "overall":            {{"winner": "A" | "B" | "tie", "reason": "..."}}
 }}
@@ -171,10 +149,8 @@ OUTPUT FORMAT — return ONLY this JSON, no other text:
 
 def parse_judge_response(text: str) -> dict | None:
     text = text.strip()
-    # strip optional ```json fences
     if text.startswith("```"):
         text = "\n".join(text.split("\n")[1:-1]) if "\n" in text else text
-    # Extract first JSON object
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:
         return None
@@ -208,15 +184,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--judge-provider", default=None,
                     choices=["groq", "gemini"],
-                    help="LLM provider for the judge (default: env LLM_PROVIDER or groq)")
+                    help="LLM provider for the judge (default: env groq)")
     ap.add_argument("--sleep", type=float, default=None,
-                    help="seconds between judge calls (default: provider-appropriate)")
+                    help="seconds between judge calls (default: provider will set its appropriate timing)")
     args = ap.parse_args()
 
-    if not GENERATIONS_CSV.exists():
-        print(f"ERROR: {GENERATIONS_CSV} not found. Run eval_icl_vs_baseline.py first.",
-              file=sys.stderr)
-        return 1
+    # if not GENERATIONS_CSV.exists():
+    #     print(f"ERROR: {GENERATIONS_CSV} not found. Run eval_icl_vs_baseline.py first.",
+    #         file=sys.stderr)
+    #     return 1
 
     provider = (args.judge_provider or os.environ.get("LLM_PROVIDER") or "groq").lower()
     try:
@@ -225,16 +201,13 @@ def main() -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
     sleep_secs = args.sleep if args.sleep is not None else default_sleep
-    print(f"Judge: {provider} ({model_name}), sleep {sleep_secs:.1f}s between calls")
 
-    # Group generations by (chunk_id, target_level_b6, condition)
     buckets: dict[tuple[str, str, str], list[str]] = defaultdict(list)
     with GENERATIONS_CSV.open(encoding="utf-8") as f:
         for r in csv.DictReader(f):
             key = (r["chunk_id"], r["target_level_b6"], r["condition"])
             buckets[key].append(r["question"])
 
-    # Form cells where BOTH conditions ran successfully (have ≥1 question each)
     cells = []
     seen_cells = set()
     for (cid, b6, _cond) in buckets.keys():
@@ -251,18 +224,17 @@ def main() -> int:
         print("Nothing to judge.", file=sys.stderr)
         return 1
 
-    rng = random.Random(2025)   # not the eval's seed — for the A/B label flip only
-    CRITERIA = ["answerability", "constraint_density", "difficulty_match", "overall"]
+    rng = random.Random(2025)  
+    CRITERIA = ["answerability","difficulty_match", "overall"]
     per_cell_rows = []
     wins = {c: {"icl": 0, "baseline": 0, "tie": 0} for c in CRITERIA}
 
     for idx, (cid, b6, base_qs, icl_qs) in enumerate(cells, 1):
         if cid not in TEST_CHUNKS:
-            print(f"  [skip] unknown chunk_id {cid!r}")
+            print(f"skip unknown chunk_id {cid!r}")
             continue
         topic, chunk_text = TEST_CHUNKS[cid]
 
-        # Randomize which condition becomes "A" or "B" (de-bias position)
         flip = rng.random() < 0.5
         set_a, set_b = (icl_qs, base_qs) if flip else (base_qs, icl_qs)
         a_is_icl = flip
@@ -288,7 +260,6 @@ def main() -> int:
                 time.sleep(sleep_secs)
             continue
 
-        # Map A/B back to condition
         row = {"chunk_id": cid, "target_level_b6": b6,
                "icl_was": "A" if a_is_icl else "B"}
         for c in CRITERIA:
@@ -312,7 +283,7 @@ def main() -> int:
         if sleep_secs > 0:
             time.sleep(sleep_secs)
 
-    # Write per-cell CSV
+    
     fieldnames = ["chunk_id", "target_level_b6", "icl_was"]
     for c in CRITERIA:
         fieldnames.append(f"{c}_winner")
@@ -322,9 +293,9 @@ def main() -> int:
         w.writeheader()
         for row in per_cell_rows:
             w.writerow(row)
-    print(f"\nPer-cell judgments → {OUT_PER_CELL}")
+    print(f"\nPer-cell judgments -> {OUT_PER_CELL}")
 
-    # Summary
+
     total = len(per_cell_rows)
     lines = []
     lines.append("LLM-as-judge: baseline vs ICL pairwise comparison")
@@ -339,12 +310,10 @@ def main() -> int:
         pct = 100.0 * i / max(1, total)
         lines.append(f"{c:<22}{i:>10}{b:>16}{t:>8}{pct:>9.1f}%")
     lines.append("")
-    lines.append("Interpretation:")
-    lines.append("  ICL % = how often ICL won that criterion (ties excluded from %).")
-    lines.append("  >55% on overall is a meaningful preference for ICL.")
-    lines.append("  Per-criterion patterns: ICL usually wins specificity if your")
-    lines.append("  finding holds; level_match depends on the judge agreeing with")
-    lines.append("  BloomBERT's training distribution.")
+    lines.append("ICL % = how often ICL won that criterion (ties excluded from %).")
+    lines.append("Per-criterion patterns: ICL usually wins specificity if")
+    lines.append("finding holds, level_match depends on the judge agreeing with")
+    lines.append("BloomBERT's training distribution.")
     lines.append("")
     lines.append(f"Per-cell judgments + reasons: {OUT_PER_CELL.name}")
     OUT_SUMMARY.write_text("\n".join(lines), encoding="utf-8")
