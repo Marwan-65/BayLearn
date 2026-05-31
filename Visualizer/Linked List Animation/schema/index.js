@@ -81,6 +81,10 @@ export function fromArray(values) {
  * @returns {string[]}
  */
 export function getOrderedIds(list) {
+  if (list._orderedIds) {
+    return list._orderedIds;
+  }
+
   const ids = [];
   let current = list.head;
   const visited = new Set();
