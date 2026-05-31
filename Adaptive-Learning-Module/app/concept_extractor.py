@@ -15,8 +15,8 @@ Can be run two ways:
        )
 
 Extraction strategy (adaptive):
-  - Short documents (< BATCH_THRESHOLD chars) → single Groq call.
-  - Long  documents (>= BATCH_THRESHOLD chars) → chunk-batched calls,
+  - Short documents (< BATCH_THRESHOLD chars) -> single Groq call.
+  - Long  documents (>= BATCH_THRESHOLD chars) -> chunk-batched calls,
     results merged and deduplicated.
 
 Supported domains:
@@ -215,7 +215,7 @@ def fetch_chunks_single(file_id: str = "", file_name: str = "") -> tuple[str, li
         session.expunge_all()
 
     print(f"[chunk-db] '{title}': {len(chunks)} chunks (id={db_file.id})")
-    return db_file.id, chunks, title
+    return str(db_file.id), chunks, title
 
 
 def fetch_chunks_for_files(file_ids: list[str]) -> list[tuple[str, list, str]]:
@@ -249,7 +249,7 @@ def fetch_chunks_for_files(file_ids: list[str]) -> list[tuple[str, list, str]]:
             )
             session.expunge_all()
             print(f"[chunk-db] '{title}': {len(chunks)} chunks (id={db_file.id})")
-            results.append((db_file.id, chunks, title))
+            results.append((str(db_file.id), chunks, title))
     return results
 
 
@@ -262,61 +262,85 @@ EXTRACTION_SYSTEM_PROMPT = textwrap.dedent("""\
     Engineering, Computer Science, Electrical Engineering, Communications,
     Embedded Systems, Cybersecurity, Cloud Computing, and Applied Mathematics.
 
-    Extract all academic concepts from a university-level engineering course
-    document that a student must master and may be assessed on.
+    Extract the core academic concepts from a university-level engineering course
+    document that a student must genuinely master and may be assessed on.
+
+    ── WHAT A CONCEPT IS ────────────────────────────────────────────────
+    A concept is a distinct, named idea that:
+      • appears as a section or topic in a standard textbook on the subject
+      • has its own prerequisites and unlocks further topics
+      • requires dedicated study time — not just a definition lookup
+
+    Ask yourself: "Would a course dedicate at least one lecture to this alone?"
+    If NO → it is not a concept worth extracting.
 
     ── NAMING RULES (these feed a concept dependency graph) ──────────────
     • Use standard textbook / IEEE / ACM terminology.
       CORRECT: "depth-first search"              WRONG: "the DFS thing"
       CORRECT: "pulse-width modulation"          WRONG: "PWM technique"
-      CORRECT: "advanced encryption standard"    WRONG: "AES encryption"
     • Singular form, all lowercase.
       CORRECT: "binary search tree"              WRONG: "Binary Search Trees"
-    • Canonical name must be the FULL name, not the acronym.
-      Put the acronym in aliases instead.
+    • Full name as canonical, acronym goes in aliases.
       CORRECT: "dynamic programming"             WRONG: "DP"
       CORRECT: "phase-locked loop"               WRONG: "PLL"
-    • Be specific — one concept per teachable unit.
-      CORRECT: "merge sort"                      WRONG: "sorting algorithms"
-      CORRECT: "Dijkstra's algorithm"            WRONG: "shortest path algorithms"
-      CORRECT: "interrupt service routine"       WRONG: "interrupts"
-      CORRECT: "quadrature amplitude modulation" WRONG: "modulation techniques"
     • If two phrasings mean the same concept, emit only the canonical one
       and put alternatives in aliases.
 
     ── GRANULARITY RULE ──────────────────────────────────────────────────
-    Extract at the level of a single lecture topic or textbook section title.
-    Too broad:  "graph algorithms", "signal processing", "network security"
-    Too narrow: "incrementing a loop counter", "writing a register value"
-    Just right: "breadth-first search", "discrete Fourier transform",
-                "ARP poisoning", "priority inversion", "cache coherence
-                protocol", "Q-learning", "Viterbi algorithm"
+    Extract at the level of a textbook chapter section — one concept per
+    independently teachable idea.
+
+    Too broad  : "sorting algorithms", "graph algorithms", "network security"
+    Too narrow : "incrementing a loop counter", "ring 0 privilege bit"
+    Just right : "cpu scheduling", "virtual memory", "public-key cryptography",
+                 "cache coherence protocol", "breadth-first search"
+
+    When a document covers multiple algorithms or variants of the same idea
+    (e.g. FCFS, SJF, Round Robin, SRTN), extract the PARENT concept that unifies
+    them ("cpu scheduling algorithms") UNLESS individual variants have meaningfully
+    different prerequisite structures that a student must master separately.
+
+    ── WHAT NOT TO EXTRACT (strict) ─────────────────────────────────────
+    The following categories produce noise that degrades the dependency graph.
+    NEVER extract them:
+
+    1. PRODUCT / TOOL NAMES
+       These are implementations, not concepts. Extract the concept they implement.
+       ✗ "kvm", "xen", "qemu", "virtualbox", "docker", "kubernetes"
+       ✗ "linux", "windows nt kernel", "openssl", "wireshark"
+       ✓ "type-1 hypervisor", "container runtime", "operating system kernel"
+
+    2. PERFORMANCE METRICS AND FORMULAS
+       These are ways to measure concepts, not concepts themselves.
+       ✗ "turnaround time", "burst time", "waiting time", "response time"
+       ✗ "throughput", "utilisation percentage", "speedup ratio"
+       ✓ "cpu scheduling" (the concept whose metrics those are)
+
+    3. MICRO IMPLEMENTATION DETAILS
+       Low-level specifics that only make sense inside a parent concept.
+       ✗ "ring 0", "ring 3", "trap instruction", "hypercall instruction"
+       ✗ "pcb fields", "inode number", "segment descriptor bits"
+       ✓ "protection rings", "system call mechanism", "process control block"
+
+    4. NEAR-DUPLICATE VARIANTS
+       When N items differ only in a parameter, extract one parent concept.
+       ✗ "type-1 full virtualization" AND "type-1 paravirtualization"
+          AND "type-2 virtualization" AND "bare-metal hypervisor"
+          AND "hosted hypervisor"
+       ✓ "virtualization" (covers all; variants become aliases or sub-points)
+       Exception: keep separate entries only when prerequisites genuinely differ.
+
+    5. CONTEXTUAL / RELATIVE TERMS
+       ✗ "noisy neighbor problem", "bottleneck resource", "limiting resource"
+       ✗ "overhead", "penalty", "latency" used as standalone entries
+       ✓ Only extract if the term has a precise, standalone definition in the field.
 
     ── DIFFICULTY SCALE ─────────────────────────────────────────────────
-    1 — Definitional
-        CS/CE : variable declaration, what is an algorithm, logic gates
-        EE    : Ohm's law, what is a signal, voltage divider
-        ML    : what is a neuron, supervised vs unsupervised learning
-
-    2 — Foundational
-        CS/CE : recursion, big-O notation, linked list, binary search
-        EE    : RC circuit analysis, Boolean algebra, sampling theorem
-        ML    : gradient descent, linear regression, train/test split
-
-    3 — Applied
-        CS/CE : dynamic programming, hash table, graph traversal, mutex
-        EE    : Fourier transform, PID controller, UART protocol, pipeline stages
-        ML    : backpropagation, convolutional neural network, k-means clustering
-
-    4 — Advanced
-        CS/CE : amortized analysis, NP-completeness, memory-mapped I/O, TLS handshake
-        EE    : phase-locked loop, OFDM, DMA controller, cache coherence
-        ML    : attention mechanism, variational autoencoder, policy gradient
-
-    5 — Expert
-        CS/CE : computational complexity theory, type theory, distributed consensus
-        EE    : VLSI design methodology, adaptive equalisation, formal verification
-        ML    : meta-learning, neural architecture search, convergence proofs
+    1 — Definitional : what is an algorithm, logic gates, Ohm's law
+    2 — Foundational : recursion, big-O notation, RC circuit analysis
+    3 — Applied      : dynamic programming, graph traversal, Fourier transform
+    4 — Advanced     : amortized analysis, NP-completeness, cache coherence
+    5 — Expert       : computational complexity theory, distributed consensus
 
     ── CONCEPT TYPES ────────────────────────────────────────────────────
     Assign the single most specific type that fits.
@@ -335,7 +359,7 @@ EXTRACTION_SYSTEM_PROMPT = textwrap.dedent("""\
                               cache replacement policy, ISR, ADC, memory-mapped I/O
     "system_concept"        — OS, cloud, distributed: virtual memory, deadlock,
                               containerisation, consensus algorithm, hypervisor
-    "protocol_or_standard"  — networking/communication: TCP three-way handshake,
+    "protocol_or_standard"  — networking/communication: TCP handshake,
                               OFDM, I2C protocol, TLS certificate chain, MQTT
     "security_concept"      — cryptography, attacks, defences: public-key
                               cryptography, SQL injection, buffer overflow, ACL
@@ -349,32 +373,52 @@ EXTRACTION_SYSTEM_PROMPT = textwrap.dedent("""\
     "type"       : exactly one value from CONCEPT TYPES above
 
     ── EXTRACTION RULES ─────────────────────────────────────────────────
-    • Be exhaustive — extract EVERY concept a student must understand.
+    • Extract every concept a student must genuinely master — be thorough
+      but disciplined. Quality over quantity.
     • Do NOT extract meta-concepts (exam tips, study advice, logistics).
     • Do NOT extract proper nouns that are not concepts (people, institutions).
     • Do NOT duplicate — one canonical entry per concept; merge synonyms into aliases.
     • When domain is ambiguous, prefer the engineering interpretation.
     • Return ONLY a valid JSON array. No markdown fences, no preamble.
 
-    ── EXAMPLE OUTPUT ───────────────────────────────────────────────────
+    ── EXAMPLE — CORRECT extraction from an OS scheduling lecture ────────
+    WRONG (too granular, products, metrics):
+    [ "first come first served", "shortest job first", "round robin",
+      "shortest remaining time next", "high priority first",
+      "burst time", "turnaround time", "waiting time", "response time",
+      "kvm", "xen", "ring 0", "hypercall instruction" ]
+
+    CORRECT (teachable concepts, right granularity):
     [
       {
-        "name": "interrupt service routine",
-        "aliases": ["ISR", "interrupt handler"],
-        "difficulty": 3,
-        "type": "hardware_concept"
-      },
-      {
-        "name": "Nyquist-Shannon sampling theorem",
-        "aliases": ["sampling theorem", "Nyquist theorem"],
-        "difficulty": 3,
-        "type": "theorem_or_property"
-      },
-      {
-        "name": "backpropagation",
-        "aliases": ["backprop", "reverse-mode automatic differentiation"],
+        "name": "cpu scheduling algorithms",
+        "aliases": ["process scheduling", "cpu scheduling"],
         "difficulty": 3,
         "type": "algorithm"
+      },
+      {
+        "name": "preemptive scheduling",
+        "aliases": ["preemption"],
+        "difficulty": 3,
+        "type": "system_concept"
+      },
+      {
+        "name": "multilevel feedback queue",
+        "aliases": ["MLFQ"],
+        "difficulty": 4,
+        "type": "algorithm"
+      },
+      {
+        "name": "priority inversion",
+        "aliases": [],
+        "difficulty": 4,
+        "type": "system_concept"
+      },
+      {
+        "name": "hypervisor",
+        "aliases": ["virtual machine monitor", "VMM"],
+        "difficulty": 3,
+        "type": "system_concept"
       }
     ]
 """)
@@ -518,8 +562,8 @@ def _merge_batches(batch_results: list[list[dict]]) -> list[dict]:
 def extract_concepts_from_chunks(chunks: list, title: str = "") -> list[dict]:
     """
     Adaptive extraction:
-      - total chars < BATCH_THRESHOLD → single Groq call
-      - total chars >= BATCH_THRESHOLD → batched calls (BATCH_SIZE chunks each)
+      - total chars < BATCH_THRESHOLD -> single Groq call
+      - total chars >= BATCH_THRESHOLD -> batched calls (BATCH_SIZE chunks each)
     Results are merged and deduplicated by _merge_batches.
     """
     client      = Groq(api_key=GROQ_API_KEY)
@@ -530,11 +574,11 @@ def extract_concepts_from_chunks(chunks: list, title: str = "") -> list[dict]:
 
     if use_batching:
         total_batches = (len(text_chunks) + BATCH_SIZE - 1) // BATCH_SIZE
-        print(f"[groq] Long document ({total_chars:,} chars) → batched: "
-              f"{len(text_chunks)} chunks → {total_batches} batch(es) "
+        print(f"[groq] Long document ({total_chars:,} chars) -> batched: "
+              f"{len(text_chunks)} chunks -> {total_batches} batch(es) "
               f"(BATCH_SIZE={BATCH_SIZE}, model={GROQ_MODEL})")
     else:
-        print(f"[groq] Short document ({total_chars:,} chars) → single-call "
+        print(f"[groq] Short document ({total_chars:,} chars) -> single-call "
               f"(model={GROQ_MODEL})")
 
     batch_results: list[list[dict]] = []
@@ -543,7 +587,7 @@ def extract_concepts_from_chunks(chunks: list, title: str = "") -> list[dict]:
         full_text = _build_batch_text(text_chunks, title=title)
         print(f"  [groq] Sending full document ({len(full_text):,} chars) ...")
         concepts = _call_groq(client, full_text, "single-call")
-        print(f"  [groq] → {len(concepts)} concepts extracted.")
+        print(f"  [groq] -> {len(concepts)} concepts extracted.")
         batch_results.append(concepts)
     else:
         total_batches = (len(text_chunks) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -561,7 +605,7 @@ def extract_concepts_from_chunks(chunks: list, title: str = "") -> list[dict]:
                   f"{batch_chunks[-1].chunk_index}, "
                   f"{len(batch_text):,} chars) ...")
             concepts = _call_groq(client, batch_text, batch_label)
-            print(f"  [groq] {batch_label} → {len(concepts)} concepts extracted.")
+            print(f"  [groq] {batch_label} -> {len(concepts)} concepts extracted.")
             batch_results.append(concepts)
 
     merged    = _merge_batches(batch_results)
@@ -759,7 +803,7 @@ def main() -> None:
 
     print("\nExtracted concepts:")
     for i, c in enumerate(concepts, 1):
-        bar     = "█" * c["difficulty"] + "░" * (5 - c["difficulty"])
+        bar     = "#" * c["difficulty"] + "-" * (5 - c["difficulty"])
         aliases = f"  aka: {', '.join(c['aliases'])}" if c["aliases"] else ""
         print(f"  {i:>3}. [{bar}] diff={c['difficulty']}  "
               f"[{c['type']:<22}]  {c['name']}{aliases}")

@@ -290,10 +290,19 @@ def map_concepts_for_course(
     alias_lookup:  dict[str, KnowledgeNode],
     type_indices:  dict[str, tuple],
     global_index:  tuple,
-) -> dict[str, int]:
+) -> tuple[dict[str, int], list[dict]]:
     """
     Map every concept in the given course to a knowledge node (if found).
-    Returns a summary dict: {match_type: count}.
+
+    Returns:
+        summary : {match_type: count}
+        details : one record per concept, containing:
+            - concept_name, concept_type
+            - match_type  ("exact_name" | "exact_alias" | "semantic" | "no_match")
+            - node_name, node_type, node_source, node_id  (None if no match)
+            - confidence                                  (None if no match)
+            - best_miss_name, best_miss_score             (set when no_match,
+              showing what came closest so threshold issues are visible)
     """
     concepts: list[Concept] = (
         session.query(Concept)
@@ -302,7 +311,7 @@ def map_concepts_for_course(
     )
     if not concepts:
         print(f"  [map] No concepts found for course_id={course_id}.")
-        return {}
+        return {}, []
 
     # Load already-mapped concept ids to skip them
     already_mapped: set[int] = {
@@ -321,9 +330,10 @@ def map_concepts_for_course(
           f"{len(to_map)} need mapping, {len(already_mapped)} already mapped.")
 
     if not to_map:
-        return {"already_mapped": len(already_mapped)}
+        return {"already_mapped": len(already_mapped)}, []
 
     summary: dict[str, int] = {"exact_name": 0, "exact_alias": 0, "semantic": 0, "no_match": 0}
+    details: list[dict]     = []
     new_mappings: list[ConceptNodeMapping] = []
 
     for concept in to_map:
@@ -339,6 +349,7 @@ def map_concepts_for_course(
                 match_type = "exact_name",
             ))
             summary["exact_name"] += 1
+            details.append(_match_record(concept, node, "exact_name", 1.0))
             continue
 
         # ── Stage 1b: exact alias match ───────────────────────────────────
@@ -356,6 +367,7 @@ def map_concepts_for_course(
                 match_type = "exact_alias",
             ))
             summary["exact_alias"] += 1
+            details.append(_match_record(concept, exact_node, "exact_alias", 1.0))
             continue
 
         # ── Stage 2: bi-encoder candidate retrieval ───────────────────────
@@ -399,6 +411,7 @@ def map_concepts_for_course(
 
         if not candidates:
             summary["no_match"] += 1
+            details.append(_miss_record(concept, None, None))
             continue
 
         # ── Stage 3: cross-encoder reranking ─────────────────────────────
@@ -415,12 +428,13 @@ def map_concepts_for_course(
 
         best_pos   = int(np.argmax(scores))
         best_score = float(scores[best_pos])
+        best_node  = candidates[best_pos][0]
 
         if best_score < MATCH_THRESHOLD:
             summary["no_match"] += 1
+            details.append(_miss_record(concept, best_node, best_score))
             continue
 
-        best_node = candidates[best_pos][0]
         new_mappings.append(ConceptNodeMapping(
             concept_id = concept.id,
             node_id    = best_node.id,
@@ -428,13 +442,119 @@ def map_concepts_for_course(
             match_type = "semantic",
         ))
         summary["semantic"] += 1
+        details.append(_match_record(concept, best_node, "semantic",
+                                     round(best_score, 4)))
 
     # ── Bulk insert mappings ──────────────────────────────────────────────
     for mapping in new_mappings:
         session.add(mapping)
     session.commit()
 
-    return summary
+    return summary, details
+
+
+# ---------------------------------------------------------------------------
+# Detail record helpers
+# ---------------------------------------------------------------------------
+
+def _match_record(
+    concept:    Concept,
+    node:       KnowledgeNode,
+    match_type: str,
+    confidence: float,
+) -> dict:
+    return {
+        "concept_name": concept.name,
+        "concept_type": concept.concept_type or "unknown",
+        "match_type":   match_type,
+        "node_id":      node.id,
+        "node_name":    node.name,
+        "node_type":    node.concept_type or "unknown",
+        "node_source":  node.source,
+        "confidence":   confidence,
+        "best_miss_name":  None,
+        "best_miss_score": None,
+    }
+
+
+def _miss_record(
+    concept:    Concept,
+    best_node:  Optional[KnowledgeNode],
+    best_score: Optional[float],
+) -> dict:
+    return {
+        "concept_name": concept.name,
+        "concept_type": concept.concept_type or "unknown",
+        "match_type":   "no_match",
+        "node_id":      None,
+        "node_name":    None,
+        "node_type":    None,
+        "node_source":  None,
+        "confidence":   None,
+        "best_miss_name":  best_node.name if best_node else None,
+        "best_miss_score": round(best_score, 4) if best_score is not None else None,
+    }
+
+
+def show_existing_mappings(
+    courses:     list[Course],
+    session:     Session,
+    nodes_by_id: dict[int, KnowledgeNode],
+) -> None:
+    """
+    Print all existing concept_node_mappings for the given courses.
+    No model loading required — reads directly from the DB.
+    """
+    for course in courses:
+        concepts: list[Concept] = (
+            session.query(Concept)
+            .filter(Concept.course_id == course.id)
+            .all()
+        )
+        concept_by_id = {c.id: c for c in concepts}
+
+        mappings = (
+            session.query(ConceptNodeMapping)
+            .filter(ConceptNodeMapping.concept_id.in_(list(concept_by_id.keys())))
+            .all()
+        )
+
+        unmapped = [
+            c for c in concepts
+            if c.id not in {m.concept_id for m in mappings}
+        ]
+
+        print(f"=== Course [{course.id}] '{course.name}' "
+              f"— {len(mappings)} mapped, {len(unmapped)} unmapped ===")
+
+        if mappings:
+            print(f"\n  MAPPED ({len(mappings)}):")
+            print(f"  {'─'*70}")
+            for m in sorted(mappings,
+                            key=lambda x: concept_by_id[x.concept_id].name):
+                concept = concept_by_id[m.concept_id]
+                node    = nodes_by_id.get(m.node_id)
+                tag = {
+                    "exact_name":  "exact ",
+                    "exact_alias": "alias ",
+                    "semantic":    f"  {m.confidence:.2f}",
+                }.get(m.match_type, "      ")
+                node_name   = node.name   if node else f"[node_id={m.node_id}]"
+                node_source = node.source if node else "?"
+                print(
+                    f"  ✓ [{tag}]  "
+                    f"{concept.name:<32}  "
+                    f"→  {node_name:<32}  "
+                    f"[{node_source:<10}]"
+                )
+
+        if unmapped:
+            print(f"\n  UNMAPPED ({len(unmapped)}):")
+            print(f"  {'─'*70}")
+            for c in sorted(unmapped, key=lambda x: x.name):
+                print(f"  ✗ {c.name:<38}  [{c.concept_type}]")
+
+        print()
 
 
 # ---------------------------------------------------------------------------
@@ -444,11 +564,14 @@ def map_concepts_for_course(
 def main(args: argparse.Namespace) -> None:
     print(f"\n{'='*60}")
     print(f"  Concept Mapper")
-    print(f"  Bi-encoder   : {BI_ENCODER_MODEL}")
-    print(f"  Cross-encoder: {CROSS_ENCODER_MODEL}")
-    print(f"  Top-K        : {TOP_K}")
-    print(f"  Threshold    : {MATCH_THRESHOLD}")
-    print(f"  Cache dir    : {CACHE_DIR}")
+    if not args.show_mapped:
+        print(f"  Bi-encoder   : {BI_ENCODER_MODEL}")
+        print(f"  Cross-encoder: {CROSS_ENCODER_MODEL}")
+        print(f"  Top-K        : {TOP_K}")
+        print(f"  Threshold    : {MATCH_THRESHOLD}")
+        print(f"  Cache dir    : {CACHE_DIR}")
+    else:
+        print(f"  Mode         : show existing mappings (no model loading)")
     print(f"{'='*60}\n")
 
     engine = create_engine(CONCEPT_DB_URL)
@@ -477,7 +600,16 @@ def main(args: argparse.Namespace) -> None:
         for c in courses:
             print(f"  • [{c.id}] {c.name}")
 
-        # ── Load knowledge nodes ───────────────────────────────────────────
+        # ── --show-mapped: read-only display, no models needed ─────────────
+        if args.show_mapped:
+            print("\n[graph] Loading knowledge nodes for display …")
+            nodes: list[KnowledgeNode] = session.query(KnowledgeNode).all()
+            nodes_by_id = {n.id: n for n in nodes}
+            print()
+            show_existing_mappings(courses, session, nodes_by_id)
+            return
+
+        # ── Load knowledge nodes for mapping ──────────────────────────────
         print("\n[graph] Loading knowledge nodes …")
         nodes: list[KnowledgeNode] = session.query(KnowledgeNode).all()
         session.expunge_all()
@@ -532,7 +664,7 @@ def main(args: argparse.Namespace) -> None:
     with Session(engine) as session:
         for course in courses:
             print(f"=== Mapping course [{course.id}] '{course.name}' ===")
-            summary = map_concepts_for_course(
+            summary, details = map_concepts_for_course(
                 course_id     = course.id,
                 session       = session,
                 bi_encoder    = bi_encoder,
@@ -543,6 +675,9 @@ def main(args: argparse.Namespace) -> None:
                 type_indices  = type_indices,
                 global_index  = global_index,
             )
+
+            _print_mapping_details(details)
+
             print(f"  [result] exact_name={summary.get('exact_name', 0)}  "
                   f"exact_alias={summary.get('exact_alias', 0)}  "
                   f"semantic={summary.get('semantic', 0)}  "
@@ -552,11 +687,58 @@ def main(args: argparse.Namespace) -> None:
     print("[done] Mapping complete.")
 
 
+def _print_mapping_details(details: list[dict]) -> None:
+    """Print a formatted breakdown of matched and unmatched concepts."""
+    if not details:
+        return
+
+    matched  = [d for d in details if d["match_type"] != "no_match"]
+    unmatched = [d for d in details if d["match_type"] == "no_match"]
+
+    # ── Matched ───────────────────────────────────────────────────────────
+    if matched:
+        print(f"\n  MATCHED ({len(matched)}):")
+        print(f"  {'─'*70}")
+        for d in matched:
+            tag = {
+                "exact_name":  "exact ",
+                "exact_alias": "alias ",
+                "semantic":    f"  {d['confidence']:.2f}",
+            }.get(d["match_type"], "      ")
+
+            src_badge = f"[{d['node_source']:<10}]" if d["node_source"] else ""
+            print(
+                f"  ✓ [{tag}]  "
+                f"{d['concept_name']:<32}  "
+                f"→  {d['node_name']:<32}  "
+                f"{src_badge}"
+            )
+
+    # ── Unmatched ─────────────────────────────────────────────────────────
+    if unmatched:
+        print(f"\n  NO MATCH ({len(unmatched)}):")
+        print(f"  {'─'*70}")
+        for d in unmatched:
+            miss_hint = ""
+            if d["best_miss_name"] is not None:
+                miss_hint = (
+                    f"  (best: '{d['best_miss_name']}' "
+                    f"score={d['best_miss_score']:.2f})"
+                )
+            print(f"  ✗ {d['concept_name']:<38}  [{d['concept_type']}]{miss_hint}")
+    print()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Map extracted concepts to knowledge graph nodes."
     )
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--course-id",   type=int,  help="Map a single course by DB id")
-    group.add_argument("--course-name", type=str,  help="Map a single course by name")
+    group.add_argument("--course-id",   type=int,  help="Target a single course by DB id")
+    group.add_argument("--course-name", type=str,  help="Target a single course by name")
+    parser.add_argument(
+        "--show-mapped",
+        action="store_true",
+        help="Print existing mappings for the course(s) without running the models.",
+    )
     main(parser.parse_args())

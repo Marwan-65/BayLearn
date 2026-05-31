@@ -69,6 +69,10 @@ Required .env key:
 Optional .env keys:
     METACADEMY_ZIP  — path to a locally downloaded metacademy-content .zip
                       (skips the GitHub download)
+    ACM_CCS_PATH    — path to the ACM CCS XML file.
+                      Download from:
+                      https://dl.acm.org/pb-assets/dl_ccs/acm_ccs2012-1626988337597.xml
+                      If not set, the ACM CCS step is skipped silently.
 """
 
 from __future__ import annotations
@@ -107,6 +111,7 @@ if not CONCEPT_DB_URL:
     sys.exit(1)
 
 METACADEMY_ZIP = os.environ.get("METACADEMY_ZIP", "").strip()
+ACM_CCS_PATH   = os.environ.get("ACM_CCS_PATH",   "").strip()
 
 # metacademy-CONTENT repo — this is where the concept data lives.
 # (metacademy-application is the web app code and has no concept data.)
@@ -222,6 +227,183 @@ def _infer_type(name: str, description: str = "") -> str:
         if any(kw in haystack for kw in keywords):
             return concept_type
     return "unknown"
+
+
+# ---------------------------------------------------------------------------
+# ACM CCS 2012 — type mapping and parser
+# ---------------------------------------------------------------------------
+
+# Maps the 13 root ACM concept IDs to our concept types.
+# Used as a fallback when _infer_type returns "unknown".
+# Roots marked "unknown" are low-relevance for CE (HCI, social topics, etc.)
+# and will still be stored but won't pollute type-scoped search.
+_ACM_ROOT_TYPE: dict[str, str] = {
+    "10010583": "hardware_concept",         # Hardware
+    "10010520": "system_concept",           # Computer systems organization
+    "10011007": "language_concept",         # Software and its engineering
+    "10002978": "security_concept",         # Security and privacy
+    "10003033": "protocol_or_standard",     # Networks
+    "10003752": "theorem_or_property",      # Theory of computation
+    "10010147": "algorithm",                # Computing methodologies
+    "10002950": "mathematical_concept",     # Mathematics of computing
+    "10002951": "system_concept",           # Information systems
+    "10010405": "system_concept",           # Applied computing
+    "10002944": "unknown",                  # General and reference
+    "10003120": "unknown",                  # Human-centered computing
+    "10003456": "unknown",                  # Social and professional topics
+}
+
+
+def parse_acm_ccs(xml_path: str) -> tuple[list[dict], list[tuple[str, str]]]:
+    """
+    Parse the ACM CCS 2012 SKOS/RDF-XML file into nodes and edges.
+
+    The ACM IDs use dot-separated depth encoding:
+        10002978              → depth 0  (root category — skipped as a node)
+        10002978.10002979     → depth 1  ("Cryptography")
+        10002978.10002979.10002980 → depth 2  ("Public key cryptography")
+
+    Edges represent the hierarchy: parent → child.
+    In the dependency graph this means "understand the broader topic before
+    diving into the specific sub-topic" — a valid soft prerequisite.
+
+    Subtrees skipped entirely (not useful for CE students):
+        10002944  General and reference
+        10003456  Social and professional topics
+        10003120  Human-centered computing
+    """
+    import xml.etree.ElementTree as ET
+
+    SKOS = "http://www.w3.org/2004/02/skos/core#"
+    RDF  = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+
+    _SKIP_ROOTS = {"10002944", "10003456", "10003120"}
+
+    tree   = ET.parse(xml_path)
+    root_el = tree.getroot()
+
+    nodes: list[dict]             = []
+    edges: list[tuple[str, str]]  = []
+
+    for concept in root_el.findall(f"{{{SKOS}}}Concept"):
+        cid = concept.get(f"{{{RDF}}}about", "").strip()
+        if not cid:
+            continue
+
+        depth = cid.count(".")
+
+        # Skip root-level categories (depth 0) — too abstract to be nodes
+        if depth == 0:
+            continue
+
+        # Determine root ancestor (first component before any dot)
+        root_id = cid.split(".")[0]
+
+        # Skip irrelevant subtrees
+        if root_id in _SKIP_ROOTS:
+            continue
+
+        label_el = concept.find(f"{{{SKOS}}}prefLabel")
+        name = label_el.text.lower().strip() if label_el is not None else cid
+
+        # Type: try keyword inference first, fall back to root-category mapping
+        concept_type = _infer_type(name)
+        if concept_type == "unknown":
+            concept_type = _ACM_ROOT_TYPE.get(root_id, "unknown")
+
+        # Parent ID from skos:broader
+        broader_el = concept.find(f"{{{SKOS}}}broader")
+        parent_id  = broader_el.get(f"{{{RDF}}}resource", "").strip() \
+                     if broader_el is not None else None
+
+        nodes.append({
+            "id":           cid,
+            "name":         name,
+            "concept_type": concept_type,
+            "parent_id":    parent_id,
+        })
+
+        # Create edge: parent → this node (parent is a prerequisite)
+        # Only if parent is also depth ≥ 1 (skip edges from root categories)
+        if parent_id and parent_id.count(".") >= 1:
+            edges.append((parent_id, cid))
+
+    print(f"[parse-acm] {len(nodes)} concepts, {len(edges)} edges parsed.")
+    return nodes, edges
+
+
+def _insert_acm_nodes_and_edges(
+    session:   "Session",
+    raw_nodes: list[dict],
+    raw_edges: list[tuple[str, str]],
+) -> None:
+    """Insert ACM CCS nodes and their hierarchy edges into the DB."""
+
+    # Pre-load existing source_ids
+    existing: dict[str, int] = {
+        sid: dbid
+        for sid, dbid in session.query(
+            KnowledgeNode.source_id, KnowledgeNode.id
+        ).filter(KnowledgeNode.source == "acm_ccs").all()
+    }
+
+    acm_id_to_db_id: dict[str, int] = dict(existing)
+    inserted_nodes = 0
+
+    for raw in raw_nodes:
+        if raw["id"] in existing:
+            continue
+
+        node = KnowledgeNode(
+            name         = raw["name"],
+            description  = None,        # ACM CCS has no descriptions in the XML
+            aliases      = [],
+            concept_type = raw["concept_type"],
+            source       = "acm_ccs",
+            source_id    = raw["id"],
+        )
+        session.add(node)
+        session.flush()
+        acm_id_to_db_id[raw["id"]] = node.id
+        inserted_nodes += 1
+
+    session.commit()
+    skipped_nodes = len(raw_nodes) - inserted_nodes
+    print(f"[db-acm] Nodes  : {inserted_nodes} inserted, "
+          f"{skipped_nodes} already existed.")
+
+    # Insert edges
+    existing_edges: set[tuple[int, int]] = {
+        (f, t)
+        for f, t in session.query(
+            KnowledgeEdge.from_node_id, KnowledgeEdge.to_node_id
+        ).all()
+    }
+
+    inserted_edges = 0
+    skipped_edges  = 0
+    for parent_acm_id, child_acm_id in raw_edges:
+        from_id = acm_id_to_db_id.get(parent_acm_id)
+        to_id   = acm_id_to_db_id.get(child_acm_id)
+
+        if not from_id or not to_id or from_id == to_id:
+            skipped_edges += 1
+            continue
+        if (from_id, to_id) in existing_edges:
+            skipped_edges += 1
+            continue
+
+        session.add(KnowledgeEdge(
+            from_node_id = from_id,
+            to_node_id   = to_id,
+            source       = "acm_ccs",
+        ))
+        existing_edges.add((from_id, to_id))
+        inserted_edges += 1
+
+    session.commit()
+    print(f"[db-acm] Edges  : {inserted_edges} inserted, "
+          f"{skipped_edges} skipped.")
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +651,43 @@ def build_graph() -> None:
             .all()
         )
 
-    print(f"\n[done] Graph totals: {total_nodes} nodes, {total_edges} edges.")
+    print(f"\n[metacademy] Subtotals: "
+          f"{total_nodes} nodes, {total_edges} edges in graph so far.")
+
+    # ── ACM CCS 2012 ───────────────────────────────────────────────────────
+    if ACM_CCS_PATH:
+        p = Path(ACM_CCS_PATH)
+        if not p.is_absolute():
+            p = (Path(__file__).parent / p).resolve()
+        if not p.exists():
+            print(f"ERROR: ACM_CCS_PATH not found: {p}", file=sys.stderr)
+            sys.exit(1)
+
+        print(f"\n=== ACM CCS 2012: parsing {p.name} ===")
+        acm_nodes, acm_edges = parse_acm_ccs(str(p))
+
+        print("\n=== ACM CCS 2012: writing to database ===")
+        with Session(engine) as session:
+            _insert_acm_nodes_and_edges(session, acm_nodes, acm_edges)
+    else:
+        print("\n[acm-ccs] Skipped (ACM_CCS_PATH not set in .env).")
+        print("  Download: https://dl.acm.org/pb-assets/dl_ccs/"
+              "acm_ccs2012-1626988337597.xml")
+
+    # ── Final summary (both sources) ──────────────────────────────────────
+    with Session(engine) as session:
+        total_nodes = session.query(KnowledgeNode).count()
+        total_edges = session.query(KnowledgeEdge).count()
+        type_rows = (
+            session.query(KnowledgeNode.concept_type, func.count(KnowledgeNode.id))
+            .group_by(KnowledgeNode.concept_type)
+            .order_by(func.count(KnowledgeNode.id).desc())
+            .all()
+        )
+
+    print(f"\n{'='*60}")
+    print(f"  Graph totals: {total_nodes} nodes, {total_edges} edges")
+    print(f"{'='*60}")
     print("\nNode type breakdown:")
     for ctype, count in type_rows:
         print(f"  {ctype:<26} {count}")
@@ -482,6 +700,10 @@ def build_graph() -> None:
 if __name__ == "__main__":
     print(f"\n{'='*60}")
     print(f"  Knowledge Graph Builder")
-    print(f"  Source : metacademy-content (GitHub)")
+    print(f"  Sources: Metacademy")
+    if ACM_CCS_PATH:
+        print(f"           ACM CCS 2012  ({ACM_CCS_PATH})")
+    else:
+        print(f"           ACM CCS 2012  (skipped — set ACM_CCS_PATH in .env)")
     print(f"{'='*60}\n")
     build_graph()
