@@ -75,14 +75,14 @@ const PSEUDOCODES = {
 
 const PHASE_LABELS = {
   descend: 'DESCEND ↓',
-  act:     'ACT',
-  unwind:  'UNWIND ↑',
+  act: 'ACT',
+  unwind: 'UNWIND ↑',
 };
 
 const PHASE_COLOURS = {
   descend: '#60a5fa',
-  act:     '#d4a843',
-  unwind:  '#5a4e38',
+  act: '#d4a843',
+  unwind: '#5a4e38',
 };
 
 class PseudocodePanel {
@@ -92,8 +92,8 @@ class PseudocodePanel {
    */
   constructor(container, theme) {
     this._container = container;
-    this._theme     = theme;
-    this._op        = null;
+    this._theme = theme;
+    this._op = null;
     this._render(null, null);
   }
 
@@ -124,19 +124,19 @@ class PseudocodePanel {
   _render(activeLine, phase) {
     if (!this._container) return;
 
-    const T    = this._theme;
+    const T = this._theme;
     const code = this._op ? (PSEUDOCODES[this._op] ?? []) : [];
 
     if (code.length === 0) {
       this._container.innerHTML = `
-        <div style="padding:12px 16px;opacity:0.4;font-size:12px;font-family:${T.UI_FONT};color:${T.TEXT_MUTED}">
+        <div style="padding:12px 16px;opacity:0.4;font-size:12px;font-family:var(--ui-font);color:${T.TEXT_MUTED}">
           Select an operation to see pseudocode.
         </div>`;
       return;
     }
 
     const phaseColour = phase ? (PHASE_COLOURS[phase] ?? PHASE_COLOURS.descend) : T.BORDER2;
-    const phaseText   = phase ? (PHASE_LABELS[phase]  ?? '')                    : '';
+    const phaseText = phase ? (PHASE_LABELS[phase] ?? '') : '';
 
     const phaseBar = phase ? `
       <div style="
@@ -150,40 +150,45 @@ class PseudocodePanel {
           font-weight:700;
           letter-spacing:0.8px;
           color:${phaseColour};
-          font-family:${T.UI_FONT};
+          font-family:var(--ui-font);
         ">${phaseText}</span>
       </div>` : '';
 
     const lines = code.map((line, i) => {
-      const isActive  = i === activeLine;
-      const indent    = line.match(/^(\s*)/)[1].length;
-      const trimmed   = line.trimStart();
-      const isBlank   = trimmed === '';
+      const isActive = i === activeLine;
+      const indent = line.match(/^(\s*)/)[1].length;
+      const trimmed = line.trimStart();
+      const isBlank = trimmed === '';
 
-      const bg     = isActive ? T.GOLD_BG    : 'transparent';
+      const bg = isActive ? 'rgba(6, 182, 212, 0.22)' : 'transparent';
       const colour = isActive ? T.GOLD_LIGHT : T.TEXT_MUTED;
-      const border = isActive ? `border-left:2px solid ${T.GOLD};` : 'border-left:2px solid transparent;';
+      const border = isActive ? `border-left:3px solid ${T.GOLD};` : 'border-left:3px solid transparent;';
+      const lineNumColor = isActive ? T.GOLD_LIGHT : T.TEXT_MUTED;
+      const lineNumOpacity = isActive ? 0.9 : 0.4;
 
       return `<div style="
         ${border}
         background:${bg};
-        padding:1px 14px 1px ${isActive ? '12px' : '14px'};
+        padding:1px 14px 1px ${isActive ? '11px' : '14px'};
         min-height:${isBlank ? '10px' : '20px'};
         display:flex;
         align-items:center;
         transition:background 0.15s;
       ">
         <span style="
-          color:${T.TEXT_DIM};
-          font-family:${T.CODE_FONT};
+          display:inline-block;
+          color:${lineNumColor};
+          font-family:var(--code-font);
           font-size:10px;
-          width:20px;
+          width:24px;
+          margin-right:12px;
+          text-align:right;
           flex-shrink:0;
           user-select:none;
-          opacity:0.5;
+          opacity:${lineNumOpacity};
         ">${isBlank ? '' : i}</span>
         <span style="
-          font-family:${T.CODE_FONT};
+          font-family:var(--code-font);
           font-size:11px;
           color:${colour};
           white-space:pre;

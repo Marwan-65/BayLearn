@@ -154,7 +154,11 @@ async def ingest_transform(
         files = {
             "file": (file.filename or "document.bin", file_bytes, file.content_type or "application/octet-stream")
         }
-        parsing_resp = requests.post(upload_url, files=files, timeout=300)
+        user_id = _get_env("BAYLEARN_USER_ID", "7885bb36-4a00-40a5-88f2-fb7a405f5021")
+        params = {
+            "user_id": user_id
+        }
+        parsing_resp = requests.post(upload_url, files=files, params=params, timeout=300)
         parsing_resp.raise_for_status()
         parsed_content = parsing_resp.json()
     except Exception as exc:

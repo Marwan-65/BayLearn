@@ -1,71 +1,96 @@
 {
   "quantum": 3,
   "algorithm": {
-    "key": "sjf",
-    "name": "Shortest Job First",
-    "shortName": "SJF"
+    "key": "hpf",
+    "name": "Highest Priority First",
+    "shortName": "HPF"
   },
-  "schFlag": 0,
+  "schFlag": 1,
   "processes": [
     {
       "id": "P1",
       "arrival": 0,
       "burst": 8,
+      "priority": 2,
       "color": "#4285F4"
     },
     {
       "id": "P2",
       "arrival": 1,
       "burst": 4,
+      "priority": 1,
       "color": "#0F9D58"
     },
     {
       "id": "P3",
       "arrival": 2,
       "burst": 9,
+      "priority": 3,
       "color": "#F4B400"
     },
     {
       "id": "P4",
       "arrival": 3,
       "burst": 5,
+      "priority": 1,
       "color": "#DB4437"
+    },
+    {
+      "id": "P5",
+      "arrival": 4,
+      "burst": 6,
+      "priority": 2,
+      "color": "#AA46BB"
     }
   ],
   "sequence": [
     {
       "id": "P1",
       "start": 0,
-      "end": 8,
+      "end": 1,
       "color": "#4285F4",
-      "endReason": "COMPLETED"
+      "endReason": "PREEMPTED_BY_HIGHER_PRIORITY"
     },
     {
       "id": "P2",
-      "start": 8,
-      "end": 12,
+      "start": 1,
+      "end": 5,
       "color": "#0F9D58",
       "endReason": "COMPLETED"
     },
     {
       "id": "P4",
-      "start": 12,
-      "end": 17,
+      "start": 5,
+      "end": 10,
       "color": "#DB4437",
       "endReason": "COMPLETED"
     },
     {
-      "id": "P3",
+      "id": "P1",
+      "start": 10,
+      "end": 17,
+      "color": "#4285F4",
+      "endReason": "COMPLETED"
+    },
+    {
+      "id": "P5",
       "start": 17,
-      "end": 26,
+      "end": 23,
+      "color": "#AA46BB",
+      "endReason": "COMPLETED"
+    },
+    {
+      "id": "P3",
+      "start": 24,
+      "end": 33,
       "color": "#F4B400",
       "endReason": "COMPLETED"
     }
   ],
   "stats": {
-    "cpuUtilization": 96.15,
-    "avgWTA": 2.3,
-    "avgWait": 7.75,
-    "avgTurnaround": 14.25
+    "cpuUtilization": 96.97,
+    "avgWTA": 2.23,
+    "avgWait": 9.2,
+    "avgTurnaround": 15.6
   }
 }

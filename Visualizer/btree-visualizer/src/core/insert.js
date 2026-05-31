@@ -2,11 +2,28 @@
 // never need a second upward pass. Returns Step[] --, the input state is never
 // mutated; we work on a deep clone throughout.
 //
+// Duplicate keys are rejected: inserting a key that already exists is a no-op
+// (returns a single DUPLICATE_KEY step so the visualizer can display a message).
+//
 // Pseudocode line indices match spec section 5.2.
 
 const { ACTIONS, NODE_ROLES, KEY_ROLES, EDGE_ROLES } = require('./constants');
 const { generateId, cloneState, createStep } = require('./shared');
 const { isFull } = require('./btree');
+
+// Pure read: returns true if key is anywhere in the tree.
+function keyExists(state, key) {
+  function search(nodeId) {
+    const n = state.nodes[nodeId];
+    if (!n) return false;
+    for (let i = 0; i < n.keys.length; i++) {
+      if (n.keys[i] === key) return true;
+      if (key < n.keys[i]) return !n.isLeaf && search(n.children[i]);
+    }
+    return !n.isLeaf && search(n.children[n.keys.length]);
+  }
+  return search(state.rootId);
+}
 
 const PSEUDOCODE = [
   'function insert(key):',                                         // 0
@@ -51,6 +68,26 @@ function insert(state, key) {
 
   function emit(params) {
     steps.push(createStep({ stepIndex: stepIdx++, state: ws, ...params }));
+  }
+
+  // Reject duplicates before any mutation.
+  if (keyExists(ws, key)) {
+    emit({
+      action:         ACTIONS.INITIAL_STATE,
+      explanation:    `Key ${key} already exists in the tree. Duplicate keys are not allowed.`,
+      pseudocodeLine: 0,
+      variables:      { key, t },
+      meta:           { phase: 'descend', depth: 0 },
+    });
+    emit({
+      action:         ACTIONS.OPERATION_COMPLETE,
+      isKeyStep:      true,
+      explanation:    `Insert aborted: key ${key} is a duplicate.`,
+      pseudocodeLine: 0,
+      variables:      { key, t },
+      meta:           { phase: 'unwind', duplicate: true },
+    });
+    return steps;
   }
 
   emit({

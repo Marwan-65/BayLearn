@@ -1,131 +1,61 @@
 
-# BayLearn - Input Parsing Module
+### Prerequisites
+1. Ensure **Docker Desktop** is open and running in the background.
+2. Ensure you have your `.env` files set up in both `Input-Parsing-Module` (with `DATABASE_URL`) and `Visualizer/Parser` (with `GEMINI_API_KEY`).
 
-This repository contains the Input Parsing API used to parse uploaded files into structured content for downstream RAG/LLM workflows.
+---
 
-## Project Layout
+### Step 1: Start the Backend APIs
+You need to start the two Python servers that handle PDF extraction and LLM orchestration. Open two separate terminals:
 
-- `Input-Parsing-Module/`: FastAPI service and parsers
-- `Input-Parsing-Module/app/parsers/pdf_parser.py`: PDF parser with hybrid OCR routing (PaddleOCR + Gemini + Groq)
-- `Input-Parsing-Module/app/models/unified_content_schema.py`: Structured output schema
-
-## Requirements
-
-The dependency list is maintained in `Input-Parsing-Module/requirements.txt` and includes:
-
-- API framework: FastAPI, Uvicorn
-- OCR/vision: PyMuPDF, PaddleOCR, OpenCV, Pillow, img2table
-- LLM OCR providers: google-genai, groq
-- Audio/video parsing: openai-whisper, ffmpeg-python
-
-## Environment Setup
-
-1. Go to the service directory:
-
-```powershell
-cd Input-Parsing-Module
+**Terminal 1 (Input Parsing Module):**
+```bash
+cd "Input-Parsing-Module"
+uvicorn app.main:app --reload --port 8000
 ```
 
-2. Create and activate a virtual environment:
-
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+**Terminal 2 (Transform & Orchestration API):**
+```bash
+cd "Visualizer/Parser"
+uvicorn transform_api:app --reload --port 8010
 ```
 
-3. Install dependencies:
+---
 
-```powershell
-pip install -r requirements.txt
+### Step 2: Start the Visualizer Frontends
+You need to serve the static HTML web pages for the three animations. Open three more terminals:
+
+**Terminal 3 (Linked List UI):**
+```bash
+cd "Visualizer/Linked List Animation"
+python -m http.server 8081
 ```
 
-4. Create your local env file from the template:
-
-```powershell
-copy .env.example .env
+**Terminal 4 (Scheduler UI):**
+```bash
+cd "Visualizer/Scheduler Animation/visualizer"
+python -m http.server 8082
 ```
 
-5. Set at least:
-
-- `GEMINI_API_KEY`
-- `GROQ_API_KEY` (optional but recommended as fallback)
-
-## Run The API
-
-From `Input-Parsing-Module`:
-
-```powershell
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+**Terminal 5 (B-Tree UI):**
+```bash
+cd "Visualizer/btree-visualizer"
+python -m http.server 8083
 ```
 
-Open:
+---
 
-- Swagger UI: `http://localhost:8000/docs`
-- OpenAPI JSON: `http://localhost:8000/openapi.json`
-
-## API Schema
-
-### Endpoint
-
-- Method: `POST`
-- Path: `/upload`
-- Content type: `multipart/form-data`
-- Field: `file` (binary)
-
-### Response Shape (ParsedContent)
-
-The API returns structured content based on `app/models/unified_content_schema.py`:
-
-```json
-{
-	"source_type": "pdf",
-	"title": "PDF Document",
-	"sections": [
-		{
-			"id": "string",
-			"heading": "Page 1",
-			"page": 1,
-			"chunks": [
-				{
-					"id": "string",
-					"content": "string",
-					"chunk_index": 0,
-					"metadata": {
-						"page": 1,
-						"chunk_type": "text"
-					}
-				}
-			]
-		}
-	],
-	"total_chunks": 1
-}
-```
-
-### Schema Definitions
-
-- `ParsedContent`
-	- `source_type: string`
-	- `title: string | null`
-	- `sections: Section[]`
-	- `total_chunks: number`
-
-- `Section`
-	- `id: string`
-	- `heading: string | null`
-	- `page: number | null`
-	- `chunks: Chunk[]`
-
-- `Chunk`
-	- `id: string`
-	- `content: string`
-	- `chunk_index: number`
-	- `metadata: object`
-
-## Quick Test
+### Step 3: Trigger the Automated Pipeline!
+Once all 5 terminals are running, you can ingest any document. Open a final terminal and run:
 
 ```bash
-curl -X POST "http://localhost:8000/upload" \
-	-F "file=@sample.pdf"
+cd "Visualizer/Parser"
+curl -X POST "http://localhost:8010/v1/ingest-launch" -F "file=@your-test-file.pdf"
 ```
 
+The system will automatically:
+1. Parse the PDF and save it to PostgreSQL.
+2. Send the text to Gemini to classify the algorithm and extract the scenario.
+3. Automatically boot up the C-Simulation Docker container (for Scheduler).
+4. Save the generated JSON files directly into the frontend directories.
+5. Return a `viewer_url` (e.g., `http://localhost:8082?run_id=...`) that you can click to view the immediately updated animation!

@@ -64,13 +64,20 @@ body {
     backdrop-filter: blur(10px);
 }
 
+/* ── Top bar ─────────────────────────────────────────────── */
 .top-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     flex-wrap: wrap;
     gap: 16px;
+}
+
+.title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .title {
@@ -78,6 +85,18 @@ body {
     font-weight: 600;
     color: var(--text);
     letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+}
+
+.algo-subtitle {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+    padding-left: 2px;
+    min-height: 1em;
 }
 
 .badge {
@@ -115,6 +134,7 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    font-family: inherit;
 }
 
 .btn:hover {
@@ -136,7 +156,7 @@ body {
 }
 
 .file-input-container {
-    margin-right: 8px;
+    margin-right: 0;
 }
 
 .speed-control {
@@ -147,14 +167,88 @@ body {
     padding: 4px 16px;
     border-radius: 40px;
     border: 1px solid var(--border);
-    margin-left: 8px;
+}
+
+.speed-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
 }
 
 .speed-control input {
     width: 80px;
 }
 
-/* Main visualization area */
+/* ── Progress bar row ────────────────────────────────────── */
+.progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 0 4px;
+}
+
+.progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: width 0.3s ease;
+    pointer-events: none;
+    width: 0%;
+}
+
+.step-counter {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+    min-width: 48px;
+    text-align: right;
+}
+
+/* Animated status dot */
+.status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+.status-dot.playing {
+    background: var(--good);
+    animation: pulse-dot 1.2s infinite;
+}
+
+.status-dot.paused {
+    background: var(--warn);
+}
+
+.status-dot.done {
+    background: var(--accent);
+}
+
+@keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+}
+
+.status-text {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* ── Visualization section ───────────────────────────────── */
 .viz-section {
     background: var(--panel);
     border-radius: 24px;
@@ -194,12 +288,60 @@ body {
     margin: 10px 0;
 }
 
-/* Queue section */
+/* ── Narration strip ─────────────────────────────────────── */
+.narration-strip {
+    display: flex;
+    align-items: stretch;
+    background: rgba(10, 16, 30, 0.7);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin: 16px 0;
+    min-height: 44px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+}
+
+.narration-accent {
+    width: 4px;
+    flex-shrink: 0;
+    background: var(--muted);
+    transition: background 0.4s ease;
+    border-radius: 12px 0 0 12px;
+}
+
+.narration-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+
+.narration-text {
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.5;
+    flex: 1;
+    min-width: 0;
+    transition: color 0.3s;
+}
+
+.narration-time {
+    font-size: 0.75rem;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Queue section ───────────────────────────────────────── */
 .queue-panel {
     background: linear-gradient(180deg, rgba(15, 24, 42, 0.9), rgba(13, 20, 35, 0.9));
     border-radius: 20px;
     padding: 20px;
-    margin-top: 20px;
+    margin-top: 4px;
     border: 1px solid var(--border);
 }
 
@@ -248,7 +390,7 @@ body {
     color: var(--muted);
 }
 
-/* Stats grid */
+/* ── Stats grid ──────────────────────────────────────────── */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -282,7 +424,7 @@ body {
     margin-left: 4px;
 }
 
-/* Table */
+/* ── Process table ───────────────────────────────────────── */
 .table-wrapper {
     border-radius: 18px;
     border: 1px solid var(--border);
@@ -308,10 +450,26 @@ td {
     padding: 12px 16px;
     border-bottom: 1px solid rgba(34, 49, 80, 0.6);
     color: var(--text);
+    transition: background 0.3s;
 }
 
 tr:last-child td {
     border-bottom: none;
+}
+
+/* Active row color-pulse — uses --row-color set inline on <tr> */
+tr.row-executing td {
+    background: color-mix(in srgb, var(--row-color, var(--accent)) 8%, transparent);
+    animation: row-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes row-pulse {
+    0%, 100% { background: color-mix(in srgb, var(--row-color, var(--accent)) 5%, transparent); }
+    50%       { background: color-mix(in srgb, var(--row-color, var(--accent)) 14%, transparent); }
+}
+
+tr.row-completed td {
+    opacity: 0.65;
 }
 
 .status-exec {
@@ -346,4 +504,17 @@ tr:last-child td {
     display: inline-block;
     margin-right: 8px;
     box-shadow: 0 0 8px rgba(255,255,255,0.25);
+}
+
+/* Priority badge in table */
+.priority-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1.5px solid;
 }
