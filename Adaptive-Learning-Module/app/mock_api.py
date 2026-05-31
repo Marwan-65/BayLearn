@@ -10,7 +10,7 @@ intervention — just start it and watch the steps tick through.
 Contract with eppo_inference.py:
 
     POST /generate
-        Body:    { "topic": str, "difficulty": str }
+        Body:    { "topic": str, "difficulty": str, "file_ids": [str, ...] }
         Waits ANSWER_DELAY seconds (simulating student thinking),
         then returns a weighted random result based on difficulty.
         Returns: { "correct": bool }
@@ -59,8 +59,16 @@ def generate():
     data       = request.get_json(force=True)
     topic      = data.get("topic",      "unknown")
     difficulty = data.get("difficulty", "Medium")
+    file_ids   = data.get("file_ids",   [])
+
+    if isinstance(file_ids, str):
+        file_ids = [v.strip() for v in file_ids.split(",") if v.strip()]
+    elif not isinstance(file_ids, list):
+        file_ids = []
 
     print(f"  [QUESTION]  topic='{topic}'  difficulty='{difficulty}'")
+    if file_ids:
+        print(f"  [SCOPE]     file_ids={file_ids}")
     print(f"  [THINKING]  simulating {ANSWER_DELAY}s student response time...")
 
     # simulate student reading and answering the question

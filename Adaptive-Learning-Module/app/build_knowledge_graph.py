@@ -8,71 +8,24 @@ populates two tables in the Adaptive-Learning-Module database:
   knowledge_edges — prerequisite edges  (from_node MUST be mastered before to_node)
 
 Run this ONCE before using concept_mapper.py.
-It is safe to re-run — existing rows are skipped.
+It is safe to re-run — existing rows are skipped via UNIQUE constraints.
 
 Usage:
     python build_knowledge_graph.py
 
-─── SQL to run on Supabase FIRST ─────────────────────────────────────────────
-
-    CREATE TABLE IF NOT EXISTS knowledge_nodes (
-        id           SERIAL PRIMARY KEY,
-        name         TEXT    NOT NULL,
-        description  TEXT,
-        aliases      JSONB   NOT NULL DEFAULT '[]',
-        concept_type TEXT    NOT NULL DEFAULT 'unknown',
-        source       TEXT    NOT NULL,
-        source_id    TEXT,
-        UNIQUE (source, source_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS knowledge_edges (
-        id           SERIAL  PRIMARY KEY,
-        from_node_id INTEGER NOT NULL
-                        REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
-        to_node_id   INTEGER NOT NULL
-                        REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
-        source       TEXT    NOT NULL,
-        UNIQUE (from_node_id, to_node_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS concept_node_mappings (
-        concept_id   INTEGER NOT NULL REFERENCES concepts(id)        ON DELETE CASCADE,
-        node_id      INTEGER NOT NULL REFERENCES knowledge_nodes(id)  ON DELETE CASCADE,
-        confidence   FLOAT   NOT NULL,
-        match_type   TEXT    NOT NULL
-                        CHECK (match_type IN ('exact_name','exact_alias','semantic')),
-        PRIMARY KEY (concept_id, node_id)
-    );
-
-──────────────────────────────────────────────────────────────────────────────
-
-About the data format (metacademy-content flat-file DB):
-    Each concept lives in concepts/<tag>/ with plain-text files inside:
-      title.txt        → single-line concept name shown to users
-      summary.txt      → 2-3 sentence description
-      dependencies.txt → list of prerequisite concept tags
-      id.txt           → stable unique id (different from the dir tag)
-      see-also.txt     → related concepts (treated as soft aliases)
-
-    dependencies.txt format (one dependency per blank-line-separated block):
-        tag: covariance
-        reason: the covariance matrix is a PSD matrix.
-        shortcut: 1
-
-    Edge meaning: tag in dependencies.txt → this concept
-    (i.e. the dependency must be mastered BEFORE this concept)
+Schema note:
+    knowledge_nodes.id  — SERIAL integer (not UUID)
+    knowledge_edges.id  — SERIAL integer (not UUID)
+    These tables are populated by this script and concept_mapper.py only.
+    concept_node_mappings.concept_id is VARCHAR (UUID) since concepts.id is UUID.
+    concept_node_mappings.node_id    is INTEGER since knowledge_nodes.id is SERIAL.
 
 Required .env key:
-    CONCEPT_DB_URL  — same connection string as concept_extractor.py
+    CONCEPT_DB_URL
 
 Optional .env keys:
     METACADEMY_ZIP  — path to a locally downloaded metacademy-content .zip
-                      (skips the GitHub download)
-    ACM_CCS_PATH    — path to the ACM CCS XML file.
-                      Download from:
-                      https://dl.acm.org/pb-assets/dl_ccs/acm_ccs2012-1626988337597.xml
-                      If not set, the ACM CCS step is skipped silently.
+    ACM_CCS_PATH    — path to the ACM CCS XML file
 """
 
 from __future__ import annotations
@@ -87,15 +40,9 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    JSON,
-    String,
-    Text,
-    UniqueConstraint,
-    create_engine,
-    func,
+    Column, Float, ForeignKey, Integer, JSON,
+    String, Text, UniqueConstraint,
+    create_engine, func,
 )
 from sqlalchemy.orm import declarative_base, Session
 
@@ -113,15 +60,15 @@ if not CONCEPT_DB_URL:
 METACADEMY_ZIP = os.environ.get("METACADEMY_ZIP", "").strip()
 ACM_CCS_PATH   = os.environ.get("ACM_CCS_PATH",   "").strip()
 
-# metacademy-CONTENT repo — this is where the concept data lives.
-# (metacademy-application is the web app code and has no concept data.)
 _CONTENT_URL = (
     "https://github.com/metacademy/metacademy-content"
     "/archive/refs/heads/master.zip"
 )
 
 # ---------------------------------------------------------------------------
-# SQLAlchemy models
+# ORM models
+# knowledge_nodes and knowledge_edges use integer serial PKs.
+# concept_node_mappings.concept_id is VARCHAR (UUID) — concepts.id is UUID.
 # ---------------------------------------------------------------------------
 
 Base = declarative_base()
@@ -131,7 +78,7 @@ class KnowledgeNode(Base):
     __tablename__ = "knowledge_nodes"
     __table_args__ = (UniqueConstraint("source", "source_id"),)
 
-    id           = Column(Integer, primary_key=True)
+    id           = Column(Integer, primary_key=True, autoincrement=True)
     name         = Column(String,  nullable=False)
     description  = Column(Text)
     aliases      = Column(JSON,    nullable=False, default=list)
@@ -144,17 +91,18 @@ class KnowledgeEdge(Base):
     __tablename__ = "knowledge_edges"
     __table_args__ = (UniqueConstraint("from_node_id", "to_node_id"),)
 
-    id           = Column(Integer, primary_key=True)
-    from_node_id = Column(Integer, ForeignKey("knowledge_nodes.id", ondelete="CASCADE"), nullable=False)
-    to_node_id   = Column(Integer, ForeignKey("knowledge_nodes.id", ondelete="CASCADE"), nullable=False)
-    source       = Column(String,  nullable=False)
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    from_node_id = Column(Integer, ForeignKey("knowledge_nodes.id",
+                                               ondelete="CASCADE"),
+                          nullable=False)
+    to_node_id   = Column(Integer, ForeignKey("knowledge_nodes.id",
+                                               ondelete="CASCADE"),
+                          nullable=False)
+    source       = Column(String, nullable=False)
 
 
 # ---------------------------------------------------------------------------
 # Concept-type inference
-# Pattern rules ordered by specificity — first match wins.
-# Types only need to be directionally correct; the cross-encoder in
-# concept_mapper.py corrects most errors during matching.
 # ---------------------------------------------------------------------------
 
 _TYPE_RULES: list[tuple[str, list[str]]] = [
@@ -230,101 +178,60 @@ def _infer_type(name: str, description: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
-# ACM CCS 2012 — type mapping and parser
+# ACM CCS 2012
 # ---------------------------------------------------------------------------
 
-# Maps the 13 root ACM concept IDs to our concept types.
-# Used as a fallback when _infer_type returns "unknown".
-# Roots marked "unknown" are low-relevance for CE (HCI, social topics, etc.)
-# and will still be stored but won't pollute type-scoped search.
 _ACM_ROOT_TYPE: dict[str, str] = {
-    "10010583": "hardware_concept",         # Hardware
-    "10010520": "system_concept",           # Computer systems organization
-    "10011007": "language_concept",         # Software and its engineering
-    "10002978": "security_concept",         # Security and privacy
-    "10003033": "protocol_or_standard",     # Networks
-    "10003752": "theorem_or_property",      # Theory of computation
-    "10010147": "algorithm",                # Computing methodologies
-    "10002950": "mathematical_concept",     # Mathematics of computing
-    "10002951": "system_concept",           # Information systems
-    "10010405": "system_concept",           # Applied computing
-    "10002944": "unknown",                  # General and reference
-    "10003120": "unknown",                  # Human-centered computing
-    "10003456": "unknown",                  # Social and professional topics
+    "10010583": "hardware_concept",
+    "10010520": "system_concept",
+    "10011007": "language_concept",
+    "10002978": "security_concept",
+    "10003033": "protocol_or_standard",
+    "10003752": "theorem_or_property",
+    "10010147": "algorithm",
+    "10002950": "mathematical_concept",
+    "10002951": "system_concept",
+    "10010405": "system_concept",
+    "10002944": "unknown",
+    "10003120": "unknown",
+    "10003456": "unknown",
 }
 
 
 def parse_acm_ccs(xml_path: str) -> tuple[list[dict], list[tuple[str, str]]]:
-    """
-    Parse the ACM CCS 2012 SKOS/RDF-XML file into nodes and edges.
-
-    The ACM IDs use dot-separated depth encoding:
-        10002978              → depth 0  (root category — skipped as a node)
-        10002978.10002979     → depth 1  ("Cryptography")
-        10002978.10002979.10002980 → depth 2  ("Public key cryptography")
-
-    Edges represent the hierarchy: parent → child.
-    In the dependency graph this means "understand the broader topic before
-    diving into the specific sub-topic" — a valid soft prerequisite.
-
-    Subtrees skipped entirely (not useful for CE students):
-        10002944  General and reference
-        10003456  Social and professional topics
-        10003120  Human-centered computing
-    """
     import xml.etree.ElementTree as ET
-
     SKOS = "http://www.w3.org/2004/02/skos/core#"
     RDF  = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-
     _SKIP_ROOTS = {"10002944", "10003456", "10003120"}
 
-    tree   = ET.parse(xml_path)
+    tree    = ET.parse(xml_path)
     root_el = tree.getroot()
-
-    nodes: list[dict]             = []
-    edges: list[tuple[str, str]]  = []
+    nodes: list[dict]            = []
+    edges: list[tuple[str, str]] = []
 
     for concept in root_el.findall(f"{{{SKOS}}}Concept"):
-        cid = concept.get(f"{{{RDF}}}about", "").strip()
-        if not cid:
-            continue
-
+        cid   = concept.get(f"{{{RDF}}}about", "").strip()
         depth = cid.count(".")
-
-        # Skip root-level categories (depth 0) — too abstract to be nodes
-        if depth == 0:
+        if depth == 0 or not cid:
             continue
-
-        # Determine root ancestor (first component before any dot)
         root_id = cid.split(".")[0]
-
-        # Skip irrelevant subtrees
         if root_id in _SKIP_ROOTS:
             continue
 
         label_el = concept.find(f"{{{SKOS}}}prefLabel")
         name = label_el.text.lower().strip() if label_el is not None else cid
 
-        # Type: try keyword inference first, fall back to root-category mapping
         concept_type = _infer_type(name)
         if concept_type == "unknown":
             concept_type = _ACM_ROOT_TYPE.get(root_id, "unknown")
 
-        # Parent ID from skos:broader
         broader_el = concept.find(f"{{{SKOS}}}broader")
         parent_id  = broader_el.get(f"{{{RDF}}}resource", "").strip() \
                      if broader_el is not None else None
 
-        nodes.append({
-            "id":           cid,
-            "name":         name,
-            "concept_type": concept_type,
-            "parent_id":    parent_id,
-        })
+        nodes.append({"id": cid, "name": name,
+                      "concept_type": concept_type, "parent_id": parent_id})
 
-        # Create edge: parent → this node (parent is a prerequisite)
-        # Only if parent is also depth ≥ 1 (skip edges from root categories)
         if parent_id and parent_id.count(".") >= 1:
             edges.append((parent_id, cid))
 
@@ -333,34 +240,26 @@ def parse_acm_ccs(xml_path: str) -> tuple[list[dict], list[tuple[str, str]]]:
 
 
 def _insert_acm_nodes_and_edges(
-    session:   "Session",
+    session:   Session,
     raw_nodes: list[dict],
     raw_edges: list[tuple[str, str]],
 ) -> None:
-    """Insert ACM CCS nodes and their hierarchy edges into the DB."""
-
-    # Pre-load existing source_ids
     existing: dict[str, int] = {
         sid: dbid
         for sid, dbid in session.query(
             KnowledgeNode.source_id, KnowledgeNode.id
         ).filter(KnowledgeNode.source == "acm_ccs").all()
     }
-
     acm_id_to_db_id: dict[str, int] = dict(existing)
     inserted_nodes = 0
 
     for raw in raw_nodes:
         if raw["id"] in existing:
             continue
-
         node = KnowledgeNode(
-            name         = raw["name"],
-            description  = None,        # ACM CCS has no descriptions in the XML
-            aliases      = [],
-            concept_type = raw["concept_type"],
-            source       = "acm_ccs",
-            source_id    = raw["id"],
+            name=raw["name"], description=None, aliases=[],
+            concept_type=raw["concept_type"],
+            source="acm_ccs", source_id=raw["id"],
         )
         session.add(node)
         session.flush()
@@ -368,64 +267,51 @@ def _insert_acm_nodes_and_edges(
         inserted_nodes += 1
 
     session.commit()
-    skipped_nodes = len(raw_nodes) - inserted_nodes
-    print(f"[db-acm] Nodes  : {inserted_nodes} inserted, "
-          f"{skipped_nodes} already existed.")
+    print(f"[db-acm] Nodes: {inserted_nodes} inserted, "
+          f"{len(raw_nodes)-inserted_nodes} already existed.")
 
-    # Insert edges
     existing_edges: set[tuple[int, int]] = {
-        (f, t)
-        for f, t in session.query(
-            KnowledgeEdge.from_node_id, KnowledgeEdge.to_node_id
-        ).all()
+        (f, t) for f, t in session.query(
+            KnowledgeEdge.from_node_id, KnowledgeEdge.to_node_id).all()
     }
-
     inserted_edges = 0
     skipped_edges  = 0
     for parent_acm_id, child_acm_id in raw_edges:
         from_id = acm_id_to_db_id.get(parent_acm_id)
         to_id   = acm_id_to_db_id.get(child_acm_id)
-
         if not from_id or not to_id or from_id == to_id:
-            skipped_edges += 1
-            continue
+            skipped_edges += 1; continue
         if (from_id, to_id) in existing_edges:
-            skipped_edges += 1
-            continue
-
-        session.add(KnowledgeEdge(
-            from_node_id = from_id,
-            to_node_id   = to_id,
-            source       = "acm_ccs",
-        ))
+            skipped_edges += 1; continue
+        session.add(KnowledgeEdge(from_node_id=from_id, to_node_id=to_id,
+                                   source="acm_ccs"))
         existing_edges.add((from_id, to_id))
         inserted_edges += 1
 
     session.commit()
-    print(f"[db-acm] Edges  : {inserted_edges} inserted, "
+    print(f"[db-acm] Edges: {inserted_edges} inserted, "
           f"{skipped_edges} skipped.")
 
 
 # ---------------------------------------------------------------------------
-# Download
+# Download + parse metacademy
 # ---------------------------------------------------------------------------
 
 def _get_zip_bytes() -> bytes:
     if METACADEMY_ZIP:
         p = Path(METACADEMY_ZIP)
         if not p.exists():
-            print(f"ERROR: METACADEMY_ZIP path not found: {p}", file=sys.stderr)
+            print(f"ERROR: METACADEMY_ZIP not found: {p}", file=sys.stderr)
             sys.exit(1)
         print(f"[data] Using local archive: {p}")
         return p.read_bytes()
 
-    print(f"[data] Downloading metacademy-content from GitHub …")
+    print("[data] Downloading metacademy-content from GitHub ...")
     try:
         resp = requests.get(_CONTENT_URL, timeout=180, stream=True)
         resp.raise_for_status()
     except requests.RequestException as exc:
         print(f"ERROR: Download failed: {exc}", file=sys.stderr)
-        print("  Set METACADEMY_ZIP=<path> in .env to use a local copy.", file=sys.stderr)
         sys.exit(1)
 
     chunks: list[bytes] = []
@@ -433,27 +319,12 @@ def _get_zip_bytes() -> bytes:
     for chunk in resp.iter_content(chunk_size=65_536):
         chunks.append(chunk)
         total += len(chunk)
-        print(f"\r  {total / 1_048_576:.1f} MB downloaded", end="", flush=True)
+        print(f"\r  {total/1_048_576:.1f} MB downloaded", end="", flush=True)
     print()
-    data = b"".join(chunks)
-    print(f"[data] Complete ({len(data) / 1_048_576:.1f} MB).")
-    return data
+    return b"".join(chunks)
 
-
-# ---------------------------------------------------------------------------
-# Flat-file parser
-#
-# The metacademy-content repo uses a custom plain-text format.
-# Each concept lives at:
-#   metacademy-content-master/concepts/<tag>/
-# with individual text files inside for each field.
-#
-# dependencies.txt contains blocks separated by blank lines, each block
-# being a set of "key: value" lines.  The relevant key is "tag".
-# ---------------------------------------------------------------------------
 
 def _read_zip_file(zf: zipfile.ZipFile, path: str) -> str:
-    """Read a file from the zip, return empty string if missing."""
     try:
         return zf.read(path).decode("utf-8", errors="replace").strip()
     except KeyError:
@@ -461,16 +332,6 @@ def _read_zip_file(zf: zipfile.ZipFile, path: str) -> str:
 
 
 def _parse_deps_txt(raw: str) -> list[str]:
-    """
-    Parse a dependencies.txt file and return a list of prerequisite tag strings.
-
-    Format (blank-line-separated blocks of key: value pairs):
-        tag: covariance
-        reason: the covariance matrix is a PSD matrix.
-        shortcut: 1
-
-        tag: positive-definite-matrices
-    """
     tags: list[str] = []
     for block in re.split(r"\n\s*\n", raw):
         for line in block.splitlines():
@@ -485,54 +346,36 @@ def _parse_deps_txt(raw: str) -> list[str]:
 
 
 def _parse_see_also_txt(raw: str) -> list[str]:
-    """
-    Extract concept tags from see-also.txt (Textile-like format).
-    Links look like: "label":concept_tag
-    """
     return re.findall(r'"[^"]+":([a-zA-Z0-9_\-]+)', raw)
 
 
 def parse_metacademy(zip_bytes: bytes) -> tuple[list[dict], list[tuple[str, str]]]:
-    """
-    Parse the metacademy-content ZIP archive.
-
-    Returns:
-        nodes : list of dicts — {tag, name, description, aliases}
-        edges : list of (prerequisite_tag, dependent_tag) tuples
-    """
-    nodes: list[dict] = []
+    nodes: list[dict]            = []
     edges: list[tuple[str, str]] = []
 
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         all_names = zf.namelist()
-
-        # The archive root is "metacademy-content-master/"
-        # Concept directories are: metacademy-content-master/concepts/<tag>/
         concept_dirs: set[str] = set()
         for name in all_names:
-            # Match paths like: metacademy-content-master/concepts/backpropagation/title.txt
             m = re.match(r"([^/]+/concepts/)([^/]+)/", name)
             if m:
                 concept_dirs.add(m.group(1) + m.group(2) + "/")
 
-        print(f"[parse] Found {len(concept_dirs)} concept directories in archive.")
+        print(f"[parse] Found {len(concept_dirs)} concept directories.")
 
         for concept_dir in sorted(concept_dirs):
-            # The tag is the last non-empty component of the directory path
-            tag = concept_dir.rstrip("/").split("/")[-1]
-
+            tag         = concept_dir.rstrip("/").split("/")[-1]
             name        = _read_zip_file(zf, concept_dir + "title.txt")
             description = _read_zip_file(zf, concept_dir + "summary.txt")
             deps_raw    = _read_zip_file(zf, concept_dir + "dependencies.txt")
             see_raw     = _read_zip_file(zf, concept_dir + "see-also.txt")
 
             if not name:
-                # Fall back to humanising the tag itself
                 name = tag.replace("_", " ").replace("-", " ")
 
-            # Soft aliases from see-also (related concept tags converted to readable names)
             see_also_tags = _parse_see_also_txt(see_raw)
-            aliases = [t.replace("_", " ").replace("-", " ").lower() for t in see_also_tags[:4]]
+            aliases = [t.replace("_", " ").replace("-", " ").lower()
+                       for t in see_also_tags[:4]]
 
             nodes.append({
                 "tag":         tag,
@@ -540,11 +383,10 @@ def parse_metacademy(zip_bytes: bytes) -> tuple[list[dict], list[tuple[str, str]
                 "description": description[:1000] if description else None,
                 "aliases":     aliases,
             })
-
             for prereq_tag in _parse_deps_txt(deps_raw):
-                edges.append((prereq_tag, tag))  # prereq → this concept
+                edges.append((prereq_tag, tag))
 
-    print(f"[parse] Parsed {len(nodes)} nodes, {len(edges)} raw dependency edges.")
+    print(f"[parse] {len(nodes)} nodes, {len(edges)} raw dependency edges.")
     return nodes, edges
 
 
@@ -559,102 +401,64 @@ def build_graph() -> None:
     raw_nodes, raw_edges = parse_metacademy(zip_bytes)
 
     if not raw_nodes:
-        print(
-            "ERROR: No concept nodes found.\n"
-            "  Make sure METACADEMY_ZIP points to the metacademy-CONTENT repo,\n"
-            "  not the metacademy-application repo.",
-            file=sys.stderr,
-        )
+        print("ERROR: No concept nodes found.", file=sys.stderr)
         sys.exit(1)
 
     engine = create_engine(CONCEPT_DB_URL)
 
-    print("\n=== Writing nodes to database ===")
+    print("\n=== Writing nodes ===")
     with Session(engine) as session:
-        # Pre-load existing source_ids to avoid per-row queries
         existing: dict[str, int] = {
-            sid: dbid
-            for sid, dbid in session.query(
+            sid: dbid for sid, dbid in session.query(
                 KnowledgeNode.source_id, KnowledgeNode.id
             ).filter(KnowledgeNode.source == "metacademy").all()
         }
-
         tag_to_db_id: dict[str, int] = dict(existing)
         inserted_nodes = 0
 
         for raw in raw_nodes:
-            tag = raw["tag"]
-            if tag in existing:
-                continue  # already in DB from a previous run
-
+            if raw["tag"] in existing:
+                continue
             concept_type = _infer_type(raw["name"], raw["description"] or "")
-
             node = KnowledgeNode(
-                name         = raw["name"],
-                description  = raw["description"],
-                aliases      = raw["aliases"],
-                concept_type = concept_type,
-                source       = "metacademy",
-                source_id    = tag,
+                name=raw["name"], description=raw["description"],
+                aliases=raw["aliases"], concept_type=concept_type,
+                source="metacademy", source_id=raw["tag"],
             )
             session.add(node)
             session.flush()
-            tag_to_db_id[tag] = node.id
+            tag_to_db_id[raw["tag"]] = node.id
             inserted_nodes += 1
 
         session.commit()
-        skipped_nodes = len(raw_nodes) - inserted_nodes
-        print(f"[db] Nodes: {inserted_nodes} inserted, {skipped_nodes} already existed.")
+        print(f"[db] Nodes: {inserted_nodes} inserted, "
+              f"{len(raw_nodes)-inserted_nodes} already existed.")
 
-        print("\n=== Writing edges to database ===")
+        print("\n=== Writing edges ===")
+        existing_edges: set[tuple[int, int]] = {
+            (f, t) for f, t in session.query(
+                KnowledgeEdge.from_node_id, KnowledgeEdge.to_node_id).all()
+        }
         inserted_edges = 0
         skipped_edges  = 0
-
-        # Pre-load existing edges to avoid per-row queries
-        existing_edges: set[tuple[int, int]] = {
-            (f, t)
-            for f, t in session.query(
-                KnowledgeEdge.from_node_id, KnowledgeEdge.to_node_id
-            ).all()
-        }
 
         for prereq_tag, dependent_tag in raw_edges:
             from_id = tag_to_db_id.get(prereq_tag)
             to_id   = tag_to_db_id.get(dependent_tag)
-
             if not from_id or not to_id or from_id == to_id:
-                skipped_edges += 1
-                continue
+                skipped_edges += 1; continue
             if (from_id, to_id) in existing_edges:
-                skipped_edges += 1
-                continue
-
-            session.add(KnowledgeEdge(
-                from_node_id = from_id,
-                to_node_id   = to_id,
-                source       = "metacademy",
-            ))
+                skipped_edges += 1; continue
+            session.add(KnowledgeEdge(from_node_id=from_id, to_node_id=to_id,
+                                       source="metacademy"))
             existing_edges.add((from_id, to_id))
             inserted_edges += 1
 
         session.commit()
-        print(f"[db] Edges: {inserted_edges} inserted, {skipped_edges} skipped.")
+        print(f"[db] Edges: {inserted_edges} inserted, "
+              f"{skipped_edges} skipped.")
 
-    # ── Final summary ─────────────────────────────────────────────────────
-    with Session(engine) as session:
-        total_nodes = session.query(KnowledgeNode).count()
-        total_edges = session.query(KnowledgeEdge).count()
-        type_rows = (
-            session.query(KnowledgeNode.concept_type, func.count(KnowledgeNode.id))
-            .group_by(KnowledgeNode.concept_type)
-            .order_by(func.count(KnowledgeNode.id).desc())
-            .all()
-        )
-
-    print(f"\n[metacademy] Subtotals: "
-          f"{total_nodes} nodes, {total_edges} edges in graph so far.")
-
-    # ── ACM CCS 2012 ───────────────────────────────────────────────────────
+    # ACM CCS
     if ACM_CCS_PATH:
         p = Path(ACM_CCS_PATH)
         if not p.is_absolute():
@@ -662,24 +466,20 @@ def build_graph() -> None:
         if not p.exists():
             print(f"ERROR: ACM_CCS_PATH not found: {p}", file=sys.stderr)
             sys.exit(1)
-
-        print(f"\n=== ACM CCS 2012: parsing {p.name} ===")
+        print(f"\n=== ACM CCS 2012: {p.name} ===")
         acm_nodes, acm_edges = parse_acm_ccs(str(p))
-
-        print("\n=== ACM CCS 2012: writing to database ===")
         with Session(engine) as session:
             _insert_acm_nodes_and_edges(session, acm_nodes, acm_edges)
     else:
-        print("\n[acm-ccs] Skipped (ACM_CCS_PATH not set in .env).")
-        print("  Download: https://dl.acm.org/pb-assets/dl_ccs/"
-              "acm_ccs2012-1626988337597.xml")
+        print("\n[acm-ccs] Skipped — set ACM_CCS_PATH in .env to include.")
 
-    # ── Final summary (both sources) ──────────────────────────────────────
+    # Summary
     with Session(engine) as session:
         total_nodes = session.query(KnowledgeNode).count()
         total_edges = session.query(KnowledgeEdge).count()
         type_rows = (
-            session.query(KnowledgeNode.concept_type, func.count(KnowledgeNode.id))
+            session.query(KnowledgeNode.concept_type,
+                          func.count(KnowledgeNode.id))
             .group_by(KnowledgeNode.concept_type)
             .order_by(func.count(KnowledgeNode.id).desc())
             .all()
@@ -688,14 +488,9 @@ def build_graph() -> None:
     print(f"\n{'='*60}")
     print(f"  Graph totals: {total_nodes} nodes, {total_edges} edges")
     print(f"{'='*60}")
-    print("\nNode type breakdown:")
     for ctype, count in type_rows:
         print(f"  {ctype:<26} {count}")
 
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     print(f"\n{'='*60}")

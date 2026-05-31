@@ -7,15 +7,19 @@ Launched by backend.py with CLI args:
         --user-id 3 \
         --session-id 47 \
         --scope-type course \
-        --scope-value "algorithms,data structures"
+        --scope-ids   "course-uuid-1,course-uuid-2"
 
     python eppo_inference.py \
         --user-id 3 \
         --session-id 48 \
         --scope-type files \
-        --scope-value "uuid-1,uuid-2,uuid-3"
+        --scope-ids   "file-uuid-1,file-uuid-2"
 
-scope-value is always comma-separated — supports multiple courses or files.
+scope-ids is always comma-separated — chunk DB UUIDs (course or file).
+
+For question generation, the selected concept's source file UUIDs are sent
+to the /generate endpoint as file_ids so downstream generators can scope
+their prompts or retrieval to the originating material.
 
 Static config in .env:
     CONCEPT_DB_URL
@@ -57,7 +61,7 @@ CONCEPT_DB_URL   = os.environ.get("CONCEPT_DB_URL", "").strip()
 QUESTION_API_URL = os.environ.get("QUESTION_API_URL",
                                   "http://localhost:5000/generate")
 MODEL_PATH       = os.path.join(os.path.dirname(__file__),
-                                "models", "eppo_latest_model.pt")
+                                "models", "eppo_ep2500.pt")
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr)
@@ -70,20 +74,20 @@ print(f"Device: {DEVICE}")
 # CLI args
 # ---------------------------------------------------------------------------
 _parser = argparse.ArgumentParser()
-_parser.add_argument("--user-id",     type=int, required=True)
-_parser.add_argument("--session-id",  type=int, required=True)
+_parser.add_argument("--user-id",     type=str, required=True)
+_parser.add_argument("--session-id",  type=str, required=True)
 _parser.add_argument("--scope-type",  type=str, default="course",
                      choices=["course", "files"])
-_parser.add_argument("--scope-value", type=str, default="")
+_parser.add_argument("--scope-ids",  type=str, default="")
 _args = _parser.parse_args()
 
 EPPO_USER_ID = _args.user_id
 SESSION_ID   = _args.session_id
 SCOPE_TYPE   = _args.scope_type
-SCOPE_VALUE  = _args.scope_value
+SCOPE_IDS    = _args.scope_ids
 
 # Parsed lists for multi-value scopes
-SCOPE_VALUES = [v.strip() for v in SCOPE_VALUE.split(",") if v.strip()]
+SCOPE_IDS_LIST = [v.strip() for v in SCOPE_IDS.split(",") if v.strip()]
 
 # ---------------------------------------------------------------------------
 # ORM base
@@ -142,7 +146,7 @@ def ensure_tables(db_url: str) -> None:
                 id          SERIAL PRIMARY KEY,
                 user_id     INTEGER NOT NULL,
                 scope_type  VARCHAR,
-                scope_value VARCHAR,
+                scope_ids  VARCHAR,
                 started_at  TIMESTAMP NOT NULL DEFAULT NOW(),
                 ended_at    TIMESTAMP
             )
@@ -186,27 +190,32 @@ def ensure_tables(db_url: str) -> None:
 # Concept pool — supports multiple courses or multiple files
 # ---------------------------------------------------------------------------
 
-def _load_concept_pool(db_url: str, user_id: int,
-                       scope_type: str, scope_values: list[str]):
+def _load_concept_pool(db_url: str, user_id: str,
+                       scope_type: str, scope_ids: list[str]):
     """
-    Load concepts based on scope.
+    Load concepts from the concept DB based on scope.
 
-    scope_type="course"  scope_values=["algorithms","data structures"]
-        → concepts from ALL listed courses the user is enrolled in
+    scope_type="course"
+        scope_ids = chunk DB course UUIDs
+        (same UUIDs used as concept DB course PKs)
+        → concepts belonging to those courses the user is enrolled in
 
-    scope_type="files"   scope_values=["uuid-1","uuid-2","uuid-3"]
-        → concepts linked to ANY of the listed files via concept_files
+    scope_type="files"
+        scope_ids = chunk DB file UUIDs
+        → concepts linked to those files via concept_files table
 
     Returns:
         global_concepts        list[str]
         global_llm_diff        list[int]
-        global_concept_ids     list[int]
-        course_concept_indices dict[str, list[int]]  — for reference/logging
+        global_concept_ids     list[str]   (UUIDs)
+        course_concept_indices dict[str, list[int]]
+        concept_file_ids       dict[int, list[str]]
     """
     engine = create_engine(db_url)
     with Session(engine) as session:
 
-        if scope_type == "files" and scope_values:
+        if scope_type == "files" and scope_ids:
+            # file_id in concept_files is the chunk DB file UUID
             try:
                 rows = session.execute(text("""
                     SELECT DISTINCT c.id, c.name, c.difficulty, co.name
@@ -215,7 +224,7 @@ def _load_concept_pool(db_url: str, user_id: int,
                     JOIN   concept_files cf ON cf.concept_id = c.id
                     WHERE  cf.file_id = ANY(:ids)
                     ORDER  BY co.name, c.id
-                """), {"ids": scope_values}).fetchall()
+                """), {"ids": scope_ids}).fetchall()
             except Exception as e:
                 print(f"[eppo] concept_files lookup failed ({e}), "
                       "falling back to full enrolled-course pool.",
@@ -225,7 +234,8 @@ def _load_concept_pool(db_url: str, user_id: int,
             rows = None
 
         if rows is None:
-            # Course scope (or fallback) — get enrolled courses
+            # Course scope — scope_ids are chunk DB course UUIDs
+            # which are also the concept DB course PKs
             enrolled_ids = [
                 r[0] for r in session.execute(
                     text("SELECT course_id FROM course_enrollments "
@@ -238,20 +248,18 @@ def _load_concept_pool(db_url: str, user_id: int,
                       file=sys.stderr)
                 return [], [], [], {}
 
-            if scope_type == "course" and scope_values:
-                # Filter to only the selected courses
-                # Normalise: "data structures" and "data_structures" both match
-                normalised = [v.lower().replace("_", " ")
-                              for v in scope_values]
+            if scope_type == "course" and scope_ids:
+                # Filter to selected course UUIDs the user is enrolled in
+                selected = [cid for cid in scope_ids if cid in enrolled_ids]
+                if not selected:
+                    selected = enrolled_ids  # fallback to all enrolled
                 rows = session.execute(text("""
                     SELECT c.id, c.name, c.difficulty, co.name
                     FROM   concepts c
                     JOIN   courses  co ON co.id = c.course_id
                     WHERE  c.course_id = ANY(:ids)
-                      AND  LOWER(REPLACE(co.name, '_', ' ')) = ANY(:cnames)
                     ORDER  BY co.name, c.id
-                """), {"ids": enrolled_ids,
-                       "cnames": normalised}).fetchall()
+                """), {"ids": selected}).fetchall()
             else:
                 # All enrolled courses
                 rows = session.execute(text("""
@@ -275,15 +283,30 @@ def _load_concept_pool(db_url: str, user_id: int,
         key = course_name.lower().replace(" ", "_")
         course_concept_indices.setdefault(key, []).append(idx)
 
+    concept_file_ids: dict[int, list[str]] = {}
+    if global_concept_ids:
+        with Session(engine) as session:
+            file_rows = session.execute(text("""
+                SELECT concept_id, file_id
+                FROM   concept_files
+                WHERE  concept_id = ANY(:ids)
+                ORDER  BY concept_id, file_id
+            """), {"ids": global_concept_ids}).fetchall()
+
+        for concept_id, file_id in file_rows:
+            concept_file_ids.setdefault(concept_id, []).append(file_id)
+
     return (global_concepts, global_llm_diff,
-            global_concept_ids, course_concept_indices)
+            global_concept_ids, course_concept_indices,
+            concept_file_ids)
 
 
 print(f"[eppo] Loading concept pool  user={EPPO_USER_ID} "
-      f"scope={SCOPE_TYPE}:[{SCOPE_VALUE}] ...")
+      f"scope={SCOPE_TYPE}:[{SCOPE_IDS}] ...")
 (GLOBAL_CONCEPTS, GLOBAL_LLM_DIFF,
- GLOBAL_CONCEPT_IDS, COURSE_CONCEPT_INDICES) = _load_concept_pool(
-    CONCEPT_DB_URL, EPPO_USER_ID, SCOPE_TYPE, SCOPE_VALUES)
+ GLOBAL_CONCEPT_IDS, COURSE_CONCEPT_INDICES,
+ GLOBAL_CONCEPT_FILE_IDS) = _load_concept_pool(
+    CONCEPT_DB_URL, EPPO_USER_ID, SCOPE_TYPE, SCOPE_IDS_LIST)
 
 N_GLOBAL = len(GLOBAL_CONCEPTS)
 print(f"[eppo] Pool: {N_GLOBAL} concepts across "
@@ -299,7 +322,7 @@ if N_GLOBAL == 0:
 # PFA persistence
 # ---------------------------------------------------------------------------
 
-def load_pfa_history(db_url: str, user_id: int) -> dict | None:
+def load_pfa_history(db_url: str, user_id: str) -> dict | None:
     engine = create_engine(db_url)
     with Session(engine) as session:
         rows = session.execute(text("""
@@ -333,7 +356,7 @@ def load_pfa_history(db_url: str, user_id: int) -> dict | None:
     return {"successes": successes, "failures": failures, "bonuses": bonuses}
 
 
-def save_pfa_history(db_url: str, user_id: int, tracker) -> None:
+def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
     engine = create_engine(db_url)
     now = datetime.utcnow()
     with Session(engine) as session:
@@ -370,30 +393,32 @@ def save_pfa_history(db_url: str, user_id: int, tracker) -> None:
     print(f"[pfa] Saved state for {len(GLOBAL_CONCEPT_IDS)} concepts.")
 
 
-def log_interaction(db_url: str, session_id: int, user_id: int,
-                    concept_id: int, difficulty: str, correct: bool,
+def log_interaction(db_url: str, session_id: str, user_id: str,
+                    concept_id: str, difficulty: str, correct: bool,
                     p_before: float, p_after: float,
                     p_hard_after: float) -> None:
-    if session_id == 0:
+    if not session_id:
         return
+    import uuid as _uuid
     engine = create_engine(db_url)
     with Session(engine) as session:
         session.execute(text("""
             INSERT INTO session_interactions
-                (session_id, user_id, concept_id, difficulty,
+                (id, session_id, user_id, concept_id, difficulty,
                  correct, p_before, p_after, p_hard_after, created_at)
             VALUES
-                (:sid, :uid, :cid, :diff,
+                (:id, :sid, :uid, :cid, :diff,
                  :correct, :pb, :pa, :ph, :now)
-        """), dict(sid=session_id, uid=user_id, cid=concept_id,
+        """), dict(id=str(_uuid.uuid4()),
+                   sid=session_id, uid=user_id, cid=concept_id,
                    diff=difficulty, correct=correct,
                    pb=p_before, pa=p_after, ph=p_hard_after,
                    now=datetime.utcnow()))
         session.commit()
 
 
-def mark_session_ended(db_url: str, session_id: int) -> None:
-    if session_id == 0:
+def mark_session_ended(db_url: str, session_id: str) -> None:
+    if not session_id:
         return
     engine = create_engine(db_url)
     with Session(engine) as session:
@@ -736,7 +761,8 @@ def load_actor(model_path: str) -> EPPOActor:
 # API helpers
 # ---------------------------------------------------------------------------
 
-def api_send_question(topic: str, difficulty: str) -> bool:
+def api_send_question(topic: str, difficulty: str,
+                      file_ids: list[str] | None = None) -> bool:
     """
     POST /generate to the question generation module and block until
     the student answers.
@@ -746,7 +772,7 @@ def api_send_question(topic: str, difficulty: str) -> bool:
     waiting for the student answer, evaluating it, then returning the result.
 
     eppo_inference.py only cares about the contract:
-        POST /generate  body: {topic, difficulty}
+        POST /generate  body: {topic, difficulty, file_ids}
                         returns: {"correct": bool}
 
     timeout=None — waits however long the student needs.
@@ -756,6 +782,7 @@ def api_send_question(topic: str, difficulty: str) -> bool:
         json={
             "topic":      topic,
             "difficulty": difficulty,
+            "file_ids":   file_ids or [],
         },
         timeout=None,
     )
@@ -783,7 +810,7 @@ def run_session(
     if verbose:
         print(f"\n{'='*70}")
         print(f"SESSION  user={EPPO_USER_ID}  "
-              f"scope={SCOPE_TYPE}:[{SCOPE_VALUE}]")
+              f"scope={SCOPE_TYPE}:[{SCOPE_IDS}]")
         print(f"  Concepts      : {info['n_session_concepts']}  "
               f"(mastered before: {info['already_mastered']})")
         print(f"  APR  goal     : {info['apr_start']:.4f} → "
@@ -827,8 +854,9 @@ def run_session(
         concept_name    = GLOBAL_CONCEPTS[global_ci]
         difficulty_name = cfg.LEVEL_NAMES[level]
         course_label    = idx_to_course.get(global_ci, "?")
+        file_ids        = GLOBAL_CONCEPT_FILE_IDS.get(db_concept_id, [])
 
-        correct = api_send_question(concept_name, difficulty_name)
+        correct = api_send_question(concept_name, difficulty_name, file_ids)
 
         p_before, p_after = tracker.update(global_ci, level, int(correct))
         p_hard_now = tracker.predict(global_ci, 2)
