@@ -138,6 +138,26 @@ def _extract_chunk_texts(chunks: List[dict]) -> List[str]:
     return [c.get("payload", {}).get("text", "") for c in chunks if c.get("payload", {}).get("text")]
 
 
+def _normalize_option_text(text: str) -> str:
+    """Normalise option text for robust duplicate detection."""
+    lowered = text.lower().strip()
+    lowered = re.sub(r"\s+", " ", lowered)
+    return lowered.translate(str.maketrans("", "", string.punctuation)).strip()
+
+
+def _has_negation(text: str) -> bool:
+    """Detect explicit negation cues in option text."""
+    lowered = text.lower()
+    if re.search(r"\b(?:no|not|never|none|without|except|cannot|neither|nor)\b", lowered):
+        return True
+    return bool(re.search(r"\b\w+n['’]t\b", lowered))
+
+
+def _extract_numbers(text: str) -> List[str]:
+    """Extract numeric tokens used by fact-style options."""
+    return re.findall(r"\b\d+(?:\.\d+)?\b", text)
+
+
 # ── Validator implementations ─────────────────────────────────────────────────
 
 def v1_source_anchoring(question: GeneratedQuestion, chunk_texts: List[str]) -> ValidatorResult:
@@ -224,32 +244,69 @@ def v3_distractor_quality(question: GeneratedQuestion, chunk_texts: List[str]) -
         return ValidatorResult("V3", "Distractor Quality", 1.0, True,
                                "Fewer than 2 options — skipped.")
 
-    model    = _get_sbert()
-    opt_vecs = model.encode(option_texts, normalize_embeddings=True)
-    sim      = opt_vecs @ opt_vecs.T                              # cosine via dot
-
-    wrong_indices = [i for i, o in enumerate(question.options) if not o.is_correct]
+    model     = _get_sbert()
+    opt_vecs  = model.encode(option_texts, normalize_embeddings=True)
+    sim       = opt_vecs @ opt_vecs.T                              # cosine via dot
+    norm_opts = [_normalize_option_text(t) for t in option_texts]
+    neg_flags = [_has_negation(t) for t in option_texts]
+    num_tokens = [_extract_numbers(t) for t in option_texts]
 
     # Pairwise similarity across ALL option pairs (including correct vs wrong).
-    # A near-duplicate between the right answer and a wrong option is the most
-    # dangerous case — the student cannot distinguish them.
+    # A near-duplicate between the right answer and a wrong option is a hard fail.
     max_pair_sim = 0.0
-    dup_pair: Optional[tuple] = None
+    max_pair: Optional[tuple] = None
+    hard_duplicate_pair: Optional[tuple] = None
+    too_similar_pair: Optional[tuple] = None
+    negation_guard_count = 0
+    numeric_guard_count = 0
+
     for i in range(len(option_texts)):
         for j in range(i + 1, len(option_texts)):
             s = float(sim[i, j])
             if s > max_pair_sim:
                 max_pair_sim = s
-                dup_pair = (option_texts[i][:30], option_texts[j][:30])
+                max_pair = (option_texts[i][:30], option_texts[j][:30])
 
-    too_similar = max_pair_sim > (1 - DIST_MIN_SEP)
-    score       = 1.0 - max_pair_sim
-    passed      = not too_similar
+            # Hard duplicate check is lexical and always enforced.
+            if norm_opts[i] and norm_opts[i] == norm_opts[j]:
+                hard_duplicate_pair = (option_texts[i][:30], option_texts[j][:30])
 
-    if too_similar and dup_pair:
-        detail = f"Near-duplicate wrong options (sim={max_pair_sim:.3f}): '{dup_pair[0]}...' ~ '{dup_pair[1]}...'"
+            # High semantic similarity is only a problem when polarity matches.
+            high_similarity = s > (1 - DIST_MIN_SEP)
+            polarity_flip = neg_flags[i] ^ neg_flags[j]
+            numeric_contrast = (
+                bool(num_tokens[i])
+                and bool(num_tokens[j])
+                and num_tokens[i] != num_tokens[j]
+            )
+
+            if high_similarity and polarity_flip:
+                negation_guard_count += 1
+            elif high_similarity and numeric_contrast:
+                numeric_guard_count += 1
+            elif high_similarity and not polarity_flip:
+                too_similar_pair = (option_texts[i][:30], option_texts[j][:30], s)
+
+    score = 1.0 - max_pair_sim
+    passed = hard_duplicate_pair is None and too_similar_pair is None
+
+    if hard_duplicate_pair:
+        detail = (
+            f"Duplicate option text detected: '{hard_duplicate_pair[0]}...' ~ "
+            f"'{hard_duplicate_pair[1]}...'"
+        )
+    elif too_similar_pair:
+        detail = (
+            f"Near-duplicate options with same polarity (sim={too_similar_pair[2]:.3f}): "
+            f"'{too_similar_pair[0]}...' ~ '{too_similar_pair[1]}...'"
+        )
+    elif (negation_guard_count > 0 or numeric_guard_count > 0) and max_pair:
+        detail = (
+            f"High-similarity pairs passed by guards (negation={negation_guard_count}, numeric={numeric_guard_count}); "
+            f"max pair similarity={max_pair_sim:.3f} for '{max_pair[0]}...' ~ '{max_pair[1]}...'."
+        )
     else:
-        detail = f"Max pairwise wrong-option similarity: {max_pair_sim:.3f} — OK."
+        detail = f"Max pairwise option similarity: {max_pair_sim:.3f} — OK."
 
     return ValidatorResult("V3", "Distractor Quality", score, passed, detail)
 

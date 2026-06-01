@@ -5,4 +5,4 @@ models/
 *.bin
 *.env
 __pycache__
-.venv
+.venv310/
