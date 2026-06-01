@@ -1,0 +1,43 @@
+{
+  "animation_type": "scheduler",
+  "confidence": 0.95,
+  "algorithm": "unknown",
+  "quantum": null,
+  "processes": [
+    {
+      "id": 1,
+      "arrival": 0,
+      "runtime": 15,
+      "priority": 6,
+      "memsize": 1
+    },
+    {
+      "id": 2,
+      "arrival": 0,
+      "runtime": 9,
+      "priority": 3,
+      "memsize": 1
+    },
+    {
+      "id": 3,
+      "arrival": 0,
+      "runtime": 3,
+      "priority": 7,
+      "memsize": 1
+    },
+    {
+      "id": 4,
+      "arrival": 0,
+      "runtime": 6,
+      "priority": 9,
+      "memsize": 1
+    },
+    {
+      "id": 5,
+      "arrival": 0,
+      "runtime": 12,
+      "priority": 4,
+      "memsize": 1
+    }
+  ]
+}

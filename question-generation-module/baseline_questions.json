@@ -1,0 +1,435 @@
+{
+  "metadata": {
+    "generated_at": "2026-05-24T21:35:46.628361",
+    "model": "llama-3.3-70b-versatile",
+    "type": "baseline_prompt_layer_only",
+    "total_questions": 15,
+    "study_material_length": 2433
+  },
+  "easy": [
+    {
+      "question_text": "What is the definition of inertia according to Newton's First Law of Motion?",
+      "options": [
+        {
+          "label": "A",
+          "text": "The tendency of an object to change its state of motion",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "The tendency of an object to resist changes in its state of motion",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "The force required to keep an object in motion",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "The energy of an object due to its motion",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "The tendency of an object to resist changes in its state of motion",
+      "explanation": "Inertia is the concept that an object at rest stays at rest, and an object in motion stays in motion unless acted upon by an external force.",
+      "difficulty": "easy"
+    },
+    {
+      "question_text": "What is the Kinetic Energy formula?",
+      "options": [
+        {
+          "label": "A",
+          "text": "KE = (1/2)mv",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "KE = (1/2)mv\u00b2",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "KE = mv",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "KE = (1/2)m\u00b2v",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "KE = (1/2)mv\u00b2",
+      "explanation": "Kinetic Energy is the energy of motion and is calculated using the formula KE = (1/2)mv\u00b2.",
+      "difficulty": "easy"
+    },
+    {
+      "question_text": "Define Momentum",
+      "options": [
+        {
+          "label": "A",
+          "text": "The product of mass and acceleration",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "The product of mass and velocity",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "The product of force and time",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "The product of energy and time",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "The product of mass and velocity",
+      "explanation": "Momentum is the product of an object's mass and velocity, denoted by the formula p = mv.",
+      "difficulty": "easy"
+    },
+    {
+      "question_text": "What is the formula for Centripetal Force?",
+      "options": [
+        {
+          "label": "A",
+          "text": "Fc = mv/r",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "Fc = mv\u00b2/r",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "Fc = m/r",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Fc = v\u00b2/r",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Fc = mv\u00b2/r",
+      "explanation": "Centripetal Force is the force required to keep an object moving in a circular path and is calculated using the formula Fc = mv\u00b2/r.",
+      "difficulty": "easy"
+    },
+    {
+      "question_text": "What is the equation for work done when a force acts on an object?",
+      "options": [
+        {
+          "label": "A",
+          "text": "W = F \u00d7 d",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "W = F \u00d7 d \u00d7 sin(\u03b8)",
+          "is_correct": false
+        },
+        {
+          "label": "C",
+          "text": "W = F \u00d7 d \u00d7 cos(\u03b8)",
+          "is_correct": true
+        },
+        {
+          "label": "D",
+          "text": "W = F / d",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "W = F \u00d7 d \u00d7 cos(\u03b8)",
+      "explanation": "Work is done when a force acts on an object and causes displacement in the direction of the force, calculated using the formula W = F \u00d7 d \u00d7 cos(\u03b8).",
+      "difficulty": "easy"
+    }
+  ],
+  "medium": [
+    {
+      "question_text": "Apply Newton's Second Law to solve for the acceleration of an object with a mass of 5 kg, when a net force of 20 N is acting on it.",
+      "options": [
+        {
+          "label": "A",
+          "text": "a = 2 m/s\u00b2",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "a = 4 m/s\u00b2",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "a = 6 m/s\u00b2",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "a = 8 m/s\u00b2",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "a = 4 m/s\u00b2",
+      "explanation": "Using Newton's Second Law, F = ma, we can rearrange to solve for acceleration: a = F/m. Substituting the given values, a = 20 N / 5 kg = 4 m/s\u00b2.",
+      "difficulty": "medium"
+    },
+    {
+      "question_text": "Describe the key difference between kinetic energy and potential energy.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Kinetic energy is due to position, while potential energy is due to motion.",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "Kinetic energy is due to motion, while potential energy is due to position or configuration.",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "Kinetic energy is a vector quantity, while potential energy is a scalar quantity.",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Kinetic energy is conserved in all systems, while potential energy is not.",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Kinetic energy is due to motion, while potential energy is due to position or configuration.",
+      "explanation": "Kinetic energy is the energy of motion, while potential energy is the energy due to an object's position or configuration. This distinction is crucial in understanding the behavior of physical systems.",
+      "difficulty": "medium"
+    },
+    {
+      "question_text": "Compare the implications of elastic and inelastic collisions on the conservation of momentum and kinetic energy.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Both elastic and inelastic collisions conserve momentum and kinetic energy.",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "Elastic collisions conserve momentum and kinetic energy, while inelastic collisions conserve momentum but not kinetic energy.",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "Inelastic collisions conserve momentum and kinetic energy, while elastic collisions conserve momentum but not kinetic energy.",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Neither elastic nor inelastic collisions conserve momentum or kinetic energy.",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Elastic collisions conserve momentum and kinetic energy, while inelastic collisions conserve momentum but not kinetic energy.",
+      "explanation": "In elastic collisions, both momentum and kinetic energy are conserved. In inelastic collisions, momentum is conserved, but kinetic energy is not, as some of it is converted into other forms such as heat or sound.",
+      "difficulty": "medium"
+    },
+    {
+      "question_text": "Summarize the concept of centripetal force and its role in orbital motion.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Centripetal force is the force that causes an object to move in a straight line, and it is necessary for orbital motion.",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "Centripetal force is the force that causes an object to move in a circular path, and it is necessary for orbital motion.",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "Centripetal force is the force that causes an object to slow down, and it is not necessary for orbital motion.",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Centripetal force is the force that causes an object to speed up, and it is necessary for linear motion.",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Centripetal force is the force that causes an object to move in a circular path, and it is necessary for orbital motion.",
+      "explanation": "Centripetal force is the force required to keep an object moving in a circular path. In orbital motion, the gravitational force provides the centripetal force necessary to keep a satellite in orbit around a celestial body.",
+      "difficulty": "medium"
+    },
+    {
+      "question_text": "Solve for the displacement of an object that starts with an initial velocity of 10 m/s, accelerates at a rate of 2 m/s\u00b2, and travels for 5 seconds, using the equation s = ut + (1/2)at\u00b2.",
+      "options": [
+        {
+          "label": "A",
+          "text": "s = 75 m",
+          "is_correct": true
+        },
+        {
+          "label": "B",
+          "text": "s = 80 m",
+          "is_correct": false
+        },
+        {
+          "label": "C",
+          "text": "s = 85 m",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "s = 90 m",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "s = 75 m",
+      "explanation": "Using the equation s = ut + (1/2)at\u00b2, we can substitute the given values: s = (10 m/s)(5 s) + (1/2)(2 m/s\u00b2)(5 s)\u00b2 = 50 m + 25 m = 75 m.",
+      "difficulty": "medium"
+    }
+  ],
+  "hard": [
+    {
+      "question_text": "Analyze the concept of inertia and propose a solution to minimize the force required to move a heavy object from rest, considering the principles of Newton's First Law.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Apply a gradual and continuous force to overcome static friction",
+          "is_correct": true
+        },
+        {
+          "label": "B",
+          "text": "Use an inclined plane to reduce the force required",
+          "is_correct": false
+        },
+        {
+          "label": "C",
+          "text": "Increase the mass of the object to increase its inertia",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Apply an instantaneous and large force to overcome inertia",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Apply a gradual and continuous force to overcome static friction",
+      "explanation": "According to Newton's First Law, an object at rest stays at rest unless acted upon by an external force. To minimize the force required, applying a gradual and continuous force can help overcome static friction, making it easier to move the heavy object.",
+      "difficulty": "hard"
+    },
+    {
+      "question_text": "Evaluate the key differences between elastic and inelastic collisions, and justify which type of collision would result in a greater loss of kinetic energy.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Elastic collision, as it conserves kinetic energy",
+          "is_correct": false
+        },
+        {
+          "label": "B",
+          "text": "Inelastic collision, as it results in a greater loss of kinetic energy",
+          "is_correct": true
+        },
+        {
+          "label": "C",
+          "text": "Both types of collisions result in the same loss of kinetic energy",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "The type of collision does not affect the loss of kinetic energy",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Inelastic collision, as it results in a greater loss of kinetic energy",
+      "explanation": "Inelastic collisions result in a greater loss of kinetic energy, as some of the energy is converted into other forms such as heat, sound, or deformation. Elastic collisions, on the other hand, conserve kinetic energy.",
+      "difficulty": "hard"
+    },
+    {
+      "question_text": "Compare the equations of motion for uniformly accelerated motion, and design an experiment to verify the equation v\u00b2 = u\u00b2 + 2as.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Measure the initial and final velocities, and calculate the acceleration using the equation",
+          "is_correct": true
+        },
+        {
+          "label": "B",
+          "text": "Measure the displacement and time, and calculate the velocity using the equation v = u + at",
+          "is_correct": false
+        },
+        {
+          "label": "C",
+          "text": "Measure the force and mass, and calculate the acceleration using the equation F = ma",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Measure the energy and work, and calculate the velocity using the equation KE = (1/2)mv\u00b2",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Measure the initial and final velocities, and calculate the acceleration using the equation",
+      "explanation": "The equation v\u00b2 = u\u00b2 + 2as can be verified by measuring the initial and final velocities, and calculating the acceleration. This can be done using a variety of methods, such as using a stopwatch and a meter stick to measure the displacement and time.",
+      "difficulty": "hard"
+    },
+    {
+      "question_text": "Propose a solution to calculate the centripetal force required to keep a satellite in a circular orbit around the Earth, given the mass of the satellite and the radius of the orbit.",
+      "options": [
+        {
+          "label": "A",
+          "text": "Use the equation Fc = mv\u00b2/r, where v is the orbital velocity",
+          "is_correct": true
+        },
+        {
+          "label": "B",
+          "text": "Use the equation Fc = G(m\u2081m\u2082)/r\u00b2, where m\u2081 is the mass of the Earth and m\u2082 is the mass of the satellite",
+          "is_correct": false
+        },
+        {
+          "label": "C",
+          "text": "Use the equation Fc = ma, where a is the acceleration of the satellite",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "Use the equation Fc = (1/2)mv\u00b2, where v is the orbital velocity",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "Use the equation Fc = mv\u00b2/r, where v is the orbital velocity",
+      "explanation": "The centripetal force required to keep a satellite in a circular orbit can be calculated using the equation Fc = mv\u00b2/r, where v is the orbital velocity. This equation can be derived from the equation for centripetal force, which is Fc = (m \u00d7 v\u00b2) / r.",
+      "difficulty": "hard"
+    },
+    {
+      "question_text": "Analyze the concept of conservation of energy, and evaluate the conditions under which the total mechanical energy of a system remains constant.",
+      "options": [
+        {
+          "label": "A",
+          "text": "The system must be closed, with no external forces acting on it",
+          "is_correct": true
+        },
+        {
+          "label": "B",
+          "text": "The system must be open, with external forces acting on it",
+          "is_correct": false
+        },
+        {
+          "label": "C",
+          "text": "The system must have a constant velocity, with no acceleration",
+          "is_correct": false
+        },
+        {
+          "label": "D",
+          "text": "The system must have a constant force acting on it, with no change in momentum",
+          "is_correct": false
+        }
+      ],
+      "correct_answer": "The system must be closed, with no external forces acting on it",
+      "explanation": "The total mechanical energy of a system remains constant when the system is closed, with no external forces acting on it. This is known as the law of conservation of energy, which states that energy cannot be created or destroyed, only converted from one form to another.",
+      "difficulty": "hard"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "btree-visualizer",
+  "version": "1.0.0",
+  "description": "Interactive B-tree operation visualizer",
+  "main": "app.js",
+  "scripts": {
+    "build": "esbuild app.js --bundle --outfile=dist/bundle.js --platform=browser --format=iife --global-name=BTreeApp",
+    "dev": "concurrently \"esbuild app.js --bundle --outfile=dist/bundle.js --platform=browser --format=iife --global-name=BTreeApp --watch\" \"serve . --listen 3000\"",
+    "test:core":   "node src/tests/btree.test.js",
+    "test:layout": "node src/tests/layout.test.js",
+    "test:render": "node src/tests/renderer.test.js",
+    "test:choreo": "node src/tests/choreography.test.js",
+    "test:camera": "node src/tests/camera.test.js",
+    "test:focus":  "node src/tests/focus.test.js",
+    "test:narr":   "node src/tests/narrative.test.js",
+    "test": "npm run test:core && npm run test:layout && npm run test:render && npm run test:choreo && npm run test:camera && npm run test:focus && npm run test:narr"
+  },
+  "dependencies": {
+    "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.20.2",
+    "jsdom": "^24.0.0",
+    "serve": "^14.2.3"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "run_id": "d6376109737341beb2bfee4aa1b9598f",
+  "status": "ready",
+  "created_at": "2026-04-22T04:27:06.552144+00:00",
+  "animation_type": "scheduler",
+  "viewer_url": "http://localhost:8082?run_id=d6376109737341beb2bfee4aa1b9598f",
+  "classification": {
+    "animation_type": "scheduler",
+    "confidence": 0.98,
+    "evidence": [
+      "Five batch jobs",
+      "estimated running time",
+      "Priorities",
+      "response time",
+      "turnaround time",
+      "weighted turnaround time",
+      "average response time",
+      "average turnaround time",
+      "Process",
+      "Arrival Time",
+      "Running Time",
+      "Priority"
+    ]
+  },
+  "extraction": {
+    "animation_type": "scheduler",
+    "confidence": 0.9,
+    "algorithm": "unknown",
+    "quantum": null,
+    "processes": [
+      {
+        "id": 1,
+        "arrival": 0,
+        "runtime": 15,
+        "priority": 6,
+        "memsize": 1
+      },
+      {
+        "id": 2,
+        "arrival": 0,
+        "runtime": 9,
+        "priority": 3,
+        "memsize": 1
+      },
+      {
+        "id": 3,
+        "arrival": 0,
+        "runtime": 3,
+        "priority": 7,
+        "memsize": 1
+      },
+      {
+        "id": 4,
+        "arrival": 0,
+        "runtime": 6,
+        "priority": 9,
+        "memsize": 1
+      },
+      {
+        "id": 5,
+        "arrival": 0,
+        "runtime": 12,
+        "priority": 4,
+        "memsize": 1
+      }
+    ]
+  },
+  "llm_payload_meta": {
+    "document_id": "Sheet2.pdf",
+    "window_count": 1,
+    "full_text_chars": 1437
+  }
+}

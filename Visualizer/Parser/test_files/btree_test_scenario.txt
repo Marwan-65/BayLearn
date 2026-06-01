@@ -1,0 +1,17 @@
+Student Enrollment B-Tree Scenario
+
+A university records system indexes student IDs into a B-tree of order t=2.
+The tree is initially loaded with the following student IDs: 15, 25, and 35.
+
+During the enrollment period, the following actions occur:
+1. We insert student ID 10.
+2. We insert student ID 20.
+3. We insert student ID 5.
+4. We insert student ID 30.
+5. We insert student ID 40.
+
+After the initial insertions, we perform a search for student ID 20 to verify their enrollment.
+Then we search for student ID 99 to confirm they are not enrolled.
+Student ID 25 drops out, so we delete them from the system.
+Student ID 5 transfers to another university, so we delete them.
+Finally, a late enrollment occurs, and we insert student ID 50.

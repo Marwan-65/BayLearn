@@ -1,0 +1,78 @@
+# --------------------
+# Python
+# --------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pycache/
+*.pylint.d/
+*.mypy_cache/
+*.pytest_cache/
+*.env
+*.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --------------------
+# IDE / Editor
+# --------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --------------------
+# OS-specific
+# --------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+*.tmp
+
+# --------------------
+# Logs
+# --------------------
+*.log
+
+# --------------------
+# FastAPI / Project-specific
+# --------------------
+uploads/
+media/
+temp/
+__pycache__/
+*.sqlite3
+
+# --------------------
+# Python wheel / pip artifacts
+# --------------------
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# --------------------
+# Pytest / coverage
+# --------------------
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+*extracted_images*/
+*extracted_tables*/
