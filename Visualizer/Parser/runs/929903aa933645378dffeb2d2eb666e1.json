@@ -1,0 +1,78 @@
+{
+  "run_id": "929903aa933645378dffeb2d2eb666e1",
+  "status": "ready",
+  "created_at": "2026-06-01T00:14:22.731473+00:00",
+  "animation_type": "btree",
+  "viewer_url": "http://localhost:8083?run_id=929903aa933645378dffeb2d2eb666e1",
+  "classification": {
+    "animation_type": "btree",
+    "confidence": 1.0,
+    "evidence": [
+      "Student Enrollment B-Tree Scenario",
+      "B-tree of order t=2",
+      "We insert student ID 10",
+      "we perform a search for student ID 20",
+      "we delete them from the system"
+    ]
+  },
+  "extraction": {
+    "animation_type": "btree",
+    "confidence": 0.95,
+    "name": "Student Enrollment B-Tree Scenario",
+    "description": "A university records system indexes student IDs into a B-tree. This scenario demonstrates initial loading, insertions, searches, and deletions of student IDs.",
+    "t": 2,
+    "initialKeys": [
+      15,
+      25,
+      35
+    ],
+    "operations": [
+      {
+        "op": "insert",
+        "key": 10
+      },
+      {
+        "op": "insert",
+        "key": 20
+      },
+      {
+        "op": "insert",
+        "key": 5
+      },
+      {
+        "op": "insert",
+        "key": 30
+      },
+      {
+        "op": "insert",
+        "key": 40
+      },
+      {
+        "op": "search",
+        "key": 20
+      },
+      {
+        "op": "search",
+        "key": 99
+      },
+      {
+        "op": "delete",
+        "key": 25
+      },
+      {
+        "op": "delete",
+        "key": 5
+      },
+      {
+        "op": "insert",
+        "key": 50
+      }
+    ],
+    "pauseMs": 1500
+  },
+  "llm_payload_meta": {
+    "document_id": "file.pdf",
+    "window_count": 1,
+    "full_text_chars": 755
+  }
+}

@@ -1,10 +1,11 @@
-// Icon and tooltip label for each end-of-bar reason code.
+// Marker text and tooltip label for each end-of-bar reason code.
+// Using clean single-letter markers instead of emoji for professionalism.
 const END_REASON = {
-    'QUANTUM_EXPIRE':                  { icon: '⏱', label: 'Quantum expired — preempted, sent to back of queue' },
-    'QUANTUM_EXPIRE+DEMOTED':          { icon: '⏱↓', label: 'Quantum expired — demoted one priority level' },
-    'QUANTUM_EXPIRE+STARVATION_RESET': { icon: '⏱↺', label: 'Quantum expired — starvation reset: all processes moved to level 0' },
-    'PREEMPTED_BY_HIGHER_PRIORITY':    { icon: '▶', label: 'Preempted — higher-priority process arrived' },
-    'COMPLETED':                       { icon: '✓', label: 'Process completed — burst fully consumed' },
+    'QUANTUM_EXPIRE':                  { icon: 'Q',  label: 'Quantum expired — preempted, sent to back of queue' },
+    'QUANTUM_EXPIRE+DEMOTED':          { icon: 'Q↓', label: 'Quantum expired — demoted one priority level' },
+    'QUANTUM_EXPIRE+STARVATION_RESET': { icon: 'QR', label: 'Quantum expired — starvation reset: all processes moved to level 0' },
+    'PREEMPTED_BY_HIGHER_PRIORITY':    { icon: 'P',  label: 'Preempted — higher-priority process arrived' },
+    'COMPLETED':                       { icon: '■',  label: 'Process completed — burst fully consumed' },
 };
 
 export class Visualizer {
@@ -21,8 +22,9 @@ export class Visualizer {
         this.svg = null;
         this.xScale = null;
         this.yScale = null;
-        this.bars = [];
-        this.icons = [];
+        this.bars       = [];
+        this.icons      = [];
+        this.barLabels  = [];  // per-bar center text labels
         
         this.init();
     }
@@ -82,9 +84,10 @@ export class Visualizer {
             .attr("stroke-dasharray", "4,4")
             .attr("stroke-width", 1);
         
-        // Create bars and end-of-bar annotation icons
-        this.bars = [];
-        this.icons = [];
+        // Create bars, center-labels, and end-of-bar annotation markers
+        this.bars      = [];
+        this.icons     = [];
+        this.barLabels = [];
         this.sequence.forEach((d) => {
             const bar = this.svg.append("rect")
                 .attr("x", this.xScale(d.start))
@@ -99,15 +102,34 @@ export class Visualizer {
             
             this.bars.push(bar);
 
-            // End-of-bar icon — sits just to the right of the bar's right edge
+            // Bar center label — process ID inside the bar
+            // Centered at midpoint of the bar; hidden initially, revealed with the bar
+            const barMidX = (this.xScale(d.start) + this.xScale(d.end)) / 2;
+            const barLabel = this.svg.append("text")
+                .attr("x", barMidX)
+                .attr("y", this.yScale(d.id) + this.yScale.bandwidth() / 2)
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "middle")
+                .attr("font-size", "10px")
+                .attr("font-family", "'JetBrains Mono', monospace")
+                .attr("font-weight", "600")
+                .attr("fill", "#ffffff")
+                .attr("pointer-events", "none")
+                .style("opacity", 0)
+                .text(d.id);
+
+            this.barLabels.push(barLabel);
+
+            // End-of-bar marker — sits just to the right of the bar's right edge
             const reason = END_REASON[d.endReason];
             const iconText = this.svg.append("text")
-                .attr("x", this.xScale(d.end) + 3)
+                .attr("x", this.xScale(d.end) + 4)
                 .attr("y", this.yScale(d.id) + this.yScale.bandwidth() / 2)
                 .attr("dominant-baseline", "middle")
-                .attr("font-size", "11px")
-                .attr("font-family", "sans-serif")
-                .attr("fill", "#4a5a6e")
+                .attr("font-size", "9px")
+                .attr("font-family", "'JetBrains Mono', monospace")
+                .attr("font-weight", "700")
+                .attr("fill", "#e2e8f0")
                 .style("opacity", 0)
                 .style("transition", "opacity 0.4s")
                 .style("cursor", "default")
@@ -134,58 +156,83 @@ export class Visualizer {
             .style("transition", "x1 0.5s cubic-bezier(0.4, 0, 0.2, 1), x2 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s");
     }
     
-    animateToStep(step) {
+    animateToStep(step, speed = 1) {
         if (!this.svg) return;
-        
+
+        // Scale all D3 transition durations inversely with speed
+        // (speed=1 → full duration; speed=2 → half; speed=3 → third; min 100ms)
+        const barDur    = Math.max(100, Math.round(800  / speed));
+        const cursorDur = Math.max(100, Math.round(600  / speed));
+        const exitDur   = Math.max(100, Math.round(600  / speed));
         if (step < 0) {
-            // Reset all bars and icons
+            // Reset all bars, labels, and icons
             this.bars.forEach((bar) => {
                 bar.transition()
-                    .duration(600)
+                    .duration(exitDur)
                     .attr("width", 0)
                     .style("opacity", 0.3);
             });
+
+            this.barLabels.forEach((lbl) => lbl.style("opacity", 0));
 
             this.icons.forEach((icon) => {
                 icon.style("opacity", 0);
             });
             
             this.cursor.transition()
-                .duration(600)
+                .duration(cursorDur)
                 .style("opacity", 0);
             
             return;
         }
-        
-        // Animate bars and icons up to current step
+
+        // Final synthetic frame: all bars fully shown, no active highlight, cursor at end
+        const isFinal = step === this.sequence.length;
+        const activeIdx = isFinal ? -1 : step;
+
+        // Animate bars, bar labels, and icons up to current step (or all bars on final frame)
         this.bars.forEach((bar, i) => {
-            if (i <= step) {
+            const seg     = this.sequence[i];
+            const barPixW = this.xScale(seg.end) - this.xScale(seg.start);
+            const isActive = !isFinal && i === activeIdx;
+
+            if (isFinal || i <= step) {
                 bar.transition()
-                    .duration(800)
-                    .attr("width", this.xScale(this.sequence[i].end) - this.xScale(this.sequence[i].start))
-                    .style("opacity", i === step ? 1 : 0.82)
-                    .attr("stroke", i === step ? "#ffffff" : "none")
-                    .attr("stroke-width", i === step ? 1.2 : 0);
+                    .duration(barDur)
+                    .attr("width", barPixW)
+                    .style("opacity", isActive ? 1 : 0.82)
+                    .attr("stroke",       isActive ? "#ffffff" : "none")
+                    .attr("stroke-width", isActive ? 1.2 : 0);
+
+                // Show label only if bar is wide enough to hold it (> 28px)
+                const labelOpacity = barPixW > 28 ? (isActive ? 1 : 0.55) : 0;
+                this.barLabels[i]
+                    .style("opacity", labelOpacity)
+                    .attr("font-size", isActive ? "11px" : "9px");
             } else {
                 bar.transition()
-                    .duration(600)
+                    .duration(exitDur)
                     .attr("width", 0)
                     .style("opacity", 0.2);
+
+                this.barLabels[i].style("opacity", 0);
             }
         });
 
         this.icons.forEach((icon, i) => {
-            icon.style("opacity", i <= step ? 1 : 0);
+            icon.style("opacity", (isFinal || i <= step) ? 1 : 0);
         });
         
-        // Move cursor
-        if (step >= 0) {
-            this.cursor.transition()
-                .duration(600)
-                .style("opacity", 1)
-                .attr("x1", this.xScale(this.sequence[step].start))
-                .attr("x2", this.xScale(this.sequence[step].start));
-        }
+        // Move cursor: to end of timeline on final frame, otherwise to segment start
+        const cursorX = isFinal
+            ? this.xScale(this.totalTime)
+            : this.xScale(this.sequence[step].start);
+
+        this.cursor.transition()
+            .duration(cursorDur)
+            .style("opacity", 1)
+            .attr("x1", cursorX)
+            .attr("x2", cursorX);
     }
     
     resize() {

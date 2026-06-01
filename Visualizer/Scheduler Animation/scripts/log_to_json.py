@@ -47,7 +47,8 @@ def parse_processes(path):
                 'id':      f'P{parts[0]}',
                 'arrival': int(parts[1]),
                 'burst':   int(parts[2]),
-                # priority and memsize are not needed by the visualizer
+                'priority': int(parts[3]),
+                # memsize is not needed by the visualizer
             })
     return processes
 

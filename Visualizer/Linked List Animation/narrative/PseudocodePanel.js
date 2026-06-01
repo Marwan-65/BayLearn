@@ -6,13 +6,13 @@
  * Applies token-level syntax highlighting when lines are loaded.
  *
  * Inputs:
- *   loadLines(lines)  — string[]  called once per operation
- *   update(step)      — Step      called every frame
+ *   loadLines(lines)  --, string[]  called once per operation
+ *   update(step)      --, Step      called every frame
  */
 
 export class PseudocodePanel {
   /**
-   * @param {HTMLElement} containerEl  — the <div id="code-lines"> element
+   * @param {HTMLElement} containerEl  --, the <div id="code-lines"> element
    */
   constructor(containerEl) {
     this._el    = containerEl;
@@ -70,7 +70,7 @@ export class PseudocodePanel {
 
   /**
    * Applies token-level syntax highlighting to a single pseudocode line.
-   * Returns an HTML string. Order matters — more specific patterns first.
+   * Returns an HTML string. Order matters --, more specific patterns first.
    *
    * @param   {string} raw   plain text line
    * @returns {string}       HTML string

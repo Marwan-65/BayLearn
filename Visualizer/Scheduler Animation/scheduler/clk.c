@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     *shmaddr = clk; /* Initialize shared memory */
     while (1)
     {
-        usleep(10000); /* 1ms per tick = 1000x faster than real-time */
+        usleep(100000); /* 250ms per tick to allow Docker process spawning */
         (*shmaddr)++;
     }
 }

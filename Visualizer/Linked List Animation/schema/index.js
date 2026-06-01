@@ -6,10 +6,10 @@
  * It only defines what things ARE, not what they do.
  *
  * Key structures:
- *   Node       — a single linked list node
- *   ListState  — a full snapshot of the list at a moment in time
- *   Step       — one animation frame: a state + rich metadata for the narrative layer
- *   Highlight  — visual annotation for a node or pointer
+ *   Node       --, a single linked list node
+ *   ListState  --, a full snapshot of the list at a moment in time
+ *   Step       --, one animation frame: a state + rich metadata for the narrative layer
+ *   Highlight  --, visual annotation for a node or pointer
  */
 
 // ─── Node ────────────────────────────────────────────────────────────────────
@@ -31,24 +31,24 @@ export function createNode(id, value, next = null) {
 /**
  * Creates a new, empty list state.
  *
- * The state is a plain serialisable object — no classes, no methods.
+ * The state is a plain serialisable object --, no classes, no methods.
  * _nextId is an internal counter; the animation layer should never display it.
  *
  * @returns {ListState}
  */
 export function createList() {
   return {
-    nodes: {},   // { [id: string]: Node }  — all nodes keyed by ID
-    head: null,  // string | null            — ID of the head node
-    size: 0,     //  number                  — number of nodes
-    _nextId: 1,  // number (internal)        — counter for ID generation
+    nodes: {},   // { [id: string]: Node }  --, all nodes keyed by ID
+    head: null,  // string | null            --, ID of the head node
+    size: 0,     //  number                  --, number of nodes
+    _nextId: 1,  // number (internal)        --, counter for ID generation
   };
 }
 
 /**
  * Builds a list state directly from an array of values.
  * Useful for test setup or seeding the visualizer from a data source.
- * This does NOT produce animation steps — it is a one-shot constructor.
+ * This does NOT produce animation steps --, it is a one-shot constructor.
  *
  * @param {*[]} values
  * @returns {ListState}
@@ -81,6 +81,10 @@ export function fromArray(values) {
  * @returns {string[]}
  */
 export function getOrderedIds(list) {
+  if (list._orderedIds) {
+    return list._orderedIds;
+  }
+
   const ids = [];
   let current = list.head;
   const visited = new Set();

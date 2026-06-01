@@ -11,7 +11,7 @@
 
 export class ExplanationPanel {
   /**
-   * @param {HTMLElement} containerEl  — the element to render into
+   * @param {HTMLElement} containerEl  --, the element to render into
    */
   constructor(containerEl) {
     this._el = containerEl;
@@ -43,7 +43,7 @@ export class ExplanationPanel {
     // 1. Escape any existing HTML characters to prevent XSS
     let html = this._escape(text);
 
-    // 2. Emoji-prefixed sentence types — apply to whole logical sentences.
+    // 2. Emoji-prefixed sentence types --, apply to whole logical sentences.
     //    Split on sentence-ending punctuation to wrap each sentence independently.
     html = html.replace(
       /(⚠️[^.!?\n]+[.!?]?)/g,

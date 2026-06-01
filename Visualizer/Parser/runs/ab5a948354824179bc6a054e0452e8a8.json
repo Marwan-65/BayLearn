@@ -1,0 +1,58 @@
+{
+  "run_id": "ab5a948354824179bc6a054e0452e8a8",
+  "status": "ready",
+  "created_at": "2026-05-30T08:43:00.946924+00:00",
+  "animation_type": "scheduler",
+  "viewer_url": "http://localhost:8082?run_id=ab5a948354824179bc6a054e0452e8a8",
+  "classification": {
+    "animation_type": "scheduler",
+    "confidence": 0.99,
+    "evidence": [
+      "CPU Scheduling Scenario",
+      "Round Robin (RR) algorithm",
+      "time quantum",
+      "processes arrive at the system"
+    ]
+  },
+  "extraction": {
+    "animation_type": "scheduler",
+    "confidence": 1.0,
+    "algorithm": "RR",
+    "quantum": 4,
+    "processes": [
+      {
+        "id": 1,
+        "arrival": 0,
+        "runtime": 8,
+        "priority": 2,
+        "memsize": 100
+      },
+      {
+        "id": 2,
+        "arrival": 1,
+        "runtime": 4,
+        "priority": 1,
+        "memsize": 50
+      },
+      {
+        "id": 3,
+        "arrival": 2,
+        "runtime": 9,
+        "priority": 3,
+        "memsize": 200
+      },
+      {
+        "id": 4,
+        "arrival": 3,
+        "runtime": 5,
+        "priority": 1,
+        "memsize": 150
+      }
+    ]
+  },
+  "llm_payload_meta": {
+    "document_id": "file.pdf",
+    "window_count": 1,
+    "full_text_chars": 541
+  }
+}

@@ -1,0 +1,8 @@
+*changes/
+*UNKNOWN.egg-info/
+*.pyc
+*.pyo
+*__pycache__/
+node_modules/
+dist/
+cache/

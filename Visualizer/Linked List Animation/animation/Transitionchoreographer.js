@@ -1,7 +1,7 @@
 /**
  * ANIMATION / TRANSITION CHOREOGRAPHER
  *
- * Decides HOW state changes are animated — the sequencing and timing
+ * Decides HOW state changes are animated --, the sequencing and timing
  * of individual D3 transitions.
  *
  * Without this, everything animates simultaneously, which is confusing.
@@ -41,7 +41,7 @@ export function plan(prevStep, currentStep, theme) {
   const t      = theme.t;
   const action = currentStep.action;
 
-  // Default plan — everything simultaneous at the base timings
+  // Default plan --, everything simultaneous at the base timings
   const defaults = {
     nodeEnter:    { delay: 0,   duration: t.nodeEnter    },
     nodeExit:     { delay: 0,   duration: t.nodeExit     },

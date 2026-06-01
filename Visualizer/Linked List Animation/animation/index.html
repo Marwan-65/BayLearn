@@ -465,7 +465,7 @@
 <main id="canvas">
   <svg id="viz-svg"></svg>
 
-  <div id="keystep-banner">⚑ Key step — important concept</div>
+  <div id="keystep-banner">⚑ Key step --, important concept</div>
 
   <!-- Playback controls -->
   <nav id="playback">
@@ -704,7 +704,7 @@ function traverse(list) {
 
   if (!list.head) {
     steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.OPERATION_COMPLETE,
-      explanation:'List is empty — nothing to traverse.', variables:{current:null}, pseudocodeLine:4, isKeyStep:true }));
+      explanation:'List is empty --, nothing to traverse.', variables:{current:null}, pseudocodeLine:4, isKeyStep:true }));
     return steps;
   }
 
@@ -730,7 +730,7 @@ function traverse(list) {
         variables:{current:node.next}, pseudocodeLine:3 }));
     } else {
       steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.ADVANCE_CURRENT_TO_NULL,
-        explanation:`current ← current.next = null. Tail reached — loop will exit.`,
+        explanation:`current ← current.next = null. Tail reached --, loop will exit.`,
         nodeHighlights:[{nodeId:cur,role:NODE_ROLES.TAIL}], variables:{current:null}, pseudocodeLine:3 }));
     }
     cur = node.next;
@@ -745,18 +745,18 @@ function insertAtHead(list, value) {
   const steps = []; let idx = 0;
   const state = cloneState(list);
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.INITIAL_STATE,
-    explanation:`Insert ${value} at head. This is O(1) — no traversal needed.`,
+    explanation:`Insert ${value} at head. This is O(1) --, no traversal needed.`,
     nodeHighlights:state.head?[{nodeId:state.head,role:NODE_ROLES.HEAD}]:[],
     variables:{}, pseudocodeLine:null, isKeyStep:true }));
   const newId = generateId(state);
   state.nodes[newId] = createNode(newId, value, null);
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.CREATE_NODE,
-    explanation:`Allocate new node (value: ${value}). Its next is null — not yet linked.`,
+    explanation:`Allocate new node (value: ${value}). Its next is null --, not yet linked.`,
     nodeHighlights:[{nodeId:newId,role:NODE_ROLES.NEW}], variables:{newNode:newId}, pseudocodeLine:0, isKeyStep:true }));
   const oldHead = state.head;
   state.nodes[newId].next = oldHead;
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.SET_NEW_NEXT,
-    explanation:`newNode.next ← head. ⚠️ We do this FIRST — if we updated head first, we'd lose our reference to the rest of the list.`,
+    explanation:`newNode.next ← head. ⚠️ We do this FIRST --, if we updated head first, we'd lose our reference to the rest of the list.`,
     nodeHighlights:[{nodeId:newId,role:NODE_ROLES.INSERTING},...(oldHead?[{nodeId:oldHead,role:NODE_ROLES.HEAD}]:[])],
     pointerHighlights:oldHead?[{fromId:newId,toId:oldHead,role:POINTER_ROLES.NEW}]:[],
     variables:{newNode:newId}, pseudocodeLine:1, isKeyStep:true }));
@@ -766,7 +766,7 @@ function insertAtHead(list, value) {
     nodeHighlights:[{nodeId:newId,role:NODE_ROLES.HEAD},...(oldHead?[{nodeId:oldHead,role:NODE_ROLES.VISITING}]:[])],
     variables:{newNode:newId}, pseudocodeLine:2, isKeyStep:true }));
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.OPERATION_COMPLETE,
-    explanation:`Done. ${value} is now the head. List has ${state.size} node(s). O(1) — just 2 pointer updates.`,
+    explanation:`Done. ${value} is now the head. List has ${state.size} node(s). O(1) --, just 2 pointer updates.`,
     nodeHighlights:[{nodeId:newId,role:NODE_ROLES.HEAD}], pseudocodeLine:3, isKeyStep:true }));
   return steps;
 }
@@ -776,7 +776,7 @@ function insertAtTail(list, value) {
   const steps = []; let idx = 0;
   const state = cloneState(list);
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.INITIAL_STATE,
-    explanation:`Insert ${value} at tail. O(n) — must traverse to find the last node.`,
+    explanation:`Insert ${value} at tail. O(n) --, must traverse to find the last node.`,
     nodeHighlights:state.head?[{nodeId:state.head,role:NODE_ROLES.HEAD}]:[],
     isKeyStep:true }));
   const newId = generateId(state);
@@ -787,7 +787,7 @@ function insertAtTail(list, value) {
   if (!state.head) {
     state.head = newId; state.size++;
     steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.OPERATION_COMPLETE,
-      explanation:`List was empty — new node is both head and tail.`,
+      explanation:`List was empty --, new node is both head and tail.`,
       nodeHighlights:[{nodeId:newId,role:NODE_ROLES.HEAD}], pseudocodeLine:1, isKeyStep:true }));
     return steps;
   }
@@ -807,7 +807,7 @@ function insertAtTail(list, value) {
     cur = next;
   }
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.CHECK_WHILE_CONDITION,
-    explanation:`current.next = null — found the tail (value: ${state.nodes[cur].value}). Loop exits.`,
+    explanation:`current.next = null --, found the tail (value: ${state.nodes[cur].value}). Loop exits.`,
     nodeHighlights:[{nodeId:cur,role:NODE_ROLES.TAIL}], variables:{newNode:newId,current:cur}, pseudocodeLine:5, isKeyStep:true }));
   state.nodes[cur].next = newId; state.size++;
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.ATTACH_TO_TAIL,
@@ -816,7 +816,7 @@ function insertAtTail(list, value) {
     pointerHighlights:[{fromId:cur,toId:newId,role:POINTER_ROLES.NEW}],
     variables:{newNode:newId,current:cur}, pseudocodeLine:6, isKeyStep:true }));
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.OPERATION_COMPLETE,
-    explanation:`Done. ${value} is now the tail. Traversed ${list.size} nodes — O(n).`,
+    explanation:`Done. ${value} is now the tail. Traversed ${list.size} nodes --, O(n).`,
     nodeHighlights:[{nodeId:newId,role:NODE_ROLES.TAIL}], pseudocodeLine:7, isKeyStep:true }));
   return steps;
 }
@@ -908,7 +908,7 @@ function deleteAtTail(list) {
   const steps = []; let idx = 0;
   const state = cloneState(list);
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.INITIAL_STATE,
-    explanation:`Delete tail. O(n) — must find the second-to-last node since we can't traverse backwards.`,
+    explanation:`Delete tail. O(n) --, must find the second-to-last node since we can't traverse backwards.`,
     nodeHighlights:state.head?[{nodeId:state.head,role:NODE_ROLES.HEAD}]:[],
     isKeyStep:true }));
   if (!state.head) {
@@ -994,7 +994,7 @@ function deleteByValue(list, target) {
       const after = curNode.next;
       delete state.nodes[cur]; state.nodes[prev].next = after; state.size--;
       steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.BYPASS_NODE,
-        explanation:`prev.next ← current.next. Node (value: ${target}) bypassed — unreachable and garbage collected.`,
+        explanation:`prev.next ← current.next. Node (value: ${target}) bypassed --, unreachable and garbage collected.`,
         nodeHighlights:[{nodeId:prev,role:NODE_ROLES.DEFAULT},...(after?[{nodeId:after,role:NODE_ROLES.VISITING}]:[])],
         pointerHighlights:after?[{fromId:prev,toId:after,role:POINTER_ROLES.UPDATING}]:[],
         pseudocodeLine:5, isKeyStep:true }));
@@ -1058,7 +1058,7 @@ function searchByValue(list, target) {
   const steps = []; let idx = 0;
   const state = cloneState(list);
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.INITIAL_STATE,
-    explanation:`Search for value ${target}. Linked lists require O(n) linear search — no random access.`,
+    explanation:`Search for value ${target}. Linked lists require O(n) linear search --, no random access.`,
     nodeHighlights:state.head?[{nodeId:state.head,role:NODE_ROLES.HEAD}]:[],
     isKeyStep:true }));
   if (!state.head) {
@@ -1111,7 +1111,7 @@ function reverse(list) {
     isKeyStep:true }));
   if (!state.head || !state.nodes[state.head].next) {
     steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.OPERATION_COMPLETE,
-      explanation:!state.head ? `Empty list — nothing to reverse.` : `Single node — already reversed.`,
+      explanation:!state.head ? `Empty list --, nothing to reverse.` : `Single node --, already reversed.`,
       isKeyStep:true })); return steps;
   }
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.INIT_POINTERS,
@@ -1129,7 +1129,7 @@ function reverse(list) {
       variables:{prev:prevId,current:curId,next:nextId}, pseudocodeLine:3, isKeyStep:true }));
     state.nodes[curId].next = prevId;
     steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.REVERSE_POINTER,
-      explanation:`current.next ← prev. The pointer is now REVERSED — this node no longer points forward, it points backward to prev (${prevId ? `value: ${state.nodes[prevId].value}` : 'null'}).`,
+      explanation:`current.next ← prev. The pointer is now REVERSED --, this node no longer points forward, it points backward to prev (${prevId ? `value: ${state.nodes[prevId].value}` : 'null'}).`,
       nodeHighlights:[{nodeId:curId,role:NODE_ROLES.INSERTING},...(prevId?[{nodeId:prevId,role:NODE_ROLES.PREV}]:[])],
       pointerHighlights:prevId?[{fromId:curId,toId:prevId,role:POINTER_ROLES.NEW}]:[],
       variables:{prev:prevId,current:curId,next:nextId}, pseudocodeLine:4, isKeyStep:true }));
@@ -1141,7 +1141,7 @@ function reverse(list) {
   }
   const oldHead = state.head; state.head = prevId;
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.UPDATE_HEAD,
-    explanation:`head ← prev. "prev" is now the original tail — it becomes the new head.`,
+    explanation:`head ← prev. "prev" is now the original tail --, it becomes the new head.`,
     nodeHighlights:[{nodeId:prevId,role:NODE_ROLES.HEAD}],
     variables:{prev:prevId,current:null}, pseudocodeLine:8, isKeyStep:true }));
   steps.push(createStep({ stepIndex:idx++, state, action:ACTIONS.OPERATION_COMPLETE,

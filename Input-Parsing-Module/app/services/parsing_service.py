@@ -1,5 +1,5 @@
-import os
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.parsers.parser_factory import ParserFactory
 from app.services.db_service import DBService
@@ -10,7 +10,7 @@ db_service = DBService()
 
 class ParsingService:
 
-    async def process(self, file, user_id: str, db: Session):
+    async def process(self, file, user_id: str, db: Session, course_id: Optional[str] = None):
         # 1. Save file to disk
         file_path = await save_upload_file(file)
 
@@ -23,17 +23,19 @@ class ParsingService:
 
         # 4. Save to database
         saved_file = db_service.save_parsed_content(
-            db          = db,
-            parsed      = parsed,
-            user_id     = user_id,
-            file_name   = file.filename,
-            file_type   = file_type,
-            file_path   = file_path,
+            db        = db,
+            parsed    = parsed,
+            user_id   = user_id,
+            course_id = course_id,
+            file_name = file.filename,
+            file_type = file_type,
+            file_path = file_path,
         )
 
         # 5. Return file_id + full ParsedContent structure
         return {
             "file_id"    : saved_file.id,
+            "course_id"  : saved_file.course_id,
             "source_type": parsed.source_type,
             "title"      : parsed.title,
             "sections"   : [

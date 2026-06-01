@@ -9,14 +9,14 @@
  *   3. Colour-codes chips by variable name role (amber=current, purple=prev, etc.)
  *
  * Inputs:
- *   update(step, prevStep)  — both Step objects; prevStep may be null
+ *   update(step, prevStep)  --, both Step objects; prevStep may be null
  */
 
 import { VAR_ROLES } from './constants.js';
 
 export class VariableInspector {
   /**
-   * @param {HTMLElement} containerEl  — the <div id="var-list"> element
+   * @param {HTMLElement} containerEl  --, the <div id="var-list"> element
    */
   constructor(containerEl) {
     this._el = containerEl;
@@ -26,7 +26,7 @@ export class VariableInspector {
    * Re-render the variable chips for the current step.
    *
    * @param {Step}      step
-   * @param {Step|null} prevStep  — previous step, used to detect changes
+   * @param {Step|null} prevStep  --, previous step, used to detect changes
    */
   update(step, prevStep) {
     const vars = step.variables ?? {};

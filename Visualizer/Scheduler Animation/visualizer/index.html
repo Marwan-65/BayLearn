@@ -9,40 +9,63 @@
 <body>
     <div class="dashboard">
         <div class="top-bar">
-            <div class="title">
-                <span id="algoTitle">Scheduler Visualization</span>
-                <span class="badge" id="algoBadge">RR</span>
-                <span class="badge" id="quantumBadge">Quantum = <span id="quantumValue">3</span></span>
+            <div class="title-block">
+                <div class="title">
+                    <span id="algoTitle">Scheduler Visualization</span>
+                    <span class="badge" id="algoBadge">RR</span>
+                    <span class="badge" id="quantumBadge" style="display:none">Quantum = <span id="quantumValue">3</span></span>
+                </div>
+                <div class="algo-subtitle" id="algoSubtitle"></div>
             </div>
-            <div style="display: flex; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
                 <div class="file-input-container">
-                    <label for="fileInput" class="btn">📂 Load JSON</label>
+                    <label for="fileInput" class="btn">Load JSON</label>
                     <input type="file" id="fileInput" accept=".json" style="display: none;">
                 </div>
                 <div class="controls">
-                    <button class="btn" id="resetBtn">↺ Reset</button>
-                    <button class="btn" id="stepBtn">⏵ Step</button>
-                    <button class="btn btn-primary" id="playBtn">▶ Play</button>
+                    <button class="btn" id="resetBtn">Reset</button>
+                    <button class="btn" id="stepBackBtn">Step Back</button>
+                    <button class="btn" id="stepBtn">Step</button>
+                    <button class="btn btn-primary" id="playBtn">Play</button>
                 </div>
                 <div class="speed-control">
-                    <span>🐢</span>
+                    <span class="speed-label">Slow</span>
                     <input type="range" id="speedSlider" min="0.5" max="3" step="0.5" value="1">
-                    <span>🐇</span>
+                    <span class="speed-label">Fast</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Progress bar row -->
+        <div class="progress-row">
+            <div class="progress-track" id="progressTrack">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span class="step-counter" id="stepCounter">0 / 0</span>
+            <div class="status-dot" id="statusDot"></div>
+            <span class="status-text" id="statusText">idle</span>
         </div>
 
         <!-- Main visualization -->
         <div class="viz-section">
             <div class="gantt-header">
-                <div class="gantt-title" id="ganttTitle">📊 Process Execution Timeline</div>
+                <div class="gantt-title" id="ganttTitle">Process Execution Timeline</div>
                 <div class="time-indicator" id="currentTimeLabel">Time: 0</div>
             </div>
             <div id="chart"></div>
 
+            <!-- Narration strip -->
+            <div class="narration-strip" id="narrationStrip">
+                <div class="narration-accent" id="narrationAccent"></div>
+                <div class="narration-content">
+                    <span class="narration-text" id="narrationText">Step through the animation to see what is happening at each point.</span>
+                    <span class="narration-time" id="narrationTime"></span>
+                </div>
+            </div>
+
             <!-- Ready Queue -->
             <div class="queue-panel">
-                <div class="queue-label">📋 Ready Queue</div>
+                <div class="queue-label">Ready Queue</div>
                 <div id="queueContainer" class="queue-items"></div>
             </div>
         </div>
@@ -75,6 +98,7 @@
                         <th>Process</th>
                         <th>Arrival</th>
                         <th>Burst</th>
+                        <th class="col-priority" id="thPriority" style="display:none">Priority</th>
                         <th>Remaining</th>
                         <th>Wait Time</th>
                         <th>Turnaround</th>

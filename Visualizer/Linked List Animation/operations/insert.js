@@ -2,9 +2,9 @@
  * OPERATION: INSERT
  *
  * Three variants:
- *   insertAtHead  — O(1), updates head
- *   insertAtTail  — O(n), must traverse to find the tail
- *   insertAtIndex — O(n), must traverse to find position
+ *   insertAtHead  --, O(1), updates head
+ *   insertAtTail  --, O(n), must traverse to find the tail
+ *   insertAtIndex --, O(n), must traverse to find position
  *
  * A key teaching point: insertAtHead is the only O(1) insert.
  * All others require traversal, which is why arrays are sometimes preferred
@@ -57,7 +57,7 @@ export const INSERT_AT_INDEX_PSEUDOCODE = [
 
 /**
  * Inserts a new node at the front of the list.
- * Time complexity: O(1) — no traversal needed.
+ * Time complexity: O(1) --, no traversal needed.
  *
  * @param {ListState} list
  * @param {*}         value
@@ -74,7 +74,7 @@ export function insertAtHead(list, value) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are going to insert the value ${value} at the head of the list. Insert-at-head is O(1) — it takes the same time regardless of list length, because we never need to traverse.`,
+    explanation:  `We are going to insert the value ${value} at the head of the list. Insert-at-head is O(1) --, it takes the same time regardless of list length, because we never need to traverse.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    {},
     pseudocodeLine: null,
@@ -85,7 +85,7 @@ export function insertAtHead(list, value) {
 
   const newId = generateId(state);
   state.nodes[newId] = createNode(newId, value, null);
-  // Note: not yet linked into the list — size/head unchanged yet
+  // Note: not yet linked into the list --, size/head unchanged yet
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -109,7 +109,7 @@ export function insertAtHead(list, value) {
     action:       ACTIONS.SET_NEW_NEXT,
     explanation:  oldHead === null
       ? `newNode.next ← head. The list was empty, so head is null. We set newNode.next = null. The new node will become both head and tail.`
-      : `newNode.next ← head. We point the new node's "next" at the current head (value: ${list.nodes[oldHead].value}). The new node is now wired to the front of the existing list — but "head" still points to the old node. ⚠️ Order matters: we must set newNode.next BEFORE updating head, or we would lose the reference to the rest of the list.`,
+      : `newNode.next ← head. We point the new node's "next" at the current head (value: ${list.nodes[oldHead].value}). The new node is now wired to the front of the existing list --, but "head" still points to the old node. ⚠️ Order matters: we must set newNode.next BEFORE updating head, or we would lose the reference to the rest of the list.`,
     nodeHighlights: [
       { nodeId: newId, role: NODE_ROLES.INSERTING },
       ...(oldHead ? [{ nodeId: oldHead, role: NODE_ROLES.HEAD }] : []),
@@ -147,7 +147,7 @@ export function insertAtHead(list, value) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.OPERATION_COMPLETE,
-    explanation:  `Insert complete. The value ${value} is now at the head of the list. The list now has ${state.size} node${state.size !== 1 ? 's' : ''}. This operation took O(1) time — just 2 pointer updates, regardless of how long the list is.`,
+    explanation:  `Insert complete. The value ${value} is now at the head of the list. The list now has ${state.size} node${state.size !== 1 ? 's' : ''}. This operation took O(1) time --, just 2 pointer updates, regardless of how long the list is.`,
     nodeHighlights: [{ nodeId: newId, role: NODE_ROLES.HEAD }],
     variables:    {},
     pseudocodeLine: 3,
@@ -161,7 +161,7 @@ export function insertAtHead(list, value) {
 
 /**
  * Inserts a new node at the end of the list.
- * Time complexity: O(n) — must traverse to find the tail.
+ * Time complexity: O(n) --, must traverse to find the tail.
  *
  * @param {ListState} list
  * @param {*}         value
@@ -178,7 +178,7 @@ export function insertAtTail(list, value) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.INITIAL_STATE,
-    explanation:  `We are going to insert the value ${value} at the tail of the list. Unlike insert-at-head, this is O(n) — we must walk the whole list to find the last node, because a singly linked list has no tail pointer.`,
+    explanation:  `We are going to insert the value ${value} at the tail of the list. Unlike insert-at-head, this is O(n) --, we must walk the whole list to find the last node, because a singly linked list has no tail pointer.`,
     nodeHighlights: state.head ? [{ nodeId: state.head, role: NODE_ROLES.HEAD }] : [],
     variables:    {},
     pseudocodeLine: null,
@@ -194,7 +194,7 @@ export function insertAtTail(list, value) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.CREATE_NODE,
-    explanation:  `We create a new node with value ${value}. Its "next" is null — tail nodes always point to null.`,
+    explanation:  `We create a new node with value ${value}. Its "next" is null --, tail nodes always point to null.`,
     nodeHighlights: [{ nodeId: newId, role: NODE_ROLES.NEW }],
     variables:    { newNode: newId },
     pseudocodeLine: 0,
@@ -211,7 +211,7 @@ export function insertAtTail(list, value) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.UPDATE_HEAD,
-      explanation:  `The list is empty (head = null). A tail insert into an empty list is the same as a head insert — the new node becomes both the head and the tail.`,
+      explanation:  `The list is empty (head = null). A tail insert into an empty list is the same as a head insert --, the new node becomes both the head and the tail.`,
       nodeHighlights: [{ nodeId: newId, role: NODE_ROLES.HEAD }],
       variables:    { newNode: newId },
       pseudocodeLine: 2,
@@ -281,7 +281,7 @@ export function insertAtTail(list, value) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.CHECK_WHILE_CONDITION,
-    explanation:  `current.next is null — we have found the tail node (value: ${tailNode.value}). The WHILE loop exits.`,
+    explanation:  `current.next is null --, we have found the tail node (value: ${tailNode.value}). The WHILE loop exits.`,
     nodeHighlights: [{ nodeId: currentId, role: NODE_ROLES.TAIL }],
     variables:    { newNode: newId, current: currentId },
     pseudocodeLine: 9,
@@ -363,7 +363,7 @@ export function insertAtIndex(list, value, index) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.CHECK_WHILE_CONDITION,
-      explanation:  `Index is 0 — this is a head insert. We delegate to the insertAtHead logic.`,
+      explanation:  `Index is 0 --, this is a head insert. We delegate to the insertAtHead logic.`,
       nodeHighlights: [],
       variables:    {},
       pseudocodeLine: 0,
@@ -457,7 +457,7 @@ export function insertAtIndex(list, value, index) {
     stepIndex: idx++,
     state,
     action:       ACTIONS.CHECK_WHILE_CONDITION,
-    explanation:  `We have reached index ${index - 1} — the node with value ${prevNode.value}. The node currently at index ${index} is ${afterId ? `value: ${state.nodes[afterId].value}` : 'null (tail insert)'}. Now we wire in the new node.`,
+    explanation:  `We have reached index ${index - 1} --, the node with value ${prevNode.value}. The node currently at index ${index} is ${afterId ? `value: ${state.nodes[afterId].value}` : 'null (tail insert)'}. Now we wire in the new node.`,
     nodeHighlights: [
       { nodeId: prevId, role: NODE_ROLES.PREV },
       ...(afterId ? [{ nodeId: afterId, role: NODE_ROLES.VISITING }] : []),
@@ -476,7 +476,7 @@ export function insertAtIndex(list, value, index) {
     state,
     action:       ACTIONS.SET_NEW_NEXT,
     explanation:  afterId
-      ? `newNode.next ← prev.next. We point the new node at the node that was at index ${index} (value: ${state.nodes[afterId].value}). ⚠️ We do this FIRST — if we updated prev.next first, we would lose this reference.`
+      ? `newNode.next ← prev.next. We point the new node at the node that was at index ${index} (value: ${state.nodes[afterId].value}). ⚠️ We do this FIRST --, if we updated prev.next first, we would lose this reference.`
       : `newNode.next ← prev.next. prev.next is null (prev is the tail), so newNode.next = null. The new node will become the new tail.`,
     nodeHighlights: [
       { nodeId: newId,  role: NODE_ROLES.INSERTING },

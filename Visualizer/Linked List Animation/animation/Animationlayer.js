@@ -422,7 +422,7 @@ export class AnimationLayer {
       return `M${sx},${sy} C${mx},${sy} ${mx},${ey} ${ex},${ey}`;
     }
 
-    // Loopback arrow (for reversed or non-linear cases) — arc under the nodes
+    // Loopback arrow (for reversed or non-linear cases) --, arc under the nodes
     const arc = T.nodeH * 1.6;
     return [
       `M${sx},${sy}`,

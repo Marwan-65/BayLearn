@@ -1,0 +1,13 @@
+{
+  "animation_type": "scheduler",
+  "confidence": 0.98,
+  "evidence": [
+    "Five batch jobs, A through E, arrive at the same time.",
+    "estimated running time of 15, 9, 3, 6, and 12 minutes, respectively.",
+    "Their priorities are 6, 3, 7, 9, and 4 respectively",
+    "Determine the response time, turnaround time, weighted turnaround time for each process",
+    "average response time and the average turnaround time.",
+    "Ignore context switching overhead and assume all processes are compute bound.",
+    "Table with Process, Arrival Time, Running Time, Priority"
+  ]
+}
