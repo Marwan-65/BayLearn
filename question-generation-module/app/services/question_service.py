@@ -57,13 +57,12 @@ class QuestionGenerationService:
     async def generate(
         self,
         project_id: str,
-        num_questions: int,
         difficulty: str,
         question_type: str,
         topic: Optional[str] = None,
     ) -> tuple[List[GeneratedQuestion], int]:
         """
-        Generate questions for a project.
+        Generate one question for a project.
 
         Returns: (list of GeneratedQuestion, number_of_chunks_used)
         """
@@ -109,12 +108,6 @@ class QuestionGenerationService:
             len(few_shot), target_level,
         )
 
-        # 6. Build prompt, call LLM, parse — possibly retry once on level mismatch
-        # RL integration generates one question per request.
-        # Ignore incoming num_questions and enforce single-question mode.
-        if num_questions != 1:
-            logger.info("Overriding num_questions=%s to 1 for RL single-question mode.", num_questions)
-
         # Semantic Validation Layer retries until we get a non-rejected question.
         chunk_texts = [
             c.get("payload", {}).get("text", "")
@@ -130,7 +123,6 @@ class QuestionGenerationService:
             questions = await self._generate_with_retry(
                 question_type=question_type,
                 chunks_text=chunks_text,
-                num_questions=1,
                 difficulty=difficulty,
                 target_level=target_level,
                 few_shot=few_shot,
@@ -185,18 +177,17 @@ class QuestionGenerationService:
             logger.warning("Few-shot retrieval failed: %s — proceeding without ICL", e)
             return []
 
-    def _build_prompt(self, question_type, chunks_text, num_questions,
-                      difficulty, few_shot):
+    def _build_prompt(self, question_type, chunks_text, difficulty, few_shot):
         if question_type == "mcq":
-            return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot)
+            return build_mcq_prompt(chunks_text, difficulty, few_shot)
         if question_type == "short_answer":
-            return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot)
+            return build_short_answer_prompt(chunks_text, difficulty, few_shot)
         if question_type == "true_false":
-            return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot)
+            return build_true_false_prompt(chunks_text, difficulty, few_shot)
         raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
 
     async def _generate_with_retry(self, question_type, chunks_text,
-                                   num_questions, difficulty, target_level,
+                                   difficulty, target_level,
                                    few_shot) -> List[GeneratedQuestion]:
         """Generate, classify output, retry once if too many wrong-level questions."""
         attempts = 0
@@ -206,14 +197,14 @@ class QuestionGenerationService:
         while attempts < max_attempts:
             attempts += 1
             system_prompt, user_prompt = self._build_prompt(
-                question_type, chunks_text, num_questions, difficulty, few_shot,
+                question_type, chunks_text, difficulty, few_shot,
             )
             raw_response = self.llm_client.generate(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 # Slightly lower temperature on retry to converge on correct level
                 temperature=0.85 if attempts == 1 else 0.6,
-                max_tokens=min(900, 220 + (num_questions * 140)),
+                max_tokens=360,
             )
             questions = self._parse_llm_response(raw_response, question_type)
             last_questions = self._classify_predicted_levels(questions)
@@ -335,4 +326,3 @@ class QuestionGenerationService:
             cleaned.append(kw)
 
         return cleaned or None
-

@@ -29,7 +29,7 @@ DIFFICULTY_GUIDANCE = {
     }
 }
 
-def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str,
+def build_mcq_prompt(chunks_text: str, difficulty: str,
                      few_shot_examples: Optional[list] = None) -> tuple[str, str]:
     """
     Returns (system_prompt, user_prompt) for MCQ generation.
@@ -48,23 +48,20 @@ def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str,
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} multiple choice questions at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
+Generate exactly 1 multiple choice question at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
 
 LEVEL GUIDANCE: {diff_guide['instruction']}
 QUESTION PATTERNS TO USE: {diff_guide['examples']}
 
 {examples_block}
-IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
-Do NOT generate near-duplicate or redundant questions. Vary question structure and content.
-
 The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
-format — generate your questions strictly in the multiple choice question format defined
+format — generate your question strictly in the multiple choice question format defined
 in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
 {chunks_text}
 
-OUTPUT FORMAT — return a JSON array, nothing else:
+OUTPUT FORMAT — return a JSON array with exactly 1 item, nothing else:
 [
   {{
     "question_text": "What does Ohm's law state?",
@@ -80,12 +77,12 @@ OUTPUT FORMAT — return a JSON array, nothing else:
   }}
 ]
 
-Generate {num_questions} diverse questions now:
+Generate 1 question now:
 """
     return system_prompt, user_prompt
 
     
-def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: str,
+def build_short_answer_prompt(chunks_text: str, difficulty: str,
                             few_shot_examples: Optional[list] = None) -> tuple[str, str]:
     
     diff_guide = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
@@ -98,23 +95,20 @@ def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: 
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} short-answer questions at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
+Generate exactly 1 short-answer question at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
 
 LEVEL GUIDANCE: {diff_guide['instruction']}
 QUESTION PATTERNS TO USE: {diff_guide['examples']}
 
 {examples_block}
-IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
-Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
-
 The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
-format — generate your questions strictly in the short answer question format defined
+format — generate your question strictly in the short answer question format defined
 in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
 {chunks_text}
 
-OUTPUT FORMAT — return a JSON array, nothing else:
+OUTPUT FORMAT — return a JSON array with exactly 1 item, nothing else:
 [
   {{
     "question_text": "What is the relationship between voltage, current, and resistance?",
@@ -131,13 +125,13 @@ IMPORTANT FOR SHORT ANSWER GRADING:
 - Keywords should capture core meaning, not exact sentence wording.
 - Use lowercase strings when possible.
 
-Generate {num_questions} diverse questions now:
+Generate 1 question now:
 """
     return system_prompt, user_prompt
 
 
     
-def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: str,
+def build_true_false_prompt(chunks_text: str, difficulty: str,
                             few_shot_examples: Optional[list] = None) -> tuple[str, str]:
     
     diff_guide = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
@@ -150,23 +144,20 @@ def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: st
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} true/false questions at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
+Generate exactly 1 true/false question at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
 
 LEVEL GUIDANCE: {diff_guide['instruction']}
 QUESTION PATTERNS TO USE: {diff_guide['examples']}
 
 {examples_block}
-IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
-Do NOT generate near-duplicate or redundant questions. Vary question focus and content.
-
 The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
-format — generate your questions strictly in the true/false question format defined
+format — generate your question strictly in the true/false question format defined
 in the OUTPUT FORMAT section below.
 
 STUDY MATERIAL:
 {chunks_text}
 
-OUTPUT FORMAT — return a JSON array, nothing else:
+OUTPUT FORMAT — return a JSON array with exactly 1 item, nothing else:
 [
   {{
     "question_text": "Ohm's law states that voltage equals current divided by resistance.",
@@ -178,6 +169,6 @@ OUTPUT FORMAT — return a JSON array, nothing else:
 
 IMPORTANT: correct_answer must be exactly "true" or "false" (lowercase strings).
 
-Generate {num_questions} diverse questions now:
+Generate 1 question now:
 """
     return system_prompt, user_prompt

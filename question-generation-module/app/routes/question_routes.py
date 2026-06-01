@@ -24,7 +24,6 @@ async def generate_questions(
     try:
         questions, chunks_used = await service.generate(
             project_id=body.project_id,
-            num_questions=body.num_questions,
             difficulty=body.difficulty,
             question_type=body.question_type,
             topic=body.topic,

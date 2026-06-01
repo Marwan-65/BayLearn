@@ -13,7 +13,6 @@ Difficulty Levels:
 class GenerateQuestionsRequest(BaseModel):
     project_id: str = Field(..., description="The ID of the indexed project/document")
     topic: Optional[str] = Field(None, description="Optional: focus questions on a topic")
-    num_questions: int = Field(default=5, ge=1, le=20, description="How many questions to generate")
     difficulty: str = Field(default="medium", description="easy | medium | hard")
     question_type: str = Field(default="mcq", description="mcq | short_answer | true_false")
 
