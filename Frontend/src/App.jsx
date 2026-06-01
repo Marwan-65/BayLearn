@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import QuestionStudioPage from "./pages/QuestionStudioPage";
 
 function getUser() {
   try { return JSON.parse(localStorage.getItem("baylearn:user") || "null"); }
@@ -21,6 +22,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<RedirectIfAuthed><LoginPage /></RedirectIfAuthed>} />
         <Route path="/home" element={<RequireAuth><HomePage /></RequireAuth>} />
+        <Route path="/question-studio" element={<RequireAuth><QuestionStudioPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
