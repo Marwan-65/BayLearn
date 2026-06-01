@@ -31,6 +31,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import requests
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flasgger import Swagger
@@ -84,7 +85,14 @@ swagger_template = {
                     "type": "array",
                     "items": {"type": "string"},
                     "example": ["550e8400-e29b-41d4-a716-446655440001"],
-                    "description": "File UUIDs from chunk DB.",
+                    "description": "File UUIDs from the chunk DB.",
+                },
+                "question_type": {
+                    "type": "string",
+                    "enum": ["mcq", "true_false", "short_answer"],
+                    "example": "mcq",
+                    "default": "mcq",
+                    "description": "Question format passed to the question generation module.",
                 },
             },
         },
@@ -95,6 +103,7 @@ swagger_template = {
                 "status":     {"type": "string", "example": "started"},
                 "scope_ids":  {"type": "array", "items": {"type": "string"}},
                 "prior_apr":  {"type": "number", "format": "float"},
+                "question_type": {"type": "string", "example": "mcq"},
                 "message":    {"type": "string"},
             },
         },
@@ -130,14 +139,17 @@ swagger = Swagger(app, config=swagger_config, template=swagger_template)
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-CONCEPT_DB_URL = os.environ.get("CONCEPT_DB_URL", "").strip()
-CHUNK_DB_URL   = os.environ.get("CHUNK_DB_URL",   "").strip()
-EPPO_SCRIPT    = Path(__file__).parent / "eppo_inference.py"
+CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
+CHUNK_DB_URL          = os.environ.get("CHUNK_DB_URL",          "").strip()
+QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL", "http://localhost:8001").strip()
+EPPO_SCRIPT           = Path(__file__).parent / "eppo_inference.py"
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr); sys.exit(1)
 if not CHUNK_DB_URL:
     print("ERROR: CHUNK_DB_URL not set in .env",   file=sys.stderr); sys.exit(1)
+if not QUESTION_GEN_BASE_URL:
+    print("ERROR: QUESTION_GEN_BASE_URL not set in .env", file=sys.stderr); sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -146,15 +158,6 @@ if not CHUNK_DB_URL:
 
 def _chunk_engine():
     return create_engine(CHUNK_DB_URL)
-
-
-def get_course_info(course_uuid: str) -> dict | None:
-    """Return {id, name} for a chunk DB course UUID."""
-    with Session(_chunk_engine()) as session:
-        row = session.execute(text("""
-            SELECT id::text, name FROM courses WHERE id = CAST(:id AS uuid)
-        """), {"id": course_uuid}).fetchone()
-    return {"id": row[0], "name": row[1]} if row else None
 
 
 def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
@@ -207,35 +210,14 @@ def get_unextracted_files(file_uuids: list[str]) -> list[str]:
     return [fid for fid in file_uuids if fid not in already_extracted]
 
 
-def get_file_ids_for_courses(course_uuids: list[str]) -> dict[str, list[str]]:
-    """
-    Fetch all file UUIDs for each course UUID from the chunk DB.
-    Returns { course_uuid: [file_uuid, ...] }
-    """
-    from sqlalchemy import bindparam, ARRAY
-    from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-    with Session(_chunk_engine()) as session:
-        rows = session.execute(
-            text("""
-                SELECT course_id::text, id::text FROM uploaded_files
-                WHERE course_id = ANY(:ids)
-            """).bindparams(bindparam("ids", value=course_uuids,
-                                        type_=ARRAY(PG_UUID))),
-        ).fetchall()
-    result: dict[str, list[str]] = {cid: [] for cid in course_uuids}
-    for course_id, file_id in rows:
-        result[course_id].append(file_id)
-    return result
-
-
 def create_session_row(user_id: str, scope_ids: str) -> str:
     """Insert a session row, return its UUID."""
     import uuid
     session_uuid = str(uuid.uuid4())
     with Session(_concept_engine()) as session:
         session.execute(text("""
-            INSERT INTO sessions (id, user_id, scope_type, scope_ids, started_at)
-            VALUES (:sid, :uid, 'files', :si, NOW())
+            INSERT INTO sessions (id, user_id, scope_ids, started_at)
+            VALUES (:sid, :uid, :si, NOW())
         """), {"sid": session_uuid, "uid": user_id, "si": scope_ids})
         session.commit()
     return session_uuid
@@ -292,6 +274,26 @@ def run_concept_extractor(file_ids: list[str], course_id: str,
     print(f"[backend] Extraction result: {result}")
 
 
+def call_config_endpoint(session_id: str, file_ids: list[str],
+                          question_type: str) -> None:
+    """
+    Call POST /api/v1/questions/adaptive/{session_id}/config on the
+    question generation module to register file IDs and question type
+    for this session before eppo starts sending generate requests.
+    """
+    url = (f"{QUESTION_GEN_BASE_URL}"
+           f"/api/v1/questions/adaptive/{session_id}/config")
+    try:
+        resp = requests.post(url, json={
+            "file_ids":      file_ids,
+            "question_type": question_type,
+        }, timeout=10)
+        resp.raise_for_status()
+        print(f"[backend] Config sent to question module: {resp.json()}")
+    except Exception as e:
+        print(f"[backend] WARNING: config call failed: {e}", file=sys.stderr)
+
+
 # ---------------------------------------------------------------------------
 # POST /session/start
 # ---------------------------------------------------------------------------
@@ -329,23 +331,30 @@ def start_session():
     """
     data = request.get_json(force=True)
 
-    user_id    = data.get("user_id")       # chunk DB user UUID
-    scope_ids  = data.get("scope_ids",  [])
+    data = request.get_json(force=True)
+
+    user_id       = data.get("user_id")           # chunk DB user UUID
+    file_ids      = data.get("scope_ids", [])     # chunk DB file UUIDs
+    question_type = data.get("question_type", "mcq")
 
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
 
-    if isinstance(scope_ids, str):
-        scope_ids = [v.strip() for v in scope_ids.split(",") if v.strip()]
+    if isinstance(file_ids, str):
+        file_ids = [v.strip() for v in file_ids.split(",") if v.strip()]
 
-    if not scope_ids:
-        return jsonify({"error": "scope_ids must not be empty"}), 400
+    if not file_ids:
+        return jsonify({"error": "scope_ids (file UUIDs) must not be empty"}), 400
 
-    scope_ids_str = ",".join(scope_ids)
+    if question_type not in ("mcq", "true_false", "short_answer"):
+        return jsonify({
+            "error": "question_type must be mcq, true_false, or short_answer"
+        }), 400
 
-    # Step 1: ensure concepts exist for all selected files.
-    missing_file_ids = get_unextracted_files(scope_ids)
+    scope_ids_str = ",".join(file_ids)
 
+    # ── Step 1: extract concepts for any files not yet processed ────────
+    missing_file_ids = get_unextracted_files(file_ids)
     if missing_file_ids:
         course_info = get_course_info_for_files(missing_file_ids)
         if course_info:
@@ -359,29 +368,34 @@ def start_session():
         run_concept_extractor(missing_file_ids, course_id,
                               course_name, user_id)
     else:
-        print(f"[backend] All {len(scope_ids)} files already extracted.")
+        print(f"[backend] All {len(file_ids)} files already extracted.")
 
     # ── Step 2: create session row ──────────────────────────────────────
     session_id = create_session_row(user_id, scope_ids_str)
     print(f"[backend] Created session {session_id} for user {user_id[:8]}...")
 
-    # ── Step 3: launch eppo_inference.py ───────────────────────────────
+    # ── Step 3: configure the question generation module ────────────────
+    # Must happen before eppo starts — eppo POSTs /generate on its first step
+    call_config_endpoint(session_id, file_ids, question_type)
+
+    # ── Step 4: launch eppo_inference.py ───────────────────────────────
     cmd = [
         sys.executable, str(EPPO_SCRIPT),
-        "--user-id",    user_id,
-        "--session-id", session_id,
-        "--scope-ids",  scope_ids_str,
+        "--user-id",       user_id,
+        "--session-id",    session_id,
+        "--scope-ids",     scope_ids_str,
     ]
     subprocess.Popen(cmd)
     print(f"[backend] Launched eppo_inference for session {session_id[:8]}...")
 
     prior_apr = get_student_apr(user_id)
     return jsonify({
-        "session_id":  session_id,
-        "status":      "started",
-        "scope_ids":   scope_ids,
-        "prior_apr":   round(prior_apr, 4) if prior_apr is not None else None,
-        "message":     "Session started. Poll /session/status for progress.",
+        "session_id":    session_id,
+        "status":        "started",
+        "scope_ids":     file_ids,
+        "question_type": question_type,
+        "prior_apr":     round(prior_apr, 4) if prior_apr is not None else None,
+        "message":       "Session started. Poll /session/status for progress.",
     }), 200
 
 
