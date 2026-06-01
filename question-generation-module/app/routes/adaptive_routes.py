@@ -56,26 +56,37 @@ async def adaptive_generate(session_id: str, body: AdaptiveGenerateRequest, requ
     difficulty = _DIFFICULTY_MAP.get((body.difficulty or "medium").lower(), "medium")
     qtype = body.question_type or cfg["question_type"] or "mcq"
 
-    try:
-        questions, chunks_used = await service.generate(
-            project_id=cfg["file_ids"],
-            num_questions=1,
-            difficulty=difficulty,
-            question_type=qtype,
-            topic=body.topic,
-        )
-    except Exception as e:
-        logger.error(f"Adaptive generate failed: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"signal": f"Generation failed: {e}"},
-        )
+    # The semantic validator can reject low-quality LLM questions (bad phrasing,
+    # duplicate options, low source overlap). Requesting only 1 means a single
+    # rejection yields zero. So ask for several candidates and retry a couple of
+    # times; use the first question that passes validation.
+    questions = []
+    chunks_used = 0
+    last_error = None
+    for attempt in range(3):
+        try:
+            qs, chunks_used = await service.generate(
+                project_id=cfg["file_ids"],
+                num_questions=3,
+                difficulty=difficulty,
+                question_type=qtype,
+                topic=body.topic,
+            )
+        except Exception as e:
+            last_error = e
+            logger.error(f"Adaptive generate attempt {attempt + 1} failed: {e}", exc_info=True)
+            continue
+        if qs:
+            questions = qs
+            break
+        logger.warning(f"Adaptive generate attempt {attempt + 1}: all candidates rejected by validator; retrying.")
 
     if not questions:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "No question could be generated from the selected files."},
+        msg = (
+            f"Generation failed: {last_error}" if last_error
+            else "No question passed validation after 3 attempts. Try a different topic or difficulty."
         )
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"signal": msg})
 
     # Card shape the frontend's QuestionCard consumes.
     card = {

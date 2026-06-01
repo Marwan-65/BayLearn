@@ -75,6 +75,10 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        # Ignore env vars that aren't declared here (e.g. GEMINI_* added for other
+        # modules) instead of failing startup. Prevents the recurring
+        # "Extra inputs are not permitted" error when teammates add new .env keys.
+        extra = "ignore"
 
 
 def get_settings():
