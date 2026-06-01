@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.models.database import get_db
+from app.models.database import get_db, DEFAULT_USER_ID
 from app.services.parsing_service import ParsingService
 from app.services.db_service import DBService
 

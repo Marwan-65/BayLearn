@@ -80,6 +80,7 @@ class InputParsingResponse(BaseModel):
     Expected response shape from the input parsing module's /upload endpoint.
     Used for validation in the adapter layer.
     """
+    file_id: Optional[str] = None   # DB id of the saved file — used to re-fetch chunks from the DB
     source_type: str
     title: Optional[str] = None
     sections: list = []

@@ -36,7 +36,7 @@ try:
 except ImportError:
     GeminiQuestionGenClient = None
 
-GENERATIONS_CSV = ROOT / "data" / "processed" / "eval_icl_vs_baseline_generations.csv"
+GENERATIONS_CSV = ROOT / "data" / "processed" / "baseline_vs_icl_generations.csv"
 OUT_PER_CELL   = ROOT / "data" / "processed" / "llm_judge_per_cell.csv"
 OUT_SUMMARY    = ROOT / "data" / "processed" / "llm_judge_summary.txt"
 
@@ -104,9 +104,9 @@ JUDGE_SYSTEM_PROMPT = (
 )
 
 
-def build_judge_prompt(chunk_text: str, target_b6: str,
+def build_judge_prompt(chunk_text: str, bloom_level: str,
                        set_a: list[str], set_b: list[str]) -> str:
-    level_description = LEVEL_DESCRIPTION.get(target_b6, "medium")
+    level_description = LEVEL_DESCRIPTION.get(bloom_level, "medium")
     level_guidance = LEVEL_GUIDANCE[level_description]
     a_block = "\n".join(f"  A{i+1}. {q}" for i, q in enumerate(set_a))
     b_block = "\n".join(f"  B{i+1}. {q}" for i, q in enumerate(set_b))
@@ -190,7 +190,7 @@ def main() -> int:
     args = ap.parse_args()
 
     # if not GENERATIONS_CSV.exists():
-    #     print(f"ERROR: {GENERATIONS_CSV} not found. Run eval_icl_vs_baseline.py first.",
+    #     print(f"ERROR: {GENERATIONS_CSV} not found. Run generate_baseline_vs_icl.py first.",
     #         file=sys.stderr)
     #     return 1
 
@@ -205,20 +205,20 @@ def main() -> int:
     buckets: dict[tuple[str, str, str], list[str]] = defaultdict(list)
     with GENERATIONS_CSV.open(encoding="utf-8") as f:
         for r in csv.DictReader(f):
-            key = (r["chunk_id"], r["target_level_b6"], r["condition"])
+            key = (r["chunk_id"], r["bloom_level"], r["condition"])
             buckets[key].append(r["question"])
 
     cells = []
     seen_cells = set()
-    for (cid, b6, _cond) in buckets.keys():
-        if (cid, b6) in seen_cells:
+    for (cid, bloom_level, _cond) in buckets.keys():
+        if (cid, bloom_level) in seen_cells:
             continue
-        baseline = buckets.get((cid, b6, "baseline"), [])
-        icl      = buckets.get((cid, b6, "icl"), [])
+        baseline = buckets.get((cid, bloom_level, "baseline"), [])
+        icl      = buckets.get((cid, bloom_level, "icl"), [])
         if not baseline or not icl:
             continue
-        cells.append((cid, b6, baseline, icl))
-        seen_cells.add((cid, b6))
+        cells.append((cid, bloom_level, baseline, icl))
+        seen_cells.add((cid, bloom_level))
     print(f"{len(cells)} (chunk, level) cells with both baseline and ICL data.")
     if not cells:
         print("Nothing to judge.", file=sys.stderr)
@@ -229,17 +229,17 @@ def main() -> int:
     per_cell_rows = []
     wins = {c: {"icl": 0, "baseline": 0, "tie": 0} for c in CRITERIA}
 
-    for idx, (cid, b6, base_qs, icl_qs) in enumerate(cells, 1):
+    for idx, (cid, bloom_level, base_qs, icl_qs) in enumerate(cells, 1):
         if cid not in TEST_CHUNKS:
             print(f"skip unknown chunk_id {cid!r}")
             continue
-        topic, chunk_text = TEST_CHUNKS[cid]
+        _topic, chunk_text = TEST_CHUNKS[cid]
 
         flip = rng.random() < 0.5
         set_a, set_b = (icl_qs, base_qs) if flip else (base_qs, icl_qs)
         a_is_icl = flip
 
-        prompt = build_judge_prompt(chunk_text, topic, b6, set_a, set_b)
+        prompt = build_judge_prompt(chunk_text, bloom_level, set_a, set_b)
         try:
             response = client.generate(
                 system_prompt=JUDGE_SYSTEM_PROMPT,
@@ -248,19 +248,19 @@ def main() -> int:
                 max_tokens=1200,
             )
         except Exception as e:
-            print(f"  [{idx}/{len(cells)}] {cid}/{b6}: API error — {e}")
+            print(f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: API error — {e}")
             if sleep_secs > 0:
                 time.sleep(sleep_secs)
             continue
 
         verdict = parse_judge_response(response)
         if verdict is None:
-            print(f"  [{idx}/{len(cells)}] {cid}/{b6}: parse failed")
+            print(f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: parse failed")
             if sleep_secs > 0:
                 time.sleep(sleep_secs)
             continue
 
-        row = {"chunk_id": cid, "target_level_b6": b6,
+        row = {"chunk_id": cid, "bloom_level": bloom_level,
                "icl_was": "A" if a_is_icl else "B"}
         for c in CRITERIA:
             v = (verdict.get(c) or {})
@@ -277,14 +277,14 @@ def main() -> int:
             row[f"{c}_winner"] = cond_winner
             row[f"{c}_reason"] = (v.get("reason") or "")[:300]
         per_cell_rows.append(row)
-        line = f"  [{idx}/{len(cells)}] {cid}/{b6}: "
+        line = f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: "
         line += " ".join(f"{c}={row[f'{c}_winner']}" for c in CRITERIA)
         print(line)
         if sleep_secs > 0:
             time.sleep(sleep_secs)
 
     
-    fieldnames = ["chunk_id", "target_level_b6", "icl_was"]
+    fieldnames = ["chunk_id", "bloom_level", "icl_was"]
     for c in CRITERIA:
         fieldnames.append(f"{c}_winner")
         fieldnames.append(f"{c}_reason")

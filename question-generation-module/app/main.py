@@ -9,8 +9,11 @@ from app.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
 from app.services.question_service import QuestionGenerationService
 from app.services.example_bank import ExampleBank
+from app.services.answer_grader import AnswerGrader
 from app.classifier.bloom_classifier import BloomClassifier
 from app.routes.question_routes import question_router
+from app.routes.adaptive_routes import adaptive_router
+from app.services.adaptive_session import AdaptiveSessionStore
 
 logger = logging.getLogger(__name__)
 _MODULE_ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +29,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    # Match any localhost/127.0.0.1 origin on any port (Vite may use 5174+ if 5173
+    # is busy, and localhost != 127.0.0.1 to the browser). A fixed allowlist would
+    # block the frontend's /questions/generate and /questions/check calls via CORS.
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -49,6 +55,13 @@ async def startup():
     example_bank = ExampleBank.load(EXAMPLE_BANK_PATH)
     logger.info("Example bank stats: %s", example_bank.stats())
 
+    # Answer grader — reuses the example bank's embedder (same MiniLM instance)
+    # so short-answer semantic grading costs no extra model memory.
+    app.answer_grader = AnswerGrader(embedder=example_bank)
+
+    # In-memory coordination store for the agent-driven adaptive quiz loop.
+    app.adaptive_sessions = AdaptiveSessionStore()
+
     # BloomBERT classifier 
     bloom_classifier = BloomClassifier.load(BLOOM_MODEL_DIR)
 
@@ -64,3 +77,4 @@ async def startup():
 
 
 app.include_router(question_router)
+app.include_router(adaptive_router)

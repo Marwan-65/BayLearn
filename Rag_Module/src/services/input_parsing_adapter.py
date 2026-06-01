@@ -26,8 +26,11 @@ from routes.schemes.orchestrator import InputParsingResponse
 
 logger = logging.getLogger(__name__)
 
-# Timeout for parsing module calls (large PDFs can be slow)
-PARSING_TIMEOUT = 120.0
+# Timeout for parsing module calls (large PDFs can be slow).
+# Headroom for big digital docs (hundreds of pages render + extract in well under
+# this once embedded-image OCR is off). For very large scanned docs, prefer async
+# indexing rather than raising this further.
+PARSING_TIMEOUT = 300.0
 
 
 class InputParsingAdapter:
@@ -63,10 +66,15 @@ class InputParsingAdapter:
         file_content: bytes,
         filename: str,
         project_id: str,
-    ) -> list:
+    ) -> tuple[list, Optional[str]]:
         """
-        Send a file to the Input Parsing Module and convert its
-        ParsedContent response into RAG-ready chunks.
+        Upload a file to the Input Parsing Module (which parses it and persists
+        it to the shared database), then read the resulting chunks back FROM the
+        database via GET /files/{file_id}/chunks and convert them to RAG chunks.
+
+        This makes the database the single source of truth: the file is uploaded
+        once, and every module (RAG, question-gen, ...) reads the same chunks via
+        the parsing module's get-chunks route rather than keeping private copies.
 
         Args:
             file_content: Raw file bytes
@@ -74,20 +82,105 @@ class InputParsingAdapter:
             project_id: Project ID for metadata
 
         Returns:
-            List of RAGChunk objects ready for chunk_repository.add_chunks()
+            (rag_chunks, file_id) — rag_chunks is ready for
+            chunk_repository.add_chunks(); file_id is the DB id of the saved file
+            (None if the parsing module did not return one).
         """
         if not self.module_url:
             raise ValueError("Input parsing module URL not configured")
 
-        # Call the input parsing module's /upload endpoint
+        # 1. Upload — parsing module parses and saves to the DB, returns file_id.
         parsed_content = await self._call_parsing_module(file_content, filename)
+        file_id = parsed_content.get("file_id")
 
-        # Convert ParsedContent -> list[RAGChunk]
-        return self._convert_to_rag_chunks(
+        # 2. Prefer reading chunks back from the DB (single source of truth).
+        if file_id:
+            rag_chunks = await self.fetch_chunks_from_db(
+                file_id=file_id,
+                project_id=project_id,
+                source_filename=filename,
+                source_type=parsed_content.get("source_type", "unknown"),
+                doc_title=parsed_content.get("title") or filename,
+            )
+            if rag_chunks:
+                return rag_chunks, file_id
+
+        # 3. Fallback: older parsing module without a file_id / DB — convert the
+        #    inline ParsedContent from the upload response directly.
+        rag_chunks = self._convert_to_rag_chunks(
             parsed_content=parsed_content,
             project_id=project_id,
             source_filename=filename,
         )
+        return rag_chunks, file_id
+
+    async def fetch_chunks_from_db(
+        self,
+        file_id: str,
+        project_id: str,
+        source_filename: str = "",
+        source_type: str = "unknown",
+        doc_title: str = "",
+    ) -> list:
+        """
+        Read a file's chunks from the parsing module's database via
+        GET /files/{file_id}/chunks and convert them to RAG chunks.
+
+        The DB chunk shape is:
+            {chunk_id, content, chunk_index, chunk_type, chunk_metadata}
+
+        Any module can call this with a file_id to get the canonical chunks
+        without re-uploading or re-parsing.
+        """
+        if not self.module_url:
+            raise ValueError("Input parsing module URL not configured")
+
+        url = f"{self.module_url.rstrip('/')}/files/{file_id}/chunks"
+        try:
+            async with httpx.AsyncClient(timeout=PARSING_TIMEOUT) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                db_chunks = resp.json()
+        except httpx.ConnectError:
+            logger.error(f"Input parsing module not running at {self.module_url}")
+            raise ConnectionError(
+                f"Input parsing module is not reachable at {self.module_url}"
+            )
+        except httpx.TimeoutException:
+            logger.error("Input parsing module timed out fetching chunks")
+            raise TimeoutError("Input parsing module timed out while fetching chunks.")
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"get-chunks returned {e.response.status_code}: {e.response.text[:200]}"
+            )
+            raise RuntimeError(f"Input parsing get-chunks error: {e.response.status_code}")
+
+        rag_chunks = []
+        for i, c in enumerate(db_chunks):
+            content = (c.get("content") or "").strip()
+            if not content:
+                continue
+            chunk_metadata = c.get("chunk_metadata") or {}
+            metadata = {
+                "source": source_filename,
+                "source_type": source_type,
+                "doc_title": doc_title or source_filename,
+                "page": chunk_metadata.get("page"),
+                "section_heading": chunk_metadata.get("section_heading"),
+                "chunk_type": c.get("chunk_type") or chunk_metadata.get("chunk_type", "text"),
+                "project_id": project_id,
+                "file_id": file_id,
+                "parsing_chunk_id": c.get("chunk_id"),
+            }
+            if chunk_metadata.get("image_path"):
+                metadata["image_path"] = chunk_metadata["image_path"]
+            rag_chunks.append(RAGChunk(chunk_id=i, text=content, metadata=metadata))
+
+        logger.info(
+            f"Fetched {len(rag_chunks)} chunks from DB for file_id={file_id} "
+            f"(project {project_id})"
+        )
+        return rag_chunks
 
     async def _call_parsing_module(
         self, file_content: bytes, filename: str

@@ -21,6 +21,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     create_tables()
+    seed_default_user()
 
 @app.get("/health")
 async def health():
