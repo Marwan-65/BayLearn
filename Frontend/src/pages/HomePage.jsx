@@ -29,7 +29,7 @@ const MODULES = [
     color: "#059669",
     fileMode: "many",
     hint: "Select source files to generate questions from",
-    url: RAG_URL + "?tab=questions",
+    url: "/question-studio",
   },
   {
     id: "animation",
@@ -225,6 +225,12 @@ export default function HomePage() {
     localStorage.setItem("baylearn:launch_module", launchModule.id);
     localStorage.setItem("baylearn:selected_files", JSON.stringify(pickedFiles));
     if (selectedCourseId) localStorage.setItem("baylearn:pid", selectedCourseId);
+
+    if (launchModule.url && launchModule.url.startsWith("/")) {
+      navigate(launchModule.url);
+      setLaunchModule(null);
+      return;
+    }
 
     if (launchModule.id === "animation") {
       setLaunching(true);
