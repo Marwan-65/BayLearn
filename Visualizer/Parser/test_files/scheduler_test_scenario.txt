@@ -1,0 +1,9 @@
+CPU Scheduling Scenario
+
+We will simulate the Highest Priority First (HPF) algorithm.
+The following processes arrive at the system:
+Process 1 arrives at time 0, requires 8 units of runtime, priority is 2, memsize is 1.
+Process 2 arrives at time 1, requires 4 units of runtime, priority is 1, memsize is 1.
+Process 3 arrives at time 2, requires 9 units of runtime, priority is 3, memsize is 1.
+Process 4 arrives at time 3, requires 5 units of runtime, priority is 1, memsize is 1.
+Process 5 arrives at time 4, requires 6 units of runtime, priority is 2, memsize is 1.

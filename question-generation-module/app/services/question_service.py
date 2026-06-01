@@ -1,16 +1,19 @@
 import json
 import logging
-import random
 from typing import List, Optional
 
 from app.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
+from app.services.context_enrichment import ContextEnrichmentLayer
+from app.services.semantic_validator import SemanticValidator
 from app.services.prompt_builder import (
     build_mcq_prompt,
     build_short_answer_prompt,
     build_true_false_prompt,
 )
 from app.models.schemas import GeneratedQuestion, QuestionOption
+from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
+from app.services.example_bank import ExampleBank
 
 logger = logging.getLogger(__name__)
 
@@ -27,16 +30,26 @@ class QuestionGenerationService:
     Core service for generating quiz questions from study material.
 
     Flow:
-        fetch relevant chunks from RAG module
+        Context Enrichment Layer (multi-query + MMR selection)
             → build LLM prompt
                 → call Groq
                     → parse JSON response
                         → return GeneratedQuestion list
     """
 
-    def __init__(self, llm_client: QuestionGenLLMClient, chunk_fetcher: ChunkFetcher):
+    def __init__(self, llm_client: QuestionGenLLMClient, chunk_fetcher: ChunkFetcher,
+                 example_bank: Optional[ExampleBank] = None,
+                 bloom_classifier: Optional[BloomClassifier] = None,
+                 few_shot_k: int = 10,
+                 retry_on_level_mismatch: bool = True):
         self.llm_client = llm_client
         self.chunk_fetcher = chunk_fetcher
+        self.context_enricher = ContextEnrichmentLayer(chunk_fetcher)
+        self.validator = SemanticValidator()
+        self.example_bank = example_bank
+        self.bloom_classifier = bloom_classifier
+        self.few_shot_k = few_shot_k
+        self.retry_on_level_mismatch = retry_on_level_mismatch
 
     async def generate(
         self,
@@ -51,50 +64,163 @@ class QuestionGenerationService:
 
         Returns: (list of GeneratedQuestion, number_of_chunks_used)
         """
-        # 1. Decide what to search for
-        search_query = topic if topic else "key concepts definitions important principles"
-
-        # 2. Fetch relevant chunks from the RAG module (fetch more to allow randomization)
-        raw_chunks = await self.chunk_fetcher.fetch_relevant_chunks(
+        # 1. Context Enrichment Layer:
+        #    Fire multiple difficulty-aware queries to the RAG module,
+        #    deduplicate results, then use MMR to select chunks that are
+        #    both relevant AND diverse (covers different concepts).
+        selected_chunks, enrichment_diagnostics = await self.context_enricher.get_chunks(
             project_id=project_id,
-            query=search_query,
-            limit=20,  # Fetch 20 instead of 10 to enable sampling
+            difficulty=difficulty,
+            topic=topic,
+            n=10,
         )
 
-        if not raw_chunks:
+        if not selected_chunks:
             raise ValueError(f"No indexed content found for project '{project_id}'. "
-                             "Make sure the project has been uploaded and indexed first.")
+                            "Make sure the project has been uploaded and indexed first.")
 
-        # 3. Randomly sample from the fetched chunks for diversity
-        # Use at most 10 but pick randomly to avoid always using the same top ones
-        sample_size = min(10, len(raw_chunks))
-        selected_chunks = random.sample(raw_chunks, sample_size)
+        logger.info(
+            "Enrichment diagnostics | difficulty=%s queries=%d retrieved=%d unique=%d selected=%d avg_score=%.3f",
+            enrichment_diagnostics["difficulty"],
+            enrichment_diagnostics["queries_fired"],
+            enrichment_diagnostics["total_retrieved"],
+            enrichment_diagnostics["unique_after_dedup"],
+            enrichment_diagnostics["selected_by_mmr"],
+            enrichment_diagnostics["avg_relevance_score"],
+        )
 
-        # 4. Join chunk texts, but don't exceed the LLM context limit
+        # 2. Join chunk texts, but don't exceed the LLM context limit
         chunks_text = self._prepare_context(selected_chunks)
 
-        # 5. Build prompt based on question type
-        if question_type == "mcq":
-            system_prompt, user_prompt = build_mcq_prompt(chunks_text, num_questions, difficulty)
-        elif question_type == "short_answer":
-            system_prompt, user_prompt = build_short_answer_prompt(chunks_text, num_questions, difficulty)
-        elif question_type == "true_false":
-            system_prompt, user_prompt = build_true_false_prompt(chunks_text, num_questions, difficulty)
-        else:
-            raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
-
-        # 6. Call the LLM with higher temperature for diversity
-        raw_response = self.llm_client.generate(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            temperature=0.85,  # Increased from 0.7 for more variety
-            max_tokens=min(900, 220 + (num_questions * 140)),
+        # 5. ICL: retrieve few-shot examples by cosine similarity to the
+        #    chunk/topic, level-filtered. The bank no longer uses subject
+        #    filtering — concept matching is fully delegated to the embedding
+        #    similarity (the query encodes the concept directly).
+        target_level = bloom6_to_level(difficulty)  # 6-level → easy/medium/hard
+        few_shot = self._retrieve_few_shot(
+            query_text=topic or chunks_text[:600],
+            target_level=target_level,
+        )
+        logger.info(
+            "ICL: %d examples retrieved (target_level=%s)",
+            len(few_shot), target_level,
         )
 
-        # 7. Parse the JSON the LLM returned
-        questions = self._parse_llm_response(raw_response, question_type)
+        # 6. Build prompt, call LLM, parse — possibly retry once on level mismatch
+        questions = await self._generate_with_retry(
+            question_type=question_type,
+            chunks_text=chunks_text,
+            num_questions=num_questions,
+            difficulty=difficulty,
+            target_level=target_level,
+            few_shot=few_shot,
+        )
 
-        return questions, len(selected_chunks)
+        # 6. Semantic Validation Layer:
+        #    Run all five validators against the source chunks.
+        #    Rejected questions are dropped; flagged questions are kept but
+        #    their validation_report is attached for the caller to inspect.
+        chunk_texts = [
+            c.get("payload", {}).get("text", "")
+            for c in selected_chunks
+            if c.get("payload", {}).get("text")
+        ]
+        reports = self.validator.validate_all(questions, chunk_texts)
+
+        validated_questions: List[GeneratedQuestion] = []
+        for question, report in zip(questions, reports):
+            if report.decision == "reject":
+                logger.warning(
+                    "Question REJECTED by semantic validator: '%s…' | failures: %s",
+                    question.question_text[:60],
+                    [r.detail for r in report.results if not r.passed],
+                )
+                continue
+            # Attach the compact validation report to the question object
+            question.validation_report = report.to_dict()
+            validated_questions.append(question)
+
+        logger.info(
+            "Validation summary: %d/%d questions passed (rejected=%d)",
+            len(validated_questions), len(questions),
+            len(questions) - len(validated_questions),
+        )
+
+        return validated_questions, len(selected_chunks)
+
+    # helpers
+    def _retrieve_few_shot(self, query_text: str, target_level: str) -> list:
+        if not self.example_bank or not self.example_bank.entries:
+            return []
+        try:
+            return self.example_bank.retrieve(
+                query_text=query_text, target_level=target_level,
+                k=self.few_shot_k,
+            )
+        except Exception as e:  # never fail generation due to ICL 
+            logger.warning("Few-shot retrieval failed: %s — proceeding without ICL", e)
+            return []
+
+    def _build_prompt(self, question_type, chunks_text, num_questions,
+                      difficulty, few_shot):
+        if question_type == "mcq":
+            return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot)
+        if question_type == "short_answer":
+            return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot)
+        if question_type == "true_false":
+            return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot)
+        raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
+
+    async def _generate_with_retry(self, question_type, chunks_text,
+                                   num_questions, difficulty, target_level,
+                                   few_shot) -> List[GeneratedQuestion]:
+        """Generate, classify output, retry once if too many wrong-level questions."""
+        attempts = 0
+        max_attempts = 2 if self.retry_on_level_mismatch else 1
+        last_questions: List[GeneratedQuestion] = []
+
+        while attempts < max_attempts:
+            attempts += 1
+            system_prompt, user_prompt = self._build_prompt(
+                question_type, chunks_text, num_questions, difficulty, few_shot,
+            )
+            raw_response = self.llm_client.generate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                # Slightly lower temperature on retry to converge on correct level
+                temperature=0.85 if attempts == 1 else 0.6,
+                max_tokens=min(900, 220 + (num_questions * 140)),
+            )
+            questions = self._parse_llm_response(raw_response, question_type)
+            last_questions = self._classify_predicted_levels(questions)
+
+            # Decide if we need a retry
+            if not self.bloom_classifier or attempts == max_attempts:
+                break
+            mismatches = sum(
+                1 for q in last_questions
+                if q.predicted_level and q.predicted_level != target_level
+            )
+            if mismatches <= len(last_questions) // 2:
+                break  # majority correct -> accept , to overcome classifier noise
+            logger.info(
+                "ICL retry: %d/%d questions had wrong level on attempt %d "
+                "(target=%s). Retrying with lower temperature.",
+                mismatches, len(last_questions), attempts, target_level,
+            )
+
+        return last_questions
+
+    def _classify_predicted_levels(self, questions: List[GeneratedQuestion]) -> List[GeneratedQuestion]:
+        """Annotate each question with predicted_level / confidence from BloomBERT."""
+        if not self.bloom_classifier or not questions:
+            return questions
+        texts = [q.question_text for q in questions]
+        preds = self.bloom_classifier.predict_batch(texts)
+        for q, p in zip(questions, preds):
+            q.predicted_level = p.level
+            q.level_confidence = p.confidence
+        return questions
 
     def _prepare_context(self, raw_chunks: list) -> str:
         """

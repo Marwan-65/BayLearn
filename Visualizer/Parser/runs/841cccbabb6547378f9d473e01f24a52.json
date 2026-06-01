@@ -1,0 +1,60 @@
+{
+  "run_id": "841cccbabb6547378f9d473e01f24a52",
+  "status": "ready",
+  "created_at": "2026-05-30T08:52:36.170632+00:00",
+  "animation_type": "scheduler",
+  "viewer_url": "http://localhost:8082?run_id=841cccbabb6547378f9d473e01f24a52",
+  "classification": {
+    "animation_type": "scheduler",
+    "confidence": 1.0,
+    "evidence": [
+      "CPU Scheduling Scenario",
+      "CPU Scheduling",
+      "Shortest Job First (SJF) algorithm",
+      "processes arrive",
+      "runtime",
+      "priority"
+    ]
+  },
+  "extraction": {
+    "animation_type": "scheduler",
+    "confidence": 0.95,
+    "algorithm": "SJF",
+    "quantum": null,
+    "processes": [
+      {
+        "id": 1,
+        "arrival": 0,
+        "runtime": 8,
+        "priority": 2,
+        "memsize": 1
+      },
+      {
+        "id": 2,
+        "arrival": 1,
+        "runtime": 4,
+        "priority": 1,
+        "memsize": 1
+      },
+      {
+        "id": 3,
+        "arrival": 2,
+        "runtime": 9,
+        "priority": 3,
+        "memsize": 1
+      },
+      {
+        "id": 4,
+        "arrival": 3,
+        "runtime": 5,
+        "priority": 1,
+        "memsize": 1
+      }
+    ]
+  },
+  "llm_payload_meta": {
+    "document_id": "untitled-document",
+    "window_count": 1,
+    "full_text_chars": 517
+  }
+}

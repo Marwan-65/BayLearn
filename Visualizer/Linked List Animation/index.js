@@ -1,5 +1,5 @@
 /**
- * LINKED LIST CORE — PUBLIC API
+ * LINKED LIST CORE --, PUBLIC API
  *
  * This is the single import point for the data/operations layer.
  * The animation layer, narrative layer, and any tests should
@@ -15,12 +15,12 @@
  *   const steps = insertAtHead(list, 5);
  *
  *   // Each step has:
- *   //   step.state           — full list snapshot
- *   //   step.explanation     — human-readable text for the narrative layer
- *   //   step.highlights      — { nodes: [...], pointers: [...] } for the animation layer
- *   //   step.variables       — named pointer snapshot for the variable inspector
- *   //   step.pseudocodeLine  — which line of the operation's pseudocode is active
- *   //   step.isKeyStep       — true = worth pausing on in fast-forward mode
+ *   //   step.state           --, full list snapshot
+ *   //   step.explanation     --, human-readable text for the narrative layer
+ *   //   step.highlights      --, { nodes: [...], pointers: [...] } for the animation layer
+ *   //   step.variables       --, named pointer snapshot for the variable inspector
+ *   //   step.pseudocodeLine  --, which line of the operation's pseudocode is active
+ *   //   step.isKeyStep       --, true = worth pausing on in fast-forward mode
  *
  * ─── Layer Contract ───────────────────────────────────────────────────────────
  *

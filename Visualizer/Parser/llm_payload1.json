@@ -1,0 +1,11 @@
+{
+  "document_id": "untitled-document",
+  "source_type": "pdf",
+  "title": "",
+  "full_text": "SECTION: Page 1 | PAGE: 1\nTo see a linked list in action, let's follow a sequence of operations starting with an empty list. First, we perform an insertion at the head by adding the number 30 , then another insertion at the head with 20 , and finally 10 , resulting in the sequence 10, 20, 30 .\nTo see what we have, we perform a traversal , starting at the head and visiting each node in order until we reach the end. Next, we execute a deletion at the tail ; the pointer from 20 is updated to null, dropping 30 and leaving us with 10, 20 . We then perform an insertion at the tail by adding 40 and 50 , bringing the list to 10, 20, 40, 50 .\nFinally, we perform a deletion by value for the number 20 . The computer searches the list, finds 20 between 10 and 40 , and reroutes 10 's pointer to jump directly to 40 . After all these operations, our final linked list stands as 10, 40, 50 .",
+  "windows": [
+    "SECTION: Page 1 | PAGE: 1\nTo see a linked list in action, let's follow a sequence of operations starting with an empty list. First, we perform an insertion at the head by adding the number 30 , then another insertion at the head with 20 , and finally 10 , resulting in the sequence 10, 20, 30 .\nTo see what we have, we perform a traversal , starting at the head and visiting each node in order until we reach the end. Next, we execute a deletion at the tail ; the pointer from 20 is updated to null, dropping 30 and leaving us with 10, 20 . We then perform an insertion at the tail by adding 40 and 50 , bringing the list to 10, 20, 40, 50 .\nFinally, we perform a deletion by value for the number 20 . The computer searches the list, finds 20 between 10 and 40 , and reroutes 10 's pointer to jump directly to 40 . After all these operations, our final linked list stands as 10, 40, 50 ."
+  ],
+  "window_count": 1,
+  "total_chunks_from_parser": 3
+}

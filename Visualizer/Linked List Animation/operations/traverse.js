@@ -2,7 +2,7 @@
  * OPERATION: TRAVERSE
  *
  * Walks the list from head to null, visiting each node.
- * This is the most fundamental operation — students must understand traversal
+ * This is the most fundamental operation --, students must understand traversal
  * before they can understand insert/delete.
  */
 
@@ -56,7 +56,7 @@ export function traverse(list) {
       stepIndex: idx++,
       state,
       action:       ACTIONS.SET_CURRENT_TO_HEAD,
-      explanation:  'We set current ← head. But head is null — the list is empty. There are no nodes to visit.',
+      explanation:  'We set current ← head. But head is null --, the list is empty. There are no nodes to visit.',
       nodeHighlights: [],
       variables:    { current: null },
       pseudocodeLine: 0,
@@ -100,12 +100,12 @@ export function traverse(list) {
 
     const node = state.nodes[currentId];
 
-    // WHILE condition check (passes — current ≠ null)
+    // WHILE condition check (passes --, current ≠ null)
     steps.push(createStep({
       stepIndex: idx++,
       state,
       action:       ACTIONS.CHECK_WHILE_CONDITION,
-      explanation:  `Loop condition: is current null? No — current points to the node with value ${node.value}. We enter the loop body.`,
+      explanation:  `Loop condition: is current null? No --, current points to the node with value ${node.value}. We enter the loop body.`,
       nodeHighlights: [{ nodeId: currentId, role: NODE_ROLES.VISITING }],
       variables:    { current: currentId },
       pseudocodeLine: 1,
@@ -148,7 +148,7 @@ export function traverse(list) {
         stepIndex: idx++,
         state,
         action:       ACTIONS.ADVANCE_CURRENT_TO_NULL,
-        explanation:  `current ← current.next. The current node (value: ${node.value}) is the tail — its "next" is null. "current" becomes null, which will end the loop.`,
+        explanation:  `current ← current.next. The current node (value: ${node.value}) is the tail --, its "next" is null. "current" becomes null, which will end the loop.`,
         nodeHighlights: [{ nodeId: currentId, role: NODE_ROLES.TAIL }],
         variables:    { current: null },
         pseudocodeLine: 3,
@@ -159,12 +159,12 @@ export function traverse(list) {
     currentId = node.next;
   }
 
-  // WHILE condition check (fails — current is null, loop exits)
+  // WHILE condition check (fails --, current is null, loop exits)
   steps.push(createStep({
     stepIndex: idx++,
     state,
     action:       ACTIONS.OPERATION_COMPLETE,
-    explanation:  `Loop condition: is current null? Yes — we have reached the end of the list. The WHILE loop exits. Traversal is complete. We visited ${list.size} node${list.size !== 1 ? 's' : ''}.`,
+    explanation:  `Loop condition: is current null? Yes --, we have reached the end of the list. The WHILE loop exits. Traversal is complete. We visited ${list.size} node${list.size !== 1 ? 's' : ''}.`,
     nodeHighlights: [],
     variables:    { current: null },
     pseudocodeLine: 4,
