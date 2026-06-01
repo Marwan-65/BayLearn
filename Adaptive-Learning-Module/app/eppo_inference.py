@@ -6,16 +6,9 @@ Launched by backend.py with CLI args:
     python eppo_inference.py \
         --user-id 3 \
         --session-id 47 \
-        --scope-type course \
         --scope-ids   "course-uuid-1,course-uuid-2"
 
-    python eppo_inference.py \
-        --user-id 3 \
-        --session-id 48 \
-        --scope-type files \
-        --scope-ids   "file-uuid-1,file-uuid-2"
-
-scope-ids is always comma-separated — chunk DB UUIDs (course or file).
+scope-ids is always comma-separated — chunk DB file UUIDs.
 
 For question generation, the selected concept's source file UUIDs are sent
 to the /generate endpoint as file_ids so downstream generators can scope
@@ -76,14 +69,11 @@ print(f"Device: {DEVICE}")
 _parser = argparse.ArgumentParser()
 _parser.add_argument("--user-id",     type=str, required=True)
 _parser.add_argument("--session-id",  type=str, required=True)
-_parser.add_argument("--scope-type",  type=str, default="course",
-                     choices=["course", "files"])
 _parser.add_argument("--scope-ids",  type=str, default="")
 _args = _parser.parse_args()
 
 EPPO_USER_ID = _args.user_id
 SESSION_ID   = _args.session_id
-SCOPE_TYPE   = _args.scope_type
 SCOPE_IDS    = _args.scope_ids
 
 # Parsed lists for multi-value scopes
@@ -190,18 +180,11 @@ def ensure_tables(db_url: str) -> None:
 # Concept pool — supports multiple courses or multiple files
 # ---------------------------------------------------------------------------
 
-def _load_concept_pool(db_url: str, user_id: str,
-                       scope_type: str, scope_ids: list[str]):
+def _load_concept_pool(db_url: str, user_id: str, scope_ids: list[str]):
     """
     Load concepts from the concept DB based on scope.
 
-    scope_type="course"
-        scope_ids = chunk DB course UUIDs
-        (same UUIDs used as concept DB course PKs)
-        → concepts belonging to those courses the user is enrolled in
-
-    scope_type="files"
-        scope_ids = chunk DB file UUIDs
+    scope_ids = chunk DB file UUIDs
         → concepts linked to those files via concept_files table
 
     Returns:
@@ -213,62 +196,23 @@ def _load_concept_pool(db_url: str, user_id: str,
     """
     engine = create_engine(db_url)
     with Session(engine) as session:
+        if not scope_ids:
+            print(f"[eppo] WARNING: user {user_id} has no file scope ids.",
+                  file=sys.stderr)
+            return [], [], [], {}, {}
 
-        if scope_type == "files" and scope_ids:
-            # file_id in concept_files is the chunk DB file UUID
-            try:
-                rows = session.execute(text("""
-                    SELECT DISTINCT c.id, c.name, c.difficulty, co.name
-                    FROM   concepts c
-                    JOIN   courses  co ON co.id = c.course_id
-                    JOIN   concept_files cf ON cf.concept_id = c.id
-                    WHERE  cf.file_id = ANY(:ids)
-                    ORDER  BY co.name, c.id
-                """), {"ids": scope_ids}).fetchall()
-            except Exception as e:
-                print(f"[eppo] concept_files lookup failed ({e}), "
-                      "falling back to full enrolled-course pool.",
-                      file=sys.stderr)
-                rows = None
-        else:
-            rows = None
-
-        if rows is None:
-            # Course scope — scope_ids are chunk DB course UUIDs
-            # which are also the concept DB course PKs
-            enrolled_ids = [
-                r[0] for r in session.execute(
-                    text("SELECT course_id FROM course_enrollments "
-                         "WHERE user_id = :uid"),
-                    {"uid": user_id},
-                )
-            ]
-            if not enrolled_ids:
-                print(f"[eppo] WARNING: user {user_id} has no enrolled courses.",
-                      file=sys.stderr)
-                return [], [], [], {}
-
-            if scope_type == "course" and scope_ids:
-                # Filter to selected course UUIDs the user is enrolled in
-                selected = [cid for cid in scope_ids if cid in enrolled_ids]
-                if not selected:
-                    selected = enrolled_ids  # fallback to all enrolled
-                rows = session.execute(text("""
-                    SELECT c.id, c.name, c.difficulty, co.name
-                    FROM   concepts c
-                    JOIN   courses  co ON co.id = c.course_id
-                    WHERE  c.course_id = ANY(:ids)
-                    ORDER  BY co.name, c.id
-                """), {"ids": selected}).fetchall()
-            else:
-                # All enrolled courses
-                rows = session.execute(text("""
-                    SELECT c.id, c.name, c.difficulty, co.name
-                    FROM   concepts c
-                    JOIN   courses  co ON co.id = c.course_id
-                    WHERE  c.course_id = ANY(:ids)
-                    ORDER  BY co.name, c.id
-                """), {"ids": enrolled_ids}).fetchall()
+        try:
+            rows = session.execute(text("""
+                SELECT DISTINCT c.id, c.name, c.difficulty, co.name
+                FROM   concepts c
+                JOIN   courses  co ON co.id = c.course_id
+                JOIN   concept_files cf ON cf.concept_id = c.id
+                WHERE  cf.file_id = ANY(:ids)
+                ORDER  BY co.name, c.id
+            """), {"ids": scope_ids}).fetchall()
+        except Exception as e:
+            print(f"[eppo] concept_files lookup failed ({e})", file=sys.stderr)
+            return [], [], [], {}, {}
 
     global_concepts: list[str]   = []
     global_llm_diff: list[int]   = []
@@ -302,11 +246,11 @@ def _load_concept_pool(db_url: str, user_id: str,
 
 
 print(f"[eppo] Loading concept pool  user={EPPO_USER_ID} "
-      f"scope={SCOPE_TYPE}:[{SCOPE_IDS}] ...")
+    f"files=[{SCOPE_IDS}] ...")
 (GLOBAL_CONCEPTS, GLOBAL_LLM_DIFF,
  GLOBAL_CONCEPT_IDS, COURSE_CONCEPT_INDICES,
  GLOBAL_CONCEPT_FILE_IDS) = _load_concept_pool(
-    CONCEPT_DB_URL, EPPO_USER_ID, SCOPE_TYPE, SCOPE_IDS_LIST)
+    CONCEPT_DB_URL, EPPO_USER_ID, SCOPE_IDS_LIST)
 
 N_GLOBAL = len(GLOBAL_CONCEPTS)
 print(f"[eppo] Pool: {N_GLOBAL} concepts across "
@@ -809,8 +753,7 @@ def run_session(
 
     if verbose:
         print(f"\n{'='*70}")
-        print(f"SESSION  user={EPPO_USER_ID}  "
-              f"scope={SCOPE_TYPE}:[{SCOPE_IDS}]")
+        print(f"SESSION  user={EPPO_USER_ID}  files=[{SCOPE_IDS}]")
         print(f"  Concepts      : {info['n_session_concepts']}  "
               f"(mastered before: {info['already_mastered']})")
         print(f"  APR  goal     : {info['apr_start']:.4f} → "

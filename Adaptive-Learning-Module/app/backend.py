@@ -73,27 +73,18 @@ swagger_template = {
     "definitions": {
         "SessionStartRequest": {
             "type": "object",
-            "required": ["user_id", "scope_type", "scope_ids"],
+            "required": ["user_id", "scope_ids"],
             "properties": {
                 "user_id": {
                     "type": "string",
                     "example": "550e8400-e29b-41d4-a716-446655440000",
                     "description": "Chunk DB user UUID",
                 },
-                "scope_type": {
-                    "type": "string",
-                    "enum": ["course", "files"],
-                    "example": "course",
-                    "description": (
-                        "'course' — list of chunk DB course UUIDs. "
-                        "'files'  — list of chunk DB file UUIDs."
-                    ),
-                },
                 "scope_ids": {
                     "type": "array",
                     "items": {"type": "string"},
                     "example": ["550e8400-e29b-41d4-a716-446655440001"],
-                    "description": "Course UUIDs or file UUIDs from chunk DB.",
+                    "description": "File UUIDs from chunk DB.",
                 },
             },
         },
@@ -102,7 +93,6 @@ swagger_template = {
             "properties": {
                 "session_id": {"type": "string"},
                 "status":     {"type": "string", "example": "started"},
-                "scope_type": {"type": "string"},
                 "scope_ids":  {"type": "array", "items": {"type": "string"}},
                 "prior_apr":  {"type": "number", "format": "float"},
                 "message":    {"type": "string"},
@@ -113,7 +103,6 @@ swagger_template = {
             "properties": {
                 "session_id":   {"type": "string"},
                 "user_id":      {"type": "string"},
-                "scope_type":   {"type": "string"},
                 "scope_ids":    {"type": "string"},
                 "started_at":   {"type": "string"},
                 "ended_at":     {"type": "string"},
@@ -239,17 +228,15 @@ def get_file_ids_for_courses(course_uuids: list[str]) -> dict[str, list[str]]:
     return result
 
 
-def create_session_row(user_id: str, scope_type: str,
-                       scope_ids: str) -> str:
+def create_session_row(user_id: str, scope_ids: str) -> str:
     """Insert a session row, return its UUID."""
     import uuid
     session_uuid = str(uuid.uuid4())
     with Session(_concept_engine()) as session:
         session.execute(text("""
             INSERT INTO sessions (id, user_id, scope_type, scope_ids, started_at)
-            VALUES (:sid, :uid, :st, :si, NOW())
-        """), {"sid": session_uuid, "uid": user_id,
-               "st": scope_type,   "si": scope_ids})
+            VALUES (:sid, :uid, 'files', :si, NOW())
+        """), {"sid": session_uuid, "uid": user_id, "si": scope_ids})
         session.commit()
     return session_uuid
 
@@ -257,7 +244,7 @@ def create_session_row(user_id: str, scope_type: str,
 def get_session_row(session_id: str) -> dict | None:
     with Session(_concept_engine()) as session:
         row = session.execute(text("""
-            SELECT id, user_id, scope_type, scope_ids,
+            SELECT id, user_id, scope_ids,
                    started_at, ended_at
             FROM sessions WHERE id = :sid
         """), {"sid": session_id}).fetchone()
@@ -266,11 +253,10 @@ def get_session_row(session_id: str) -> dict | None:
     return {
         "session_id":  row[0],
         "user_id":     row[1],
-        "scope_type":  row[2],
-        "scope_ids":   row[3],
-        "started_at":  row[4].isoformat() if row[4] else None,
-        "ended_at":    row[5].isoformat() if row[5] else None,
-        "finished":    row[5] is not None,
+        "scope_ids":   row[2],
+        "started_at":  row[3].isoformat() if row[3] else None,
+        "ended_at":    row[4].isoformat() if row[4] else None,
+        "finished":    row[4] is not None,
     }
 
 
@@ -344,7 +330,6 @@ def start_session():
     data = request.get_json(force=True)
 
     user_id    = data.get("user_id")       # chunk DB user UUID
-    scope_type = data.get("scope_type", "course")
     scope_ids  = data.get("scope_ids",  [])
 
     if not user_id:
@@ -358,88 +343,26 @@ def start_session():
 
     scope_ids_str = ",".join(scope_ids)
 
-    # ── Step 1: ensure concepts exist for all selected files/courses ──
-    #
-    # Core check for BOTH modes: does each file UUID have a row in concept_files?
-    # This is the single source of truth — if a file has entries in concept_files
-    # it has been extracted, regardless of scope mode.
-    #
-    # files mode  : scope_ids are file UUIDs → check directly
-    # course mode : scope_ids are course UUIDs → resolve to file UUIDs first,
-    #               then apply the same check per file
+    # Step 1: ensure concepts exist for all selected files.
+    missing_file_ids = get_unextracted_files(scope_ids)
 
-    if scope_type == "files":
-        # Check each selected file individually
-        missing_file_ids = get_unextracted_files(scope_ids)
-
-        if missing_file_ids:
-            # Resolve course info from chunk DB for the extractor
-            course_info = get_course_info_for_files(missing_file_ids)
-            if course_info:
-                course_id   = course_info["id"]
-                course_name = course_info["name"]
-            else:
-                # Uncategorized files — extractor generates a stable UUID
-                course_id   = None
-                course_name = "uncategorized"
-            print(f"[backend] {len(missing_file_ids)} file(s) need extraction "
-                  f"(course='{course_name}')...")
-            run_concept_extractor(missing_file_ids, course_id,
-                                  course_name, user_id)
+    if missing_file_ids:
+        course_info = get_course_info_for_files(missing_file_ids)
+        if course_info:
+            course_id   = course_info["id"]
+            course_name = course_info["name"]
         else:
-            print(f"[backend] All {len(scope_ids)} files already extracted.")
-
-    elif scope_type == "course":
-        # Resolve all file UUIDs for the selected courses from chunk DB
-        course_files = get_file_ids_for_courses(scope_ids)
-
-        # Validate all courses exist in chunk DB
-        for course_uuid in scope_ids:
-            info = get_course_info(course_uuid)
-            if info is None:
-                return jsonify({
-                    "error": f"Course UUID '{course_uuid}' not found in chunk DB."
-                }), 404
-
-        # Check each course: does it have files? are all files extracted?
-        missing_courses = []   # courses with zero files uploaded
-        for course_uuid in scope_ids:
-            info       = get_course_info(course_uuid)
-            course_name = info["name"]
-            file_ids    = course_files.get(course_uuid, [])
-
-            if not file_ids:
-                # No files uploaded to this course yet — can't extract
-                missing_courses.append({
-                    "id":   course_uuid,
-                    "name": course_name,
-                    "reason": "no files uploaded",
-                })
-                continue
-
-            # Check which files in this course aren't extracted yet
-            missing_file_ids = get_unextracted_files(file_ids)
-            if missing_file_ids:
-                print(f"[backend] Course '{course_name}': "
-                      f"{len(missing_file_ids)}/{len(file_ids)} file(s) "
-                      f"need extraction...")
-                run_concept_extractor(missing_file_ids, course_uuid,
-                                      course_name, user_id)
-            else:
-                print(f"[backend] Course '{course_name}': "
-                      f"all {len(file_ids)} file(s) already extracted.")
-
-        if missing_courses:
-            return jsonify({
-                "error": "These courses have no uploaded files yet.",
-                "missing_courses": missing_courses,
-            }), 422
-
+            course_id   = None
+            course_name = "uncategorized"
+        print(f"[backend] {len(missing_file_ids)} file(s) need extraction "
+              f"(course='{course_name}')...")
+        run_concept_extractor(missing_file_ids, course_id,
+                              course_name, user_id)
     else:
-        return jsonify({"error": f"Unknown scope_type '{scope_type}'"}), 400
+        print(f"[backend] All {len(scope_ids)} files already extracted.")
 
     # ── Step 2: create session row ──────────────────────────────────────
-    session_id = create_session_row(user_id, scope_type, scope_ids_str)
+    session_id = create_session_row(user_id, scope_ids_str)
     print(f"[backend] Created session {session_id} for user {user_id[:8]}...")
 
     # ── Step 3: launch eppo_inference.py ───────────────────────────────
@@ -447,7 +370,6 @@ def start_session():
         sys.executable, str(EPPO_SCRIPT),
         "--user-id",    user_id,
         "--session-id", session_id,
-        "--scope-type", scope_type,
         "--scope-ids",  scope_ids_str,
     ]
     subprocess.Popen(cmd)
@@ -457,7 +379,6 @@ def start_session():
     return jsonify({
         "session_id":  session_id,
         "status":      "started",
-        "scope_type":  scope_type,
         "scope_ids":   scope_ids,
         "prior_apr":   round(prior_apr, 4) if prior_apr is not None else None,
         "message":     "Session started. Poll /session/status for progress.",
