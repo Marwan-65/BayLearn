@@ -24,6 +24,9 @@ MAX_CONTEXT_CHARS = 2200
 # Prevent one large chunk from consuming the whole prompt budget.
 MAX_SINGLE_CHUNK_CHARS = 700
 
+# Single-question generation retries when semantic validation rejects output.
+MAX_REJECTION_RETRIES = 5
+
 
 class QuestionGenerationService:
     """
@@ -107,46 +110,67 @@ class QuestionGenerationService:
         )
 
         # 6. Build prompt, call LLM, parse — possibly retry once on level mismatch
-        questions = await self._generate_with_retry(
-            question_type=question_type,
-            chunks_text=chunks_text,
-            num_questions=num_questions,
-            difficulty=difficulty,
-            target_level=target_level,
-            few_shot=few_shot,
-        )
+        # RL integration generates one question per request.
+        # Ignore incoming num_questions and enforce single-question mode.
+        if num_questions != 1:
+            logger.info("Overriding num_questions=%s to 1 for RL single-question mode.", num_questions)
 
-        # 6. Semantic Validation Layer:
-        #    Run all five validators against the source chunks.
-        #    Rejected questions are dropped; flagged questions are kept but
-        #    their validation_report is attached for the caller to inspect.
+        # Semantic Validation Layer retries until we get a non-rejected question.
         chunk_texts = [
             c.get("payload", {}).get("text", "")
             for c in selected_chunks
             if c.get("payload", {}).get("text")
         ]
-        reports = self.validator.validate_all(questions, chunk_texts)
+        attempts = 0
+        last_question: Optional[GeneratedQuestion] = None
+        last_report = None
 
-        validated_questions: List[GeneratedQuestion] = []
-        for question, report in zip(questions, reports):
-            if report.decision == "reject":
-                logger.warning(
-                    "Question REJECTED by semantic validator: '%s…' | failures: %s",
-                    question.question_text[:60],
-                    [r.detail for r in report.results if not r.passed],
-                )
+        while attempts < MAX_REJECTION_RETRIES:
+            attempts += 1
+            questions = await self._generate_with_retry(
+                question_type=question_type,
+                chunks_text=chunks_text,
+                num_questions=1,
+                difficulty=difficulty,
+                target_level=target_level,
+                few_shot=few_shot,
+            )
+
+            if not questions:
+                logger.warning("Generation attempt %d returned no questions. Retrying.", attempts)
                 continue
-            # Attach the compact validation report to the question object
+
+            question = questions[0]
+            report = self.validator.validate_all([question], chunk_texts)[0]
             question.validation_report = report.to_dict()
-            validated_questions.append(question)
 
-        logger.info(
-            "Validation summary: %d/%d questions passed (rejected=%d)",
-            len(validated_questions), len(questions),
-            len(questions) - len(validated_questions),
-        )
+            last_question = question
+            last_report = report
 
-        return validated_questions, len(selected_chunks)
+            if report.decision != "reject":
+                logger.info("Question accepted by validator on attempt %d.", attempts)
+                return [question], len(selected_chunks)
+
+            logger.warning(
+                "Question REJECTED by semantic validator on attempt %d: '%s…' | failures: %s",
+                attempts,
+                question.question_text[:60],
+                [r.detail for r in report.results if not r.passed],
+            )
+
+        # Never return zero questions: fallback to the last generated question.
+        if last_question is not None:
+            fallback_report = last_report.to_dict() if last_report else {}
+            fallback_report["forced_accept"] = True
+            fallback_report["note"] = "Returned after max validation retries to avoid empty response."
+            last_question.validation_report = fallback_report
+            logger.warning(
+                "Returning fallback question after %d rejected attempts to avoid empty response.",
+                MAX_REJECTION_RETRIES,
+            )
+            return [last_question], len(selected_chunks)
+
+        raise ValueError("Unable to generate a question after repeated retries.")
 
     # helpers
     def _retrieve_few_shot(self, query_text: str, target_level: str) -> list:
@@ -197,16 +221,15 @@ class QuestionGenerationService:
             # Decide if we need a retry
             if not self.bloom_classifier or attempts == max_attempts:
                 break
-            mismatches = sum(
-                1 for q in last_questions
-                if q.predicted_level and q.predicted_level != target_level
-            )
-            if mismatches <= len(last_questions) // 2:
-                break  # majority correct -> accept , to overcome classifier noise
+            if not last_questions:
+                continue
+            predicted_level = last_questions[0].predicted_level
+            if predicted_level == target_level:
+                break
             logger.info(
-                "ICL retry: %d/%d questions had wrong level on attempt %d "
-                "(target=%s). Retrying with lower temperature.",
-                mismatches, len(last_questions), attempts, target_level,
+                "ICL retry: wrong level on attempt %d (predicted=%s target=%s). "
+                "Retrying with lower temperature.",
+                attempts, predicted_level, target_level,
             )
 
         return last_questions
@@ -312,3 +335,4 @@ class QuestionGenerationService:
             cleaned.append(kw)
 
         return cleaned or None
+
