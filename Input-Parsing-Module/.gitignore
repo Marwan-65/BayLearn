@@ -74,3 +74,5 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+*extracted_images*/
+*extracted_tables*/

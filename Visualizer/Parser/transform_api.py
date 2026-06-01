@@ -48,6 +48,10 @@ class TransformResponse(BaseModel):
     llm_payload_meta: Dict[str, Any]
 
 
+class FileLaunchRequest(BaseModel):
+    file_id: str = Field(..., description="ID of an already-parsed file in the Input Parsing Module database")
+
+
 class LaunchRequest(BaseModel):
     animation_type: str
     classification: Dict[str, Any] = Field(default_factory=dict)
@@ -98,7 +102,7 @@ def _read_run(run_id: str) -> RunRecord:
 def _build_viewer_url(animation_type: str, run_id: str) -> str:
     linked_base = _get_env("LINKED_LIST_VIEWER_URL", "http://localhost:8081")
     scheduler_base = _get_env("SCHEDULER_VIEWER_URL", "http://localhost:8082")
-    btree_base = _get_env("BTREE_VIEWER_URL", "http://localhost:8083")
+    btree_base = _get_env("BTREE_VIEWER_URL", "http://localhost:3000")
 
     if animation_type == "linked_list":
         return f"{linked_base}?run_id={run_id}"
@@ -249,6 +253,63 @@ async def ingest_launch(
         file=file,
         max_chars_per_window=max_chars_per_window,
         max_single_tokens=max_single_tokens,
+    )
+    return launch(
+        LaunchRequest(
+            animation_type=transformed.animation_type,
+            classification=transformed.classification,
+            extraction=transformed.extraction,
+            llm_payload_meta=transformed.llm_payload_meta,
+        )
+    )
+
+
+@app.post("/v1/file-launch", response_model=LaunchResponse)
+def file_launch(req: FileLaunchRequest) -> LaunchResponse:
+    base_url = _get_env("INPUT_PARSING_BASE_URL", "http://localhost:8000")
+
+    try:
+        meta_resp = requests.get(f"{base_url}/files/{req.file_id}", timeout=30)
+        if meta_resp.status_code == 404:
+            raise HTTPException(status_code=404, detail=f"File not found in input parsing module: {req.file_id}")
+        meta_resp.raise_for_status()
+        file_meta = meta_resp.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed fetching file metadata: {exc}") from exc
+
+    try:
+        chunks_resp = requests.get(f"{base_url}/files/{req.file_id}/chunks", timeout=60)
+        if chunks_resp.status_code == 404:
+            raise HTTPException(status_code=404, detail=f"File has no chunks: {req.file_id}")
+        chunks_resp.raise_for_status()
+        raw_chunks = chunks_resp.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed fetching file chunks: {exc}") from exc
+
+    parsed_content = {
+        "source_type": file_meta.get("source_type", "unknown"),
+        "title": file_meta.get("title") or file_meta.get("file_name") or req.file_id,
+        "sections": [
+            {
+                "heading": None,
+                "page": None,
+                "chunks": [
+                    {"content": c["content"], "chunk_index": c["chunk_index"]}
+                    for c in raw_chunks
+                ],
+            }
+        ],
+        "total_chunks": file_meta.get("total_chunks", len(raw_chunks)),
+    }
+
+    transformed = transform(
+        TransformRequest(
+            parsed_content=parsed_content,
+        )
     )
     return launch(
         LaunchRequest(

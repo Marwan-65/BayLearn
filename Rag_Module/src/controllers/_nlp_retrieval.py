@@ -59,6 +59,79 @@ class _NLPRetrievalMixin:
         enable_compression: Optional[bool] = None,
     ):
         """
+        Multi-file dispatcher. `project_id` may be a single id or a comma-
+        separated list of file ids (the frontend joins the selected files).
+
+        - One id  -> runs the full per-collection pipeline unchanged.
+        - Many ids -> runs the pipeline per file and merges the results by score,
+          so chat is grounded in the union of the selected files.
+        """
+        ids = [p.strip() for p in str(project_id).split(",") if p.strip()]
+        if len(ids) <= 1:
+            return self._retrieve_sources_single(
+                ids[0] if ids else project_id, question, limit, score_threshold,
+                intent, enable_multi_query, enable_hybrid, enable_reranker,
+                enable_compression,
+            )
+
+        per_file = [
+            self._retrieve_sources_single(
+                pid, question, limit, score_threshold, intent,
+                enable_multi_query, enable_hybrid, enable_reranker,
+                enable_compression,
+            )
+            for pid in ids
+        ]
+        ok = [r for r in per_file if r and "filtered_results" in r]
+        if not ok:
+            # Surface a real result-shaped error if any, else generic.
+            for r in per_file:
+                if r and r.get("error"):
+                    return r
+            return {"error": "no_relevant_sources", "query": question, "timings": {}}
+
+        merged = []
+        for r in ok:
+            merged.extend(r["filtered_results"])
+        # Higher score first; reranked/RRF lists expose rrf_score, dense uses score.
+        merged.sort(key=lambda x: x.get("rrf_score", x.get("score", 0)), reverse=True)
+        merged = merged[:limit]
+
+        combined_timings = {}
+        for r in ok:
+            for k, v in (r.get("timings") or {}).items():
+                if isinstance(v, (int, float)):
+                    combined_timings[k] = combined_timings.get(k, 0) + v
+        fuse_labels = sorted({lbl for r in ok for lbl in (r.get("fuse_labels") or [])})
+
+        return {
+            "filtered_results": merged,
+            "query_vector": ok[0].get("query_vector"),
+            "query_variants": ok[0].get("query_variants", [question]),
+            "multi_query_used": any(r.get("multi_query_used") for r in ok),
+            "reranker_used": any(r.get("reranker_used") for r in ok),
+            "hybrid_used": any(r.get("hybrid_used") for r in ok),
+            "bm25_count": sum(r.get("bm25_count", 0) for r in ok),
+            "fuse_labels": fuse_labels,
+            "compression_used": any(r.get("compression_used") for r in ok),
+            "compression_ratios": [1.0] * len(merged),
+            "timings": combined_timings,
+            "files_merged": len(ok),
+        }
+
+    def _retrieve_sources_single(
+        self,
+        project_id: str,
+        question: str,
+        limit: int = 5,
+        score_threshold: float = 0.4,
+        intent: str = "rag_only",
+        enable_multi_query: Optional[bool] = None,
+        enable_hybrid: Optional[bool] = None,
+        enable_reranker: Optional[bool] = None,
+        enable_compression: Optional[bool] = None,
+    ):
+        """
         Run the full retrieval pipeline WITHOUT generating an LLM answer.
 
         Each enable_* flag accepts None/True/False. None means "use the

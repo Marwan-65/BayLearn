@@ -2,14 +2,41 @@
 
 import sys
 import subprocess
+import shutil
 from pathlib import Path
 
 
 def run_ui():
-    """Run the Streamlit UI application."""
-    ui_path = Path(__file__).parent / "src" / "baylearn" / "ui" / "app.py"
-    print(f"Starting BayLearn UI from {ui_path}...")
-    subprocess.run([sys.executable, "-m", "streamlit", "run", str(ui_path)])
+    """Run the React TypeScript UI and API for local development."""
+    root = Path(__file__).parent
+    frontend_dir = root / "src" / "baylearn-frontend"
+
+    print("Starting BayLearn API on http://127.0.0.1:8000 ...")
+    api_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "baylearn.api:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8000",
+        ],
+        cwd=root,
+    )
+
+    try:
+        print("Starting BayLearn React UI on http://127.0.0.1:5173 ...")
+        npm_executable = shutil.which("npm.cmd") or shutil.which("npm")
+        if not npm_executable:
+            raise RuntimeError(
+                "npm was not found on PATH. Install Node.js and ensure npm is available, "
+                "then run this command again."
+            )
+        subprocess.run([npm_executable, "run", "dev"], cwd=frontend_dir, check=False)
+    finally:
+        api_process.terminate()
 
 
 def run_api():
@@ -38,7 +65,7 @@ def main():
 Usage: python run.py [command]
 
 Commands:
-  ui       - Run Streamlit UI
+  ui       - Run React UI + local API
   api      - Run FastAPI server
   example  - Run basic usage examples
   help     - Show this help message
