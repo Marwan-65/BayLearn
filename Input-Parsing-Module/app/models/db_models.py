@@ -20,6 +20,7 @@ class User(Base):
     id         = Column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     email      = Column(String, unique=True, nullable=False)
     name       = Column(String, nullable=True)
+    password   = Column(String, nullable=False)   # matches the existing public.users schema (NOT NULL)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

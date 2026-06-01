@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
 
-from app.models.database import get_db
+from app.models.database import get_db, DEFAULT_USER_ID
 from app.services.parsing_service import ParsingService
 from app.services.db_service import DBService
 
@@ -14,7 +14,7 @@ db_service = DBService()
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
-    user_id: str = "00000000-0000-0000-0000-000000000001",  # default user UUID — replace with real auth later
+    user_id: str = DEFAULT_USER_ID,  # placeholder user (seeded on startup) — replace with real auth later
     db: Session = Depends(get_db),
 ):
     """

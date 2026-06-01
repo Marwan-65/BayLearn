@@ -71,17 +71,23 @@ class NLPController(
         return f"collection_{project_id}".strip()
 
     async def validate_project(self, project_id: str):
-        chunks = await self.chunk_repository.get_chunks(project_id)
-        if not chunks:
-            return None
-        return {"project_id": project_id}
+        # project_id may be a comma-separated list of file ids (multi-select).
+        # The project is valid if ANY of the selected files has chunks.
+        ids = [p.strip() for p in str(project_id).split(",") if p.strip()]
+        for pid in ids or [project_id]:
+            chunks = await self.chunk_repository.get_chunks(pid)
+            if chunks:
+                return {"project_id": project_id}
+        return None
 
     # ==================================================================
     # Legacy single-query search (used by /index/search for debugging)
     # ==================================================================
 
     def search(self, project_id: str, query: str, limit: int = 5):
-        collection_name = self.create_collection_name(project_id)
+        # project_id may be a comma-separated list of file ids (multi-select).
+        # Query each file's collection and merge the top results by score.
+        ids = [p.strip() for p in str(project_id).split(",") if p.strip()] or [project_id]
 
         query_vector = self.embedding_client.embed_text(
             text=query,
@@ -90,17 +96,25 @@ class NLPController(
         if not query_vector:
             return []
 
-        search_results = self.vectordb_client.search_by_vector(
-            collection_name=collection_name,
-            query_vector=query_vector,
-            limit=limit,
-        )
-        if not search_results:
+        merged = []
+        for pid in ids:
+            results = self.vectordb_client.search_by_vector(
+                collection_name=self.create_collection_name(pid),
+                query_vector=query_vector,
+                limit=limit,
+            )
+            if results:
+                merged.extend(results)
+
+        if not merged:
             return []
 
-        return json.loads(
-            json.dumps(search_results, default=lambda x: x.__dict__)
-        )
+        merged = json.loads(json.dumps(merged, default=lambda x: x.__dict__))
+        # Single file: preserve original order. Multiple: sort by score, trim.
+        if len(ids) > 1:
+            merged.sort(key=lambda r: r.get("score", 0), reverse=True)
+            merged = merged[:limit]
+        return merged
 
     def get_vector_db_collection_info(self, project_id: str):
         collection_name = self.create_collection_name(project_id)

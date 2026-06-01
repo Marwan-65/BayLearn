@@ -60,6 +60,15 @@ export default function App() {
       return [];
     }
   });
+  // The files the user is currently working with. Chat + question generation are
+  // scoped to these files' chunks (keyed by their file_ids, sent comma-joined).
+  const [selectedFileIds, setSelectedFileIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("baylearn:selectedFileIds") || "[]");
+    } catch {
+      return [];
+    }
+  });
 
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -71,10 +80,17 @@ export default function App() {
   const [activeTab, setActiveTab] = useState("chat"); // "chat" or "questions"
   const [questionTopic, setQuestionTopic] = useState("");
   const [questionType, setQuestionType] = useState("mcq");
-  const [questionDifficulty, setQuestionDifficulty] = useState("understand");
+  const [questionDifficulty, setQuestionDifficulty] = useState("easy");
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionCards, setQuestionCards] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // Adaptive (agent-driven) mode: the RL module picks topic+difficulty and posts
+  // to the QG module; the frontend shows that question and reports the answer.
+  const ADAPTIVE_SESSION = "default";
+  const [adaptiveMode, setAdaptiveMode] = useState(false);
+  const [adaptiveItem, setAdaptiveItem] = useState(null);
+  const adaptiveVersionRef = useRef(0);
 
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -82,6 +98,65 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("baylearn:files", JSON.stringify(files));
   }, [files]);
+
+  useEffect(() => {
+    localStorage.setItem("baylearn:selectedFileIds", JSON.stringify(selectedFileIds));
+  }, [selectedFileIds]);
+
+  // Adaptive mode: register the source files for the session whenever the
+  // selection (or type) changes while the mode is on.
+  useEffect(() => {
+    if (!adaptiveMode || selectedFileIds.length === 0) return;
+    jsonFetch(
+      `/questions/adaptive/${ADAPTIVE_SESSION}/config`,
+      { method: "POST", body: JSON.stringify({ file_ids: selectedFileIds.join(","), question_type: questionType }) },
+      QUESTION_API_BASE
+    ).catch(() => {});
+  }, [adaptiveMode, selectedFileIds, questionType]);
+
+  // Adaptive mode: poll for the question the RL agent generated and display it.
+  useEffect(() => {
+    if (!adaptiveMode) return;
+    let cancelled = false;
+    async function tick() {
+      try {
+        const data = await jsonFetch(
+          `/questions/adaptive/${ADAPTIVE_SESSION}/current`,
+          {},
+          QUESTION_API_BASE
+        );
+        if (cancelled || !data?.question) return;
+        if (data.version > adaptiveVersionRef.current) {
+          adaptiveVersionRef.current = data.version;
+          const card = data.question; // { question, questionType, topic, difficulty, chunksUsed }
+          setAdaptiveItem({
+            id: data.version,
+            question: card.question,
+            questionType: card.questionType,
+            topic: card.topic,
+            difficulty: card.difficulty,
+            chunksUsed: card.chunksUsed,
+          });
+        }
+      } catch {
+        /* QG unreachable — keep polling */
+      }
+    }
+    tick();
+    const id = setInterval(tick, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [adaptiveMode]);
+
+  // Toggle a file in/out of the active selection.
+  function toggleFileSelection(fileId) {
+    if (!fileId) return;
+    setSelectedFileIds((prev) =>
+      prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]
+    );
+  }
 
   useEffect(() => {
     if (!loading && messages.length === 0) return;
@@ -136,11 +211,18 @@ export default function App() {
           ...prev.filter((f) => f.filename !== file.name),
           {
             filename: file.name,
+            file_id: data.file_id || null,
             size: file.size,
-            chunks: data.inserted_items_count || data.chunks || 0,
-            indexed: true,
+            chunks: data.chunks_created || data.inserted_items_count || data.chunks || 0,
+            indexed: data.indexed !== false,
           },
         ]);
+        // Auto-include the file just uploaded in the active selection.
+        if (data.file_id) {
+          setSelectedFileIds((prev) =>
+            prev.includes(data.file_id) ? prev : [...prev, data.file_id]
+          );
+        }
       }
       showToast(`Uploaded ${list.length} file(s).`, "success");
     } catch (err) {
@@ -155,12 +237,18 @@ export default function App() {
     const q = (textOverride ?? input).trim();
     if (!q || loading) return;
 
+    if (selectedFileIds.length === 0) {
+      showToast("Select at least one file to ask about first.", "error");
+      return;
+    }
+
     setInput("");
     setMessages((m) => [...m, { role: "user", content: q }]);
     setLoading(true);
 
     try {
-      const data = await jsonFetch(`/nlp/ask/${projectId}`, {
+      // Scope to the selected files (comma-joined file_ids; backend merges them).
+      const data = await jsonFetch(`/nlp/ask/${selectedFileIds.join(",")}`, {
         method: "POST",
         body: JSON.stringify({ text: q, limit: 5 }),
       });
@@ -212,6 +300,11 @@ export default function App() {
       return;
     }
 
+    if (selectedFileIds.length === 0) {
+      showToast("Select at least one file to generate questions from.", "error");
+      return;
+    }
+
     setQuestionLoading(true);
     try {
       const topic = questionTopic.trim();
@@ -220,7 +313,10 @@ export default function App() {
         {
           method: "POST",
           body: JSON.stringify({
-            project_id: projectId,
+            // Questions are generated from the selected files (comma-joined
+            // file_ids; the question module forwards them to RAG search, which
+            // merges chunks across the selected files).
+            project_id: selectedFileIds.join(","),
             topic: topic || null,
             num_questions: 1,
             difficulty: questionDifficulty,
@@ -254,7 +350,13 @@ export default function App() {
   }
 
   function removeFile(filename) {
-    setFiles((prev) => prev.filter((f) => f.filename !== filename));
+    setFiles((prev) => {
+      const removed = prev.find((f) => f.filename === filename);
+      if (removed?.file_id) {
+        setSelectedFileIds((ids) => ids.filter((id) => id !== removed.file_id));
+      }
+      return prev.filter((f) => f.filename !== filename);
+    });
   }
 
   const suggestions = [
@@ -306,6 +408,12 @@ export default function App() {
           />
         </div>
 
+        {files.length > 0 && (
+          <div style={{ fontSize: 11, color: "#888", margin: "10px 4px 4px" }}>
+            Check files to use in chat & questions ({selectedFileIds.length} selected)
+          </div>
+        )}
+
         <div style={S.fileList}>
           {files.length === 0 ? (
             <div style={{ fontSize: 12, color: "#999", padding: "8px 4px" }}>
@@ -313,7 +421,23 @@ export default function App() {
             </div>
           ) : (
             files.map((f) => (
-              <div key={f.filename} style={S.fileRow}>
+              <div
+                key={f.filename}
+                style={{
+                  ...S.fileRow,
+                  background: f.file_id && selectedFileIds.includes(f.file_id)
+                    ? "#f0f0ff"
+                    : S.fileRow?.background,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!f.file_id && selectedFileIds.includes(f.file_id)}
+                  disabled={!f.file_id}
+                  onChange={() => toggleFileSelection(f.file_id)}
+                  title={f.file_id ? "Use this file" : "Re-upload to enable selection"}
+                  style={{ cursor: f.file_id ? "pointer" : "not-allowed", marginRight: 8 }}
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={S.fileName}>{f.filename}</div>
                   <div style={S.fileMeta}>
@@ -503,6 +627,30 @@ export default function App() {
           <div style={S.contentShell}>
             <section style={{ ...S.chatColumn, display: "flex", flexDirection: "column" }}>
               <div style={S.questionControls}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#444",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={adaptiveMode}
+                    onChange={(e) => {
+                      adaptiveVersionRef.current = 0;
+                      setAdaptiveItem(null);
+                      setAdaptiveMode(e.target.checked);
+                    }}
+                  />
+                  Adaptive (RL) mode — the agent picks the questions
+                </label>
+
                 <label style={S.qLabel}>Topic (optional)</label>
                 <input
                   value={questionTopic}
@@ -528,31 +676,67 @@ export default function App() {
                   onChange={(e) => setQuestionDifficulty(e.target.value)}
                   style={S.qInput}
                 >
-                  <option value="remember">Remember</option>
-                  <option value="understand">Understand</option>
-                  <option value="apply">Apply</option>
-                  <option value="analyze">Analyze</option>
-                  <option value="evaluate">Evaluate</option>
-                  <option value="create">Create</option>
+                  <option value="easy">easy</option>
+                  <option value="medium">medium</option>
+                  <option value="hard">hard</option>  
                 </select>
 
-                <button
-                  onClick={generateQuestion}
-                  disabled={questionLoading}
-                  style={{
-                    ...S.generateBtn,
-                    opacity: questionLoading ? 0.55 : 1,
-                  }}
-                >
-                  {questionLoading ? "Generating..." : `Generate (${questionDifficulty})`}
-                </button>
+                {adaptiveMode ? (
+                  <div
+                    style={{
+                      ...S.generateBtn,
+                      background: "#eef0ff",
+                      color: "#4b46c4",
+                      textAlign: "center",
+                      cursor: "default",
+                    }}
+                  >
+                    {selectedFileIds.length === 0
+                      ? "Select file(s) above to start"
+                      : adaptiveItem
+                      ? "Answer below — the agent is waiting"
+                      : "Waiting for the RL agent to send a question…"}
+                  </div>
+                ) : (
+                  <button
+                    onClick={generateQuestion}
+                    disabled={questionLoading}
+                    style={{ ...S.generateBtn, opacity: questionLoading ? 0.55 : 1 }}
+                  >
+                    {questionLoading ? "Generating..." : `Generate (${questionDifficulty})`}
+                  </button>
+                )}
 
-                <div style={S.qHint}>Uses current project sources and project id automatically.</div>
+                <div style={S.qHint}>
+                  {adaptiveMode
+                    ? "The RL agent chooses topic & difficulty. Your answer is sent back to it automatically."
+                    : "Uses current project sources and project id automatically."}
+                </div>
               </div>
 
               {/* Carousel Container */}
               <div style={S.carouselContainer}>
-                {questionCards.length === 0 ? (
+                {adaptiveMode ? (
+                  adaptiveItem ? (
+                    <div style={S.carouselSlideItem}>
+                      {/* key=id remounts a fresh card for each new agent question */}
+                      <QuestionCard
+                        key={adaptiveItem.id}
+                        item={adaptiveItem}
+                        sessionId={ADAPTIVE_SESSION}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ ...S.carouselEmpty, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ textAlign: "center" }}>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: "#555" }}>Waiting for the RL agent…</div>
+                        <div style={{ fontSize: 12, color: "#999", marginTop: 6 }}>
+                          The next question will appear here automatically.
+                        </div>
+                      </div>
+                    </div>
+                  )
+                ) : questionCards.length === 0 ? (
                   <div style={{ ...S.carouselEmpty, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <div style={{ textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 600, color: "#555" }}>No questions yet</div>
@@ -816,39 +1000,37 @@ function IntentBadge({ intent }) {
   );
 }
 
-function QuestionCard({ item }) {
+function QuestionCard({ item, sessionId }) {
   const q = item.question;
-  const [selected, setSelected] = useState(null); // MCQ: label string, T/F: "true"/"false", SA: user text
+  const [selected, setSelected] = useState(null); // MCQ: label string, T/F: "true"/"false", SA: "submitted"
   const [shortAnswerText, setShortAnswerText] = useState("");
+  const [result, setResult] = useState(null);   // backend grade for ALL types: { is_correct, method, score }
+  const [checking, setChecking] = useState(false);
   const revealed = selected !== null;
   const isMCQ = item.questionType === "mcq" && Array.isArray(q.options) && q.options.length > 0;
   const isTrueFalse = item.questionType === "true_false";
   const isShortAnswer = item.questionType === "short_answer";
 
-  // Determine if user's answer is correct
+  // Correctness is decided by the BACKEND (/questions/check) for every type, so
+  // it's a single source of truth other modules can rely on. The local branches
+  // below are only a fallback used if the backend was unreachable.
   let isCorrect = false;
-  if (isMCQ) {
-    isCorrect = q.options.find(o => o.label === selected)?.is_correct || false;
+  if (result) {
+    isCorrect = result.is_correct;
+  } else if (isMCQ) {
+    isCorrect = q.options.find((o) => o.label === selected)?.is_correct || false;
   } else if (isTrueFalse) {
-    const correctAnswer = (q.correct_answer || "").toLowerCase();
-    const userAnswer = (selected || "").toLowerCase();
-    isCorrect = correctAnswer === userAnswer;
+    isCorrect = (q.correct_answer || "").toLowerCase() === (selected || "").toLowerCase();
   } else if (isShortAnswer) {
     const userLower = shortAnswerText.toLowerCase().trim();
     const keywordHints = Array.isArray(q.keywords_to_match)
-      ? q.keywords_to_match
-          .map((k) => String(k).toLowerCase().trim())
-          .filter(Boolean)
+      ? q.keywords_to_match.map((k) => String(k).toLowerCase().trim()).filter(Boolean)
       : [];
-
     if (keywordHints.length > 0) {
       const matchedCount = keywordHints.filter((k) => userLower.includes(k)).length;
-      const requiredMatches = keywordHints.length <= 2
-        ? keywordHints.length
-        : Math.ceil(keywordHints.length * 0.6);
+      const requiredMatches = keywordHints.length <= 2 ? keywordHints.length : Math.ceil(keywordHints.length * 0.6);
       isCorrect = matchedCount >= requiredMatches;
     } else {
-      // Fallback if keyword hints are unavailable.
       const correctLower = (q.correct_answer || "").toLowerCase().trim();
       isCorrect = userLower === correctLower || correctLower.includes(userLower) || userLower.includes(correctLower);
     }
@@ -861,14 +1043,58 @@ function QuestionCard({ item }) {
     return { ...S.qOption, opacity: 0.5 };
   }
 
+  // Single grading path for every question type — always asks the backend.
+  async function gradeAnswer(payload, selectedValue) {
+    if (checking || revealed) return;
+    setSelected(selectedValue); // immediate UI feedback (highlight + disable)
+    setChecking(true);
+    try {
+      // In adaptive mode, session_id routes the result back to the RL agent.
+      const body = sessionId ? { ...payload, session_id: sessionId } : payload;
+      const data = await jsonFetch(
+        "/questions/check",
+        { method: "POST", body: JSON.stringify(body) },
+        QUESTION_API_BASE
+      );
+      setResult(data); // { is_correct, method, score, correct_answer }
+    } catch {
+      setResult(null); // backend unreachable -> local fallback grades it
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  function handleMCQClick(opt) {
+    gradeAnswer(
+      {
+        question_type: "mcq",
+        user_answer: opt.label,
+        correct_answer: q.correct_answer || "",
+        options: q.options,
+      },
+      opt.label
+    );
+  }
+
   function handleTrueFalseClick(value) {
-    setSelected(value);
+    gradeAnswer(
+      { question_type: "true_false", user_answer: value, correct_answer: q.correct_answer || "" },
+      value
+    );
   }
 
   function handleShortAnswerSubmit() {
-    if (shortAnswerText.trim()) {
-      setSelected("submitted");
-    }
+    const answer = shortAnswerText.trim();
+    if (!answer || checking) return;
+    gradeAnswer(
+      {
+        question_type: "short_answer",
+        user_answer: answer,
+        correct_answer: q.correct_answer || "",
+        keywords_to_match: q.keywords_to_match || null,
+      },
+      "submitted"
+    );
   }
 
   return (
@@ -891,7 +1117,7 @@ function QuestionCard({ item }) {
               <button
                 key={opt.label}
                 disabled={revealed}
-                onClick={() => setSelected(opt.label)}
+                onClick={() => handleMCQClick(opt)}
                 style={{
                   ...optionStyle(opt),
                   textAlign: "left",
@@ -967,17 +1193,17 @@ function QuestionCard({ item }) {
               }}
             />
             <button
-              disabled={revealed || !shortAnswerText.trim()}
+              disabled={revealed || checking || !shortAnswerText.trim()}
               onClick={handleShortAnswerSubmit}
               style={{
                 ...S.generateBtn,
                 marginTop: 8,
                 width: "100%",
-                opacity: revealed || !shortAnswerText.trim() ? 0.5 : 1,
-                cursor: revealed || !shortAnswerText.trim() ? "default" : "pointer",
+                opacity: revealed || checking || !shortAnswerText.trim() ? 0.5 : 1,
+                cursor: revealed || checking || !shortAnswerText.trim() ? "default" : "pointer",
               }}
             >
-              Submit answer
+              {checking ? "Checking…" : "Submit answer"}
             </button>
           </div>
         )}
@@ -990,12 +1216,31 @@ function QuestionCard({ item }) {
       {/* RIGHT SIDE - ANSWER REVEAL */}
       {revealed && (
         <div style={{ ...S.qCardRight, opacity: revealed ? 1 : 0, transform: revealed ? "translateX(0)" : "translateX(20px)" }}>
-          <div style={{ ...S.resultBadge, background: isCorrect ? "#ecfdf5" : "#fff1f2", borderColor: isCorrect ? "#a7f3d0" : "#fca5a5" }}>
-            <span style={{ fontSize: 28, marginBottom: 4 }}>{isCorrect ? "✓" : "✗"}</span>
-            <div style={{ fontSize: 14, fontWeight: 700, color: isCorrect ? "#059669" : "#dc2626" }}>
-              {isCorrect ? "Correct!" : "Incorrect"}
+          {checking && !result ? (
+            <div style={{ ...S.resultBadge, background: "#f5f5f7", borderColor: "#d6d6de" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#6c63ff" }}>Checking…</div>
             </div>
-          </div>
+          ) : (
+            <div style={{ ...S.resultBadge, background: isCorrect ? "#ecfdf5" : "#fff1f2", borderColor: isCorrect ? "#a7f3d0" : "#fca5a5" }}>
+              <span style={{ fontSize: 28, marginBottom: 4 }}>{isCorrect ? "✓" : "✗"}</span>
+              <div style={{ fontSize: 14, fontWeight: 700, color: isCorrect ? "#059669" : "#dc2626" }}>
+                {isCorrect ? "Correct!" : "Incorrect"}
+              </div>
+            </div>
+          )}
+
+          {result && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 6 }}>
+              {result.score != null && (
+                <b style={{ color: isCorrect ? "#059669" : "#dc2626" }}>
+                  {Math.round(result.score * 100)}% match
+                </b>
+              )}
+              <span style={{ opacity: 0.7 }}>
+                {result.score != null ? "· " : ""}graded by {result.method === "semantic" ? "meaning" : result.method} (server)
+              </span>
+            </div>
+          )}
 
           {isShortAnswer && (
             <div style={{ marginTop: 12 }}>
