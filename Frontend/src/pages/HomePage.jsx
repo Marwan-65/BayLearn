@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import BaymaxSvg from "../components/BaymaxSvg";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+const API_BASE        = import.meta.env.VITE_API_BASE        || "http://127.0.0.1:8000";
+const VISUALIZER_BASE = import.meta.env.VITE_VISUALIZER_BASE || "http://localhost:8010";
 
-const RAG_URL      = import.meta.env.VITE_RAG_URL       || "http://localhost:5173";
-const ANIM_URL     = import.meta.env.VITE_ANIMATION_URL  || "http://localhost:3001";
-const EQ_URL       = import.meta.env.VITE_EQUATION_URL   || "http://localhost:8501";
+const RAG_URL = import.meta.env.VITE_RAG_URL      || "http://localhost:5173";
+const EQ_URL  = import.meta.env.VITE_EQUATION_URL || "http://localhost:8501";
 
 const MODULES = [
   {
@@ -40,7 +40,7 @@ const MODULES = [
     color: "#d97706",
     fileMode: "one",
     hint: "Select exactly one file to animate",
-    url: ANIM_URL,
+    url: null, // resolved at runtime via /v1/file-launch
   },
   {
     id: "equation",
@@ -84,6 +84,7 @@ export default function HomePage() {
   const [uploading, setUploading]       = useState(false);
   const [launchModule, setLaunchModule] = useState(null); // module obj
   const [pickedFiles, setPickedFiles]   = useState([]);   // file_ids selected in modal
+  const [launching, setLaunching]       = useState(false); // animation API in-flight
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -219,11 +220,32 @@ export default function HomePage() {
     setLaunchModule(mod);
   }
 
-  function launchNow() {
+  async function launchNow() {
     if (!launchModule) return;
     localStorage.setItem("baylearn:launch_module", launchModule.id);
     localStorage.setItem("baylearn:selected_files", JSON.stringify(pickedFiles));
     if (selectedCourseId) localStorage.setItem("baylearn:pid", selectedCourseId);
+
+    if (launchModule.id === "animation") {
+      setLaunching(true);
+      try {
+        const res = await fetch(`${VISUALIZER_BASE}/v1/file-launch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ file_id: pickedFiles[0] }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+        setLaunchModule(null);
+        window.location.href = data.viewer_url;
+      } catch (err) {
+        showToast(err.message || "Animation launch failed", "error");
+      } finally {
+        setLaunching(false);
+      }
+      return;
+    }
+
     window.open(launchModule.url, "_blank", "noopener");
     setLaunchModule(null);
   }
@@ -493,14 +515,21 @@ export default function HomePage() {
             </div>
           )}
 
+          {launching && (
+            <div style={S.launchingBanner}>
+              <span style={S.spinner} />
+              Analysing file and generating animation… this may take up to 30 s
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            <button onClick={() => setLaunchModule(null)} style={S.ghostBtn}>Cancel</button>
+            <button onClick={() => { if (!launching) setLaunchModule(null); }} disabled={launching} style={{ ...S.ghostBtn, opacity: launching ? 0.45 : 1 }}>Cancel</button>
             <button
               onClick={launchNow}
-              disabled={!canLaunch()}
-              style={{ ...S.primaryBtn, flex: 1, opacity: canLaunch() ? 1 : 0.45 }}
+              disabled={!canLaunch() || launching}
+              style={{ ...S.primaryBtn, flex: 1, opacity: canLaunch() && !launching ? 1 : 0.45 }}
             >
-              Launch {launchModule.name} ↗
+              {launching ? "Launching…" : `Launch ${launchModule.name} ↗`}
             </button>
           </div>
         </Modal>
@@ -631,4 +660,7 @@ const S = {
   filePickRow:  { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "1px solid #e6e6ec", borderRadius: 7, cursor: "pointer", transition: "all 0.15s", marginBottom: 4 },
 
   toast:        { position: "fixed", bottom: 20, right: 20, padding: "10px 16px", background: "white", border: "1px solid #d6d6de", borderRadius: 10, fontSize: 13, boxShadow: "0 4px 12px rgba(0,0,0,0.08)", zIndex: 300, maxWidth: 320 },
+
+  launchingBanner: { marginTop: 16, padding: "10px 14px", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 13, color: "#92400e", display: "flex", alignItems: "center", gap: 10 },
+  spinner:      { display: "inline-block", width: 14, height: 14, border: "2px solid #f59e0b", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 },
 };
