@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 question_router = APIRouter(prefix="/api/v1/questions", tags=["Question Generation"])
 
-
 @question_router.post("/generate")
 async def generate_questions(
     body: GenerateQuestionsRequest,

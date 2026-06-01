@@ -126,6 +126,7 @@ class QuestionGenerationService:
             if c.get("payload", {}).get("text")
         ]
         reports = self.validator.validate_all(questions, chunk_texts)
+        
 
         validated_questions: List[GeneratedQuestion] = []
         for question, report in zip(questions, reports):
