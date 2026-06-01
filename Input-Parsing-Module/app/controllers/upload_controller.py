@@ -1,8 +1,10 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.orm import Session
 from typing import Optional
+from pydantic import BaseModel
+from typing import Optional as Opt
 
-from app.models.database import get_db, DEFAULT_USER_ID
+from app.models.database import get_db
 from app.services.parsing_service import ParsingService
 from app.services.db_service import DBService
 
@@ -76,27 +78,44 @@ def get_file(file_id: str, db: Session = Depends(get_db)):
     }
 
 
-# ── Fetch all chunks for a file ───────────────────────────────────
+# ── Fetch all chunks for a file (RAG format) ─────────────────────
 
 @router.get("/files/{file_id}/chunks")
 def get_file_chunks(file_id: str, db: Session = Depends(get_db)):
     """
-    Get all chunks for a file in order.
+    Get parsed content for a file in the same structure as the upload response.
     Main endpoint for RAG and question generation modules.
     """
-    chunks = db_service.get_chunks_by_file(db, file_id)
-    if not chunks:
-        raise HTTPException(status_code=404, detail="File not found or has no chunks")
-    return [
-        {
-            "chunk_id"      : c.id,
-            "content"       : c.content,
-            "chunk_index"   : c.chunk_index,
-            "chunk_type"    : c.chunk_type,
-            "chunk_metadata": c.chunk_metadata,
+    f = db_service.get_file_by_id(db, file_id)
+    if not f:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Group chunks under their sections
+    sections_map = {}
+    for section in f.sections:
+        sections_map[section.id] = {
+            "id"     : section.id,
+            "heading": section.heading,
+            "page"   : section.page,
+            "chunks" : [],
         }
-        for c in chunks
-    ]
+
+    for chunk in sorted(f.chunks, key=lambda c: c.chunk_index):
+        section = sections_map.get(chunk.section_id)
+        if section:
+            section["chunks"].append({
+                "id"         : chunk.id,
+                "content"    : chunk.content,
+                "chunk_index": chunk.chunk_index,
+                "metadata"   : chunk.chunk_metadata,
+            })
+
+    return {
+        "source_type" : f.source_type,
+        "title"       : f.title,
+        "sections"    : list(sections_map.values()),
+        "total_chunks": f.total_chunks,
+    }
 
 
 # ── Delete a file ─────────────────────────────────────────────────
@@ -112,11 +131,8 @@ def delete_file(file_id: str, db: Session = Depends(get_db)):
 
 # ── Assign file to a course ───────────────────────────────────────
 
-from pydantic import BaseModel
-from typing import Optional as Opt
-
 class AssignCourseRequest(BaseModel):
-    course_id: Opt[str] = None  # pass null to remove from course
+    course_id: Opt[str] = None
 
 @router.patch("/files/{file_id}/course")
 def assign_file_to_course(
