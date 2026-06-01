@@ -1,11 +1,11 @@
 {
   "quantum": 3,
   "algorithm": {
-    "key": "hpf",
-    "name": "Highest Priority First",
-    "shortName": "HPF"
+    "key": "sjf",
+    "name": "Shortest Job First",
+    "shortName": "SJF"
   },
-  "schFlag": 1,
+  "schFlag": 0,
   "processes": [
     {
       "id": "P1",
@@ -34,63 +34,42 @@
       "burst": 5,
       "priority": 1,
       "color": "#DB4437"
-    },
-    {
-      "id": "P5",
-      "arrival": 4,
-      "burst": 6,
-      "priority": 2,
-      "color": "#AA46BB"
     }
   ],
   "sequence": [
     {
       "id": "P1",
       "start": 0,
-      "end": 1,
+      "end": 8,
       "color": "#4285F4",
-      "endReason": "PREEMPTED_BY_HIGHER_PRIORITY"
+      "endReason": "COMPLETED"
     },
     {
       "id": "P2",
-      "start": 1,
-      "end": 5,
+      "start": 8,
+      "end": 12,
       "color": "#0F9D58",
       "endReason": "COMPLETED"
     },
     {
       "id": "P4",
-      "start": 5,
-      "end": 10,
+      "start": 12,
+      "end": 17,
       "color": "#DB4437",
       "endReason": "COMPLETED"
     },
     {
-      "id": "P1",
-      "start": 10,
-      "end": 17,
-      "color": "#4285F4",
-      "endReason": "COMPLETED"
-    },
-    {
-      "id": "P5",
-      "start": 17,
-      "end": 23,
-      "color": "#AA46BB",
-      "endReason": "COMPLETED"
-    },
-    {
       "id": "P3",
-      "start": 24,
-      "end": 33,
+      "start": 17,
+      "end": 26,
       "color": "#F4B400",
       "endReason": "COMPLETED"
     }
   ],
   "stats": {
-    "cpuUtilization": 96.97,
-    "avgWTA": 2.23,
-    "avgWait": 9.2,
-    "avgTurnaround": 15.6
+    "cpuUtilization": 96.15,
+    "avgWTA": 2.3,
+    "avgWait": 7.75,
+    "avgTurnaround": 14.25
   }
 }

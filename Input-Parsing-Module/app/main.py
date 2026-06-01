@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .controllers.upload_controller import router
 from .controllers.course_controller import router as course_router
 from .config import load_environment
-from app.models.database import create_tables
+from app.models.database import create_tables, seed_default_user
 from .controllers.user_controller import router as user_router
 
 
@@ -21,6 +21,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     create_tables()
+    seed_default_user()
 
 @app.get("/health")
 async def health():

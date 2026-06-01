@@ -128,9 +128,11 @@ async def parse_and_store(
             },
         )
 
-    # Parse file via the input parsing module
+    # Parse file via the input parsing module. The file is uploaded ONCE (the
+    # parsing module saves it to the shared DB) and the chunks are read back from
+    # the DB via its get-chunks route — the DB is the single source of truth.
     try:
-        rag_chunks = await input_parsing_adapter.parse_file(
+        rag_chunks, file_id = await input_parsing_adapter.parse_file(
             file_content=file_content,
             filename=file.filename,
             project_id=project_id,
@@ -158,9 +160,14 @@ async def parse_and_store(
             content={"signal": "No content could be extracted from this file"},
         )
 
-    # Store chunks in the repository
+    # Index key: each file is indexed independently under its own file_id so the
+    # frontend can scope chat / question-generation to a single selected file.
+    # (Falls back to project_id if the parsing module returned no file_id.)
+    index_key = file_id or project_id
+
+    # Store chunks in the repository under the file's key
     try:
-        await request.app.chunk_repository.add_chunks(project_id, rag_chunks)
+        await request.app.chunk_repository.add_chunks(index_key, rag_chunks)
     except Exception as e:
         logger.error(f"Failed to store chunks: {e}")
         return JSONResponse(
@@ -171,6 +178,7 @@ async def parse_and_store(
     result = {
         "signal": "File parsed and stored successfully",
         "filename": file.filename,
+        "file_id": file_id,  # DB id — other modules can re-fetch chunks with this
         "chunks_created": len(rag_chunks),
         "project_id": project_id,
         "chunk_types": _count_chunk_types(rag_chunks),
@@ -190,7 +198,7 @@ async def parse_and_store(
                 contextual_cache=getattr(request.app, "contextual_cache", None),
             )
             indexed_count = await controller.index_project(
-                project_id=project_id,
+                project_id=index_key,
                 do_reset=True,
             )
             result["indexed"] = True

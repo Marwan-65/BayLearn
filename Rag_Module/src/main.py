@@ -24,10 +24,13 @@ from core.limiter import limiter
 
 app = FastAPI()
 
-# React (3000) , Vite (5173)
+# Allow any localhost / 127.0.0.1 origin on any port in dev. Vite falls back to
+# 5174, 5175, ... when 5173 is taken, and localhost != 127.0.0.1 to the browser,
+# so a fixed allowlist breaks CORS (server returns 200 but the browser blocks the
+# response, showing the frontend as "offline"). The regex covers all dev origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
