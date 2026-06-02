@@ -1,5 +1,7 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from .controllers.upload_controller import router
 from .controllers.course_controller import router as course_router
 from .config import load_environment
@@ -22,6 +24,11 @@ app.add_middleware(
 def startup():
     create_tables()
     seed_default_user()
+# Serve extracted images so the RAG frontend can render them
+_IMG_DIR = "extracted_images"
+os.makedirs(_IMG_DIR, exist_ok=True)
+app.mount("/images", StaticFiles(directory=_IMG_DIR), name="images")
+
 
 @app.get("/health")
 async def health():

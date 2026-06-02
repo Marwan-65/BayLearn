@@ -97,8 +97,6 @@ QDRANT_API_KEY=<your-qdrant-api-key>
 # other modules — URLs the orchestrator will proxy to
 INPUT_PARSING_MODULE_URL=http://localhost:8100
 EQUATION_MODULE_URL=http://localhost:9001
-# Animation visualizer has no HTTP /run endpoint, leave blank:
-ANIMATION_MODULE_URL=
 
 # Limits we wired in
 INPUT_DEFAULT_MAX_CHARACTERS=5000
@@ -182,16 +180,16 @@ Open `http://localhost:3001/` to confirm it loads. This is what opens when the u
 ```bash
 cd src
 conda activate mini-rag-app
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8200
 ```
 
 Sanity checks:
 
 ```bash
-curl http://localhost:8000/api/v1/
+curl http://localhost:8200/api/v1/
 # → {"App_name":"...", ...}
 
-curl http://localhost:8000/api/v1/modules/health
+curl http://localhost:8200/api/v1/modules/health
 # → {"modules":{
 #      "equation":{"available":true, ...},
 #      "animation":{"available":false, "status":"not_configured"},

@@ -1,5 +1,6 @@
 from .providers.LocalProvider import LocalProvider
 from .providers.GroqProvider import GroqProvider
+from .providers.GeminiProvider import GeminiProvider
 from stores.LLM.LLMEnums import LLMBackendEnum
 
 class LLMProviderFactory:
@@ -21,4 +22,10 @@ class LLMProviderFactory:
                 default_generation_temperature=self.config.GENERATION_DEFAULT_TEMPERATURE
             )
 
+        if provider == LLMBackendEnum.GEMINI.value:
+            return GeminiProvider(
+                api_key=self.config.GEMINI_API_KEY,
+                default_generation_max_output_tokens=self.config.GENERATION_DEFAULT_MAX_TOKENS,
+                default_generation_temperature=self.config.GENERATION_DEFAULT_TEMPERATURE
+            )
         return None
