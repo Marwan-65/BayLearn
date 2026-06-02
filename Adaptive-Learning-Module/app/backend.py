@@ -314,7 +314,7 @@ def call_config_endpoint(session_id: str, file_ids: list[str],
            f"/api/v1/questions/adaptive/{session_id}/config")
     try:
         resp = requests.post(url, json={
-            "file_ids":      ",".join(file_ids),
+            "file_ids":",".join(file_ids),
             "question_type": question_type,
         }, timeout=10)
         resp.raise_for_status()
