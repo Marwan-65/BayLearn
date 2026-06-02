@@ -1,4 +1,3 @@
-# Mapping pipeline dependencies
 # Install with: pip install -r requirements.txt
 
 sentence-transformers>=2.7.0   # bi-encoder + cross-encoder models
@@ -6,6 +5,12 @@ faiss-cpu>=1.7.4               # fast approximate nearest-neighbour search
 numpy>=1.24.0                  # vector math + embedding cache (.npy files)
 requests>=2.31.0               # Metacademy archive download
 pyyaml>=6.0                    # parse YAML-formatted Metacademy nodes
+
+# Adaptive backend + inference runtime
+flask>=3.0.0
+flasgger>=0.9.7.1
+torch>=2.2.0
+groq>=0.11.0
 
 psycopg2-binary
 sqlalchemy

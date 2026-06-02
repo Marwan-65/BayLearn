@@ -60,6 +60,7 @@ class QuestionGenerationService:
         difficulty: str,
         question_type: str,
         topic: Optional[str] = None,
+        include_guidance: bool = True,
     ) -> tuple[List[GeneratedQuestion], int]:
         """
         Generate one question for a project.
@@ -99,8 +100,12 @@ class QuestionGenerationService:
         #    filtering — concept matching is fully delegated to the embedding
         #    similarity (the query encodes the concept directly).
         target_level = bloom6_to_level(difficulty)  # 6-level → easy/medium/hard
+        # Query with topic + source context (not the bare topic word) so the
+        # embedder disambiguates homonyms — e.g. OS "threads" vs mechanical
+        # "thread cutting" — by grounding the match in the actual chunk text.
+        few_shot_query = f"{topic}. {chunks_text[:500]}" if topic else chunks_text[:600]
         few_shot = self._retrieve_few_shot(
-            query_text=topic or chunks_text[:600],
+            query_text=few_shot_query,
             target_level=target_level,
         )
         logger.info(
@@ -108,7 +113,21 @@ class QuestionGenerationService:
             len(few_shot), target_level,
         )
 
-        # Semantic Validation Layer retries until we get a non-rejected question.
+        # 6. Build prompt, call LLM, parse — possibly retry once on level mismatch
+        questions = await self._generate_with_retry(
+            question_type=question_type,
+            chunks_text=chunks_text,
+            num_questions=num_questions,
+            difficulty=difficulty,
+            target_level=target_level,
+            few_shot=few_shot,
+            include_guidance=include_guidance,
+        )
+
+        # 6. Semantic Validation Layer:
+        #    Run all five validators against the source chunks.
+        #    Rejected questions are dropped; flagged questions are kept but
+        #    their validation_report is attached for the caller to inspect.
         chunk_texts = [
             c.get("payload", {}).get("text", "")
             for c in selected_chunks
@@ -177,18 +196,19 @@ class QuestionGenerationService:
             logger.warning("Few-shot retrieval failed: %s — proceeding without ICL", e)
             return []
 
-    def _build_prompt(self, question_type, chunks_text, difficulty, few_shot):
+    def _build_prompt(self, question_type, chunks_text, num_questions,
+                      difficulty, few_shot, include_guidance=True):
         if question_type == "mcq":
-            return build_mcq_prompt(chunks_text, difficulty, few_shot)
+            return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         if question_type == "short_answer":
-            return build_short_answer_prompt(chunks_text, difficulty, few_shot)
+            return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         if question_type == "true_false":
-            return build_true_false_prompt(chunks_text, difficulty, few_shot)
+            return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
 
     async def _generate_with_retry(self, question_type, chunks_text,
-                                   difficulty, target_level,
-                                   few_shot) -> List[GeneratedQuestion]:
+                                   num_questions, difficulty, target_level,
+                                   few_shot, include_guidance=True) -> List[GeneratedQuestion]:
         """Generate, classify output, retry once if too many wrong-level questions."""
         attempts = 0
         max_attempts = 2 if self.retry_on_level_mismatch else 1
@@ -197,14 +217,15 @@ class QuestionGenerationService:
         while attempts < max_attempts:
             attempts += 1
             system_prompt, user_prompt = self._build_prompt(
-                question_type, chunks_text, difficulty, few_shot,
+                question_type, chunks_text, num_questions, difficulty, few_shot,
+                include_guidance=include_guidance,
             )
             raw_response = self.llm_client.generate(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 # Slightly lower temperature on retry to converge on correct level
                 temperature=0.85 if attempts == 1 else 0.6,
-                max_tokens=360,
+                max_tokens=2048,
             )
             questions = self._parse_llm_response(raw_response, question_type)
             last_questions = self._classify_predicted_levels(questions)

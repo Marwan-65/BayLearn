@@ -143,7 +143,8 @@ def make_fake_chunk_fetcher(chunk_text: str, chunk_id: str):
     return _FakeFetcher()
 
 
-async def generate_once(service, bloom_level: str, num_questions: int) -> list:
+async def generate_once(service, bloom_level: str, num_questions: int,
+                        include_guidance: bool = True) -> list:
     try:
         questions, _ = await service.generate(
             project_id="gen-stub",
@@ -151,6 +152,7 @@ async def generate_once(service, bloom_level: str, num_questions: int) -> list:
             difficulty=bloom_level,
             question_type="short_answer",
             topic=None,
+            include_guidance=include_guidance,
         )
         return questions
     except Exception as e:
@@ -214,10 +216,22 @@ async def main_async(args) -> int:
                 example_bank=bank, bloom_classifier=None,
                 few_shot_k=3, retry_on_level_mismatch=False,
             )
-            for q in await generate_once(icl_service, bloom_level, args.num_questions):
+            # ICL = examples + explicit guidance (the current production prompt).
+            for q in await generate_once(icl_service, bloom_level, args.num_questions,
+                                         include_guidance=True):
                 rows.append({"chunk_id": chunk["id"], "bloom_level": bloom_level,
                              "condition": "icl", "question": q.question_text})
             print("  icl done")
+            if sleep_secs > 0:
+                time.sleep(sleep_secs)
+
+            # Ablation arm: examples ONLY, no explicit difficulty guidance — isolates
+            # whether the exemplars alone carry the difficulty signal.
+            for q in await generate_once(icl_service, bloom_level, args.num_questions,
+                                         include_guidance=False):
+                rows.append({"chunk_id": chunk["id"], "bloom_level": bloom_level,
+                             "condition": "examples_only", "question": q.question_text})
+            print("  examples_only done")
             if sleep_secs > 0:
                 time.sleep(sleep_secs)
 

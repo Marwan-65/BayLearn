@@ -1,6 +1,5 @@
 data/
 app/models/bloom_distilbert/
-models/
 *.safetensors
 *.bin
 *.env

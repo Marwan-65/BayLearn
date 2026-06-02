@@ -1,0 +1,11 @@
+TEST macro_f1 = 0.7304   loss = 0.3083
+
+              precision    recall  f1-score   support
+
+        easy     0.8982    0.8301    0.8628      2254
+      medium     0.6879    0.7643    0.7241      1243
+        hard     0.5830    0.6270    0.6042       437
+
+    accuracy                         0.7867      3934
+   macro avg     0.7230    0.7405    0.7304      3934
+weighted avg     0.7968    0.7867    0.7902      3934

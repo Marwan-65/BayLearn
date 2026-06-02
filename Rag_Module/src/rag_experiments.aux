@@ -1,0 +1,80 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{es2023ragas}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{3}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Motivation}{3}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Research Questions}{3}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}System Architecture}{3}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Pipeline Overview}{3}{subsection.2.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces BayLearn RAG pipeline — seven retrieval layers and grounded generation.}}{3}{figure.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:architecture}{{1}{3}{BayLearn RAG pipeline — seven retrieval layers and grounded generation}{figure.caption.2}{}}
+\citation{gao2022hyde}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Components}{4}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Implementation Details}{4}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}HyDE — Attempted and Replaced}{4}{subsection.3.1}\protected@file@percent }
+\citation{cormack2009reciprocal}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Multi-Query Expansion (RAG-Fusion)}{5}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:multiquery}{{3.2}{5}{Multi-Query Expansion (RAG-Fusion)}{subsection.3.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Hybrid Retrieval: Dense + BM25 via RRF}{5}{subsection.3.3}\protected@file@percent }
+\newlabel{eq:rrf}{{1}{5}{Hybrid Retrieval: Dense + BM25 via RRF}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Cross-Encoder Reranking}{5}{subsection.3.4}\protected@file@percent }
+\citation{anthropic2024contextual}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Contextual Compression}{6}{subsection.3.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Contextual Retrieval}{6}{subsection.3.6}\protected@file@percent }
+\citation{es2023ragas}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.7}Security and Rate Limiting}{7}{subsection.3.7}\protected@file@percent }
+\citation{erickson2019algorithms}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Evaluation Methodology}{8}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}RAGAS Framework}{8}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Evaluation LLM}{8}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Test Sets}{8}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Beyond RAGAS: UX-Level Evaluation Criteria}{9}{subsection.4.4}\protected@file@percent }
+\newlabel{sec:ux_eval}{{4.4}{9}{Beyond RAGAS: UX-Level Evaluation Criteria}{subsection.4.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces UX evaluation criteria (manual, 1--5 Likert scale).}}{9}{table.caption.5}\protected@file@percent }
+\newlabel{tab:ux_criteria}{{1}{9}{UX evaluation criteria (manual, 1--5 Likert scale)}{table.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Contextual Retrieval Ablation Methodology}{10}{subsection.4.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Ablation Study Design}{10}{subsection.4.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Ablation study configurations. Multi-query is disabled across all runs because it adds a full LLM call at query time; its effect is measured separately when API quota permits.}}{10}{table.caption.6}\protected@file@percent }
+\newlabel{tab:ablation_configs}{{2}{10}{Ablation study configurations. Multi-query is disabled across all runs because it adds a full LLM call at query time; its effect is measured separately when API quota permits}{table.caption.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Contextual Retrieval experiment (full pipeline on/off).}}{10}{table.caption.7}\protected@file@percent }
+\newlabel{tab:cr_configs}{{3}{10}{Contextual Retrieval experiment (full pipeline on/off)}{table.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Results}{11}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Ablation Study — Scientific Dataset (Algorithms-JeffE, Ch.1--3)}{11}{subsection.5.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Ablation results on Scientific dataset --- Algorithms-JeffE Ch.1--3 (3 questions, Level~1). Evaluated with RAGAS via Groq \texttt  {llama-3.1-8b-instant} (free tier). \dag  ~\texttt  {+Compression} scores are from a single-question run; the 3-question run timed out due to API rate limiting on the 4th sequential config. Latency figures exclude API rate-limit wait time.}}{11}{table.caption.8}\protected@file@percent }
+\newlabel{tab:results_scientific_ablation}{{4}{11}{Ablation results on Scientific dataset --- Algorithms-JeffE Ch.1--3 (3 questions, Level~1). Evaluated with RAGAS via Groq \texttt {llama-3.1-8b-instant} (free tier). \dag ~\texttt {+Compression} scores are from a single-question run; the 3-question run timed out due to API rate limiting on the 4th sequential config. Latency figures exclude API rate-limit wait time}{table.caption.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Ablation Study — Backend Dataset}{11}{subsection.5.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Ablation results on Backend dataset (14 questions, all levels). \emph  {Note: requires the backend lecture document to be uploaded and indexed via \texttt  {POST /api/v1/parse/upload/\{project\_id\}?auto\_index=true} before running. Run: \texttt  {POST /api/v1/nlp/evaluate/ablation/\{backend\_project\_id\}?dataset=backend\&batch\_size=3}.}}}{11}{table.caption.9}\protected@file@percent }
+\newlabel{tab:results_backend_ablation}{{5}{11}{Ablation results on Backend dataset (14 questions, all levels). \emph {Note: requires the backend lecture document to be uploaded and indexed via \texttt {POST /api/v1/parse/upload/\{project\_id\}?auto\_index=true} before running. Run: \texttt {POST /api/v1/nlp/evaluate/ablation/\{backend\_project\_id\}?dataset=backend\&batch\_size=3}.}}{table.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Contextual Retrieval Effect}{11}{subsection.5.3}\protected@file@percent }
+\newlabel{sec:results_cr}{{5.3}{11}{Contextual Retrieval Effect}{subsection.5.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Effect of Contextual Retrieval (full pipeline \textbf  {+Reranker}, Scientific dataset, 3 questions). ``With CR'' requires re-indexing the full document with \texttt  {CONTEXTUAL\_RETRIEVAL\_ENABLED=True} ($\approx $4\,700 LLM calls); not feasible on the free Groq tier and left for future work.}}{11}{table.caption.10}\protected@file@percent }
+\newlabel{tab:results_cr}{{6}{11}{Effect of Contextual Retrieval (full pipeline \textbf {+Reranker}, Scientific dataset, 3 questions). ``With CR'' requires re-indexing the full document with \texttt {CONTEXTUAL\_RETRIEVAL\_ENABLED=True} ($\approx $4\,700 LLM calls); not feasible on the free Groq tier and left for future work}{table.caption.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Per-Level Analysis}{11}{subsection.5.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces +Reranker pipeline results by difficulty level --- Scientific dataset (Algorithms-JeffE), 1 question per level. \dag  ~Faithfulness\,=\,0 rows are artefacts of Groq free-tier rate limiting (empty LLM answers); the retrieval pipeline itself retrieved relevant context.}}{12}{table.caption.11}\protected@file@percent }
+\newlabel{tab:results_levels}{{7}{12}{+Reranker pipeline results by difficulty level --- Scientific dataset (Algorithms-JeffE), 1 question per level. \dag ~Faithfulness\,=\,0 rows are artefacts of Groq free-tier rate limiting (empty LLM answers); the retrieval pipeline itself retrieved relevant context}{table.caption.11}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Multimodal Retrieval Results}{12}{subsection.5.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Multimodal test set results (full pipeline, scientific dataset). ``Type OK'' = expected chunk type in retrieved sources. ``Intent OK'' = router classified correctly (9/9). ``Image shown'' = image URL in response. $^*$Equation chunks exist in the index but rank below text chunks that contain the same formula text; images from the same pages are promoted instead (image shown = Y). ``Edit distance DP table'' has no figure in the indexed pages, hence no image and wrong dimensions in the answer.}}{12}{table.caption.12}\protected@file@percent }
+\newlabel{tab:results_multimodal}{{8}{12}{Multimodal test set results (full pipeline, scientific dataset). ``Type OK'' = expected chunk type in retrieved sources. ``Intent OK'' = router classified correctly (9/9). ``Image shown'' = image URL in response. $^*$Equation chunks exist in the index but rank below text chunks that contain the same formula text; images from the same pages are promoted instead (image shown = Y). ``Edit distance DP table'' has no figure in the indexed pages, hence no image and wrong dimensions in the answer}{table.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}UX Evaluation Results}{13}{subsection.5.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces UX evaluation (manual, 1--5 Likert) — full pipeline + CR, 5 sample interactions.}}{13}{table.caption.13}\protected@file@percent }
+\newlabel{tab:ux_results}{{9}{13}{UX evaluation (manual, 1--5 Likert) — full pipeline + CR, 5 sample interactions}{table.caption.13}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.7}Latency Breakdown}{13}{subsection.5.7}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Average per-stage latency for the Scientific dataset baseline run (3 L1 questions, excluding API rate-limit delays). Reranker and compression stages are zero when disabled.}}{13}{table.caption.14}\protected@file@percent }
+\newlabel{tab:latency}{{10}{13}{Average per-stage latency for the Scientific dataset baseline run (3 L1 questions, excluding API rate-limit delays). Reranker and compression stages are zero when disabled}{table.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.8}Discussion}{13}{subsection.5.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}How to Run the Experiments}{14}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Prerequisites}{14}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Running a Single Evaluation (API Dog)}{14}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Running the Ablation Study (API Dog)}{15}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{15}{section.7}\protected@file@percent }
+\bibcite{es2023ragas}{1}
+\bibcite{cormack2009reciprocal}{2}
+\bibcite{anthropic2024contextual}{3}
+\bibcite{lewis2020rag}{4}
+\bibcite{robertson1994okapi}{5}
+\bibcite{gao2022hyde}{6}
+\bibcite{erickson2019algorithms}{7}
+\gdef \@abspage@last{16}

@@ -361,12 +361,12 @@ def ensure_tables(db_url: str) -> None:
         # 6. sessions — depends on users
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS sessions (
-                id         VARCHAR PRIMARY KEY,
-                user_id    VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                scope_type VARCHAR NOT NULL,
-                scope_ids  VARCHAR NOT NULL,
-                started_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                ended_at   TIMESTAMP
+                id          VARCHAR PRIMARY KEY,
+                user_id     VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                scope_ids   VARCHAR NOT NULL,
+                started_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+                ended_at    TIMESTAMP,
+                result_json TEXT
             )
         """))
 
