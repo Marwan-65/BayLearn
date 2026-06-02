@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "build": "esbuild app.js --bundle --outfile=dist/bundle.js --platform=browser --format=iife --global-name=BTreeApp",
-    "dev": "concurrently \"esbuild app.js --bundle --outfile=dist/bundle.js --platform=browser --format=iife --global-name=BTreeApp --watch\" \"serve . --listen 3000\"",
+    "dev": "concurrently \"esbuild app.js --bundle --outfile=dist/bundle.js --platform=browser --format=iife --global-name=BTreeApp --watch\" \"serve . --listen 8083\"",
     "test:core":   "node src/tests/btree.test.js",
     "test:layout": "node src/tests/layout.test.js",
     "test:render": "node src/tests/renderer.test.js",
