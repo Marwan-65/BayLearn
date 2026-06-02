@@ -144,5 +144,13 @@ class _StubBloomClassifier(BloomClassifier):
 
 # ---------------------------------------------------------------------- utils
 def bloom6_to_level(bloom6: str) -> str:
-    """Map a 6-level Bloom name (case-insensitive) to easy/medium/hard."""
-    return BLOOM6_TO_LEVEL.get(bloom6.lower().strip(), "medium")
+    """
+    Map a 6-level Bloom name (case-insensitive) to easy/medium/hard.
+    Passes through values that are already easy/medium/hard, so the function
+    works whether callers use Bloom-6 names or the 3-level vocabulary used by
+    the prompt guidance, example bank, and frontend.
+    """
+    s = bloom6.lower().strip()
+    if s in ("easy", "medium", "hard"):
+        return s
+    return BLOOM6_TO_LEVEL.get(s, "medium")
