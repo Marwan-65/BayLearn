@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from core.limiter import limiter
 from helpers.config import get_settings
 import logging
+from typing import Optional
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -71,6 +72,8 @@ async def parse_and_store(
     request: Request,
     file: UploadFile,
     auto_index: bool = False,
+    user_id: Optional[str] = None,
+    course_id: Optional[str] = None,
 ):
     """
     Upload a file, parse it via the Input Parsing Module, and store
@@ -136,6 +139,8 @@ async def parse_and_store(
             file_content=file_content,
             filename=file.filename,
             project_id=project_id,
+            user_id=user_id,
+            course_id=course_id,
         )
     except ConnectionError as e:
         return JSONResponse(

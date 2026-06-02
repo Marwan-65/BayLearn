@@ -178,17 +178,23 @@ export default function HomePage() {
     }
   }
 
-  async function uploadFile(e) {
+async function uploadFile(e) {
     const files = Array.from(e.target.files || []);
     if (!files.length || !selectedCourseId) return;
     setUploading(true);
+    
     try {
       for (const file of files) {
         const form = new FormData();
         form.append("file", file);
+        
+        // 1. Point to the RAG parse route: /api/v1/parse/upload/{project_id}
+        // 2. Add auto_index=true to trigger the Vector DB insertion
+        const targetUrl = `/api/v1/parse/upload/${encodeURIComponent(selectedCourseId)}?auto_index=true&user_id=${encodeURIComponent(user.user_id)}&course_id=${encodeURIComponent(selectedCourseId)}`;
+
         await apiFetch(
           "POST",
-          `/upload?user_id=${encodeURIComponent(user.user_id)}&course_id=${encodeURIComponent(selectedCourseId)}`,
+          targetUrl,
           form,
           true
         );

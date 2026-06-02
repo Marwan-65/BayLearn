@@ -58,6 +58,7 @@ class QuestionGenerationService:
         difficulty: str,
         question_type: str,
         topic: Optional[str] = None,
+        include_guidance: bool = True,
     ) -> tuple[List[GeneratedQuestion], int]:
         """
         Generate questions for a project.
@@ -97,8 +98,12 @@ class QuestionGenerationService:
         #    filtering — concept matching is fully delegated to the embedding
         #    similarity (the query encodes the concept directly).
         target_level = bloom6_to_level(difficulty)  # 6-level → easy/medium/hard
+        # Query with topic + source context (not the bare topic word) so the
+        # embedder disambiguates homonyms — e.g. OS "threads" vs mechanical
+        # "thread cutting" — by grounding the match in the actual chunk text.
+        few_shot_query = f"{topic}. {chunks_text[:500]}" if topic else chunks_text[:600]
         few_shot = self._retrieve_few_shot(
-            query_text=topic or chunks_text[:600],
+            query_text=few_shot_query,
             target_level=target_level,
         )
         logger.info(
@@ -114,6 +119,7 @@ class QuestionGenerationService:
             difficulty=difficulty,
             target_level=target_level,
             few_shot=few_shot,
+            include_guidance=include_guidance,
         )
 
         # 6. Semantic Validation Layer:
@@ -163,18 +169,18 @@ class QuestionGenerationService:
             return []
 
     def _build_prompt(self, question_type, chunks_text, num_questions,
-                      difficulty, few_shot):
+                      difficulty, few_shot, include_guidance=True):
         if question_type == "mcq":
-            return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot)
+            return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         if question_type == "short_answer":
-            return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot)
+            return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         if question_type == "true_false":
-            return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot)
+            return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
 
     async def _generate_with_retry(self, question_type, chunks_text,
                                    num_questions, difficulty, target_level,
-                                   few_shot) -> List[GeneratedQuestion]:
+                                   few_shot, include_guidance=True) -> List[GeneratedQuestion]:
         """Generate, classify output, retry once if too many wrong-level questions."""
         attempts = 0
         max_attempts = 2 if self.retry_on_level_mismatch else 1
@@ -184,6 +190,7 @@ class QuestionGenerationService:
             attempts += 1
             system_prompt, user_prompt = self._build_prompt(
                 question_type, chunks_text, num_questions, difficulty, few_shot,
+                include_guidance=include_guidance,
             )
             raw_response = self.llm_client.generate(
                 system_prompt=system_prompt,

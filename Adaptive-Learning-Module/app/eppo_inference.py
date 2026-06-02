@@ -41,10 +41,10 @@ import torch
 import torch.nn as nn
 from dotenv import load_dotenv
 from torch.distributions import Categorical
-from sentence_transformers import SentenceTransformer
 from sqlalchemy import Column, Integer, String, Float, Boolean, \
     DateTime, create_engine, text
 from sqlalchemy.orm import declarative_base, Session
+from sentence_transformers import SentenceTransformer
 import requests
 
 load_dotenv(Path(__file__).parent / ".env")
@@ -83,100 +83,14 @@ SCOPE_IDS     = _args.scope_ids
 SCOPE_IDS_LIST = [v.strip() for v in SCOPE_IDS.split(",") if v.strip()]
 
 # ---------------------------------------------------------------------------
-# ORM base
+# DB bootstrap (imports from the canonical source)
 # ---------------------------------------------------------------------------
 _Base = declarative_base()
+from db_models import ensure_tables
 
 # ---------------------------------------------------------------------------
 # DB bootstrap
 # ---------------------------------------------------------------------------
-
-def ensure_tables(db_url: str) -> None:
-    engine = create_engine(db_url)
-    with engine.connect() as conn:
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS users (
-                id         SERIAL PRIMARY KEY,
-                email      VARCHAR NOT NULL UNIQUE,
-                name       VARCHAR,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW()
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS courses (
-                id          SERIAL PRIMARY KEY,
-                name        VARCHAR NOT NULL UNIQUE,
-                description TEXT,
-                uploader_id INTEGER
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS course_enrollments (
-                user_id     INTEGER NOT NULL,
-                course_id   INTEGER NOT NULL,
-                enrolled_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                PRIMARY KEY (user_id, course_id)
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS concepts (
-                id         SERIAL PRIMARY KEY,
-                course_id  INTEGER NOT NULL,
-                name       VARCHAR NOT NULL,
-                difficulty INTEGER NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT NOW()
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS concept_files (
-                concept_id INTEGER NOT NULL,
-                file_id    VARCHAR NOT NULL,
-                PRIMARY KEY (concept_id, file_id)
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS sessions (
-                id         VARCHAR PRIMARY KEY,
-                user_id    VARCHAR NOT NULL,
-                scope_ids  VARCHAR NOT NULL,
-                started_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                ended_at   TIMESTAMP
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS student_pfa_state (
-                user_id    INTEGER NOT NULL,
-                concept_id INTEGER NOT NULL,
-                succ_easy  FLOAT NOT NULL DEFAULT 0,
-                succ_med   FLOAT NOT NULL DEFAULT 0,
-                succ_hard  FLOAT NOT NULL DEFAULT 0,
-                fail_easy  FLOAT NOT NULL DEFAULT 0,
-                fail_med   FLOAT NOT NULL DEFAULT 0,
-                fail_hard  FLOAT NOT NULL DEFAULT 0,
-                bonus_easy FLOAT NOT NULL DEFAULT 0,
-                bonus_med  FLOAT NOT NULL DEFAULT 0,
-                bonus_hard FLOAT NOT NULL DEFAULT 0,
-                updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-                PRIMARY KEY (user_id, concept_id)
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS session_interactions (
-                id           SERIAL PRIMARY KEY,
-                session_id   INTEGER NOT NULL,
-                user_id      INTEGER NOT NULL,
-                concept_id   INTEGER NOT NULL,
-                difficulty   VARCHAR(10) NOT NULL,
-                correct      BOOLEAN NOT NULL,
-                p_before     FLOAT NOT NULL,
-                p_after      FLOAT NOT NULL,
-                p_hard_after FLOAT NOT NULL,
-                created_at   TIMESTAMP NOT NULL DEFAULT NOW()
-            )
-        """))
-        conn.commit()
-    print("[db] All tables verified.")
-
 
 # ---------------------------------------------------------------------------
 # Concept pool — supports multiple courses or multiple files
@@ -327,15 +241,15 @@ def log_interaction(db_url: str, session_id: str, user_id: str,
     if not session_id:
         return
     import uuid as _uuid
+    # NOTE: All IDs (session, user, concept) are UUID strings.
+    # The DB schema uses VARCHAR for all of them.
     engine = create_engine(db_url)
     with Session(engine) as session:
         session.execute(text("""
             INSERT INTO session_interactions
                 (id, session_id, user_id, concept_id, difficulty,
                  correct, p_before, p_after, p_hard_after, created_at)
-            VALUES
-                (:id, :sid, :uid, :cid, :diff,
-                 :correct, :pb, :pa, :ph, :now)
+            VALUES (:id, :sid, :uid, :cid, :diff, :correct, :pb, :pa, :ph, :now)
         """), dict(id=str(_uuid.uuid4()),
                    sid=session_id, uid=user_id, cid=concept_id,
                    diff=difficulty, correct=correct,
@@ -728,7 +642,7 @@ def api_send_question(topic: str, difficulty: str,
     gen_resp = requests.post(gen_url, json={
         "topic":      topic,
         "difficulty": difficulty.lower(),
-    }, timeout=30)
+    }, timeout=60)
     gen_resp.raise_for_status()
 
     # Step 2 — long-poll for the student answer, retry until answered
@@ -809,7 +723,17 @@ def run_session(
         difficulty_name = cfg.LEVEL_NAMES[level]
         course_label    = idx_to_course.get(global_ci, "?")
 
-        correct = api_send_question(concept_name, difficulty_name)
+        try:
+            correct = api_send_question(concept_name, difficulty_name)
+        except requests.exceptions.RequestException as e:
+            print(
+                f"  [API-ERROR] Question generation failed for '{concept_name}': {e}",
+                file=sys.stderr,
+            )
+            if hasattr(e, "response") and e.response is not None:
+                print(f"  [API-ERROR] Response: {e.response.text[:200]}", file=sys.stderr)
+            # Skip this step and try another concept
+            continue
 
         p_before, p_after = tracker.update(global_ci, level, int(correct))
         p_hard_now = tracker.predict(global_ci, 2)

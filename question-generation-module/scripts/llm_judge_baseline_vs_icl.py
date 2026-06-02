@@ -235,58 +235,56 @@ def main() -> int:
             continue
         _topic, chunk_text = TEST_CHUNKS[cid]
 
-        flip = rng.random() < 0.5
-        set_a, set_b = (icl_qs, base_qs) if flip else (base_qs, icl_qs)
-        a_is_icl = flip
-
-        prompt = build_judge_prompt(chunk_text, bloom_level, set_a, set_b)
-        try:
-            response = client.generate(
-                system_prompt=JUDGE_SYSTEM_PROMPT,
-                user_prompt=prompt,
-                temperature=0.2,
-                max_tokens=1200,
+        # Counterbalanced judging: evaluate BOTH orderings to cancel the judge's
+        # position bias. A method only "wins" a criterion if it wins in BOTH
+        # orders; if the two orders disagree, the verdict was order-driven
+        # (position bias) and we record it as a tie/inconclusive.
+        def _judge(set_a, set_b):
+            prompt = build_judge_prompt(chunk_text, bloom_level, set_a, set_b)
+            resp = client.generate(
+                system_prompt=JUDGE_SYSTEM_PROMPT, user_prompt=prompt,
+                temperature=0.2, max_tokens=1200,
             )
+            return parse_judge_response(resp)
+
+        try:
+            v1 = _judge(base_qs, icl_qs)   # order 1: A=baseline, B=icl
+            if sleep_secs > 0:
+                time.sleep(sleep_secs)
+            v2 = _judge(icl_qs, base_qs)   # order 2: A=icl, B=baseline
         except Exception as e:
             print(f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: API error — {e}")
             if sleep_secs > 0:
                 time.sleep(sleep_secs)
             continue
-
-        verdict = parse_judge_response(response)
-        if verdict is None:
+        if v1 is None or v2 is None:
             print(f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: parse failed")
             if sleep_secs > 0:
                 time.sleep(sleep_secs)
             continue
 
-        row = {"chunk_id": cid, "bloom_level": bloom_level,
-               "icl_was": "A" if a_is_icl else "B"}
+        row = {"chunk_id": cid, "bloom_level": bloom_level}
         for c in CRITERIA:
-            v = (verdict.get(c) or {})
-            raw = (v.get("winner") or "").strip().upper()
-            if raw == "A":
-                cond_winner = "icl" if a_is_icl else "baseline"
-            elif raw == "B":
-                cond_winner = "baseline" if a_is_icl else "icl"
-            elif raw in ("TIE", "EQUAL"):
-                cond_winner = "tie"
-            else:
-                cond_winner = "tie"   # treat malformed as tie
+            r1 = ((v1.get(c) or {}).get("winner") or "").strip().upper()
+            r2 = ((v2.get(c) or {}).get("winner") or "").strip().upper()
+            w1 = {"A": "baseline", "B": "icl"}.get(r1, "tie")   # order 1 mapping
+            w2 = {"A": "icl", "B": "baseline"}.get(r2, "tie")   # order 2 mapping
+            cond_winner = w1 if (w1 == w2 and w1 != "tie") else "tie"
             wins[c][cond_winner] += 1
             row[f"{c}_winner"] = cond_winner
-            row[f"{c}_reason"] = (v.get("reason") or "")[:300]
+            row[f"{c}_orders"] = f"{w1}|{w2}"   # what each order said (bias visibility)
+            row[f"{c}_reason"] = ((v1.get(c) or {}).get("reason") or "")[:300]
         per_cell_rows.append(row)
-        line = f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: "
-        line += " ".join(f"{c}={row[f'{c}_winner']}" for c in CRITERIA)
-        print(line)
+        print(f"  [{idx}/{len(cells)}] {cid}/{bloom_level}: "
+              + " ".join(f"{c}={row[f'{c}_winner']}" for c in CRITERIA))
         if sleep_secs > 0:
             time.sleep(sleep_secs)
 
     
-    fieldnames = ["chunk_id", "bloom_level", "icl_was"]
+    fieldnames = ["chunk_id", "bloom_level"]
     for c in CRITERIA:
         fieldnames.append(f"{c}_winner")
+        fieldnames.append(f"{c}_orders")
         fieldnames.append(f"{c}_reason")
     with OUT_PER_CELL.open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)

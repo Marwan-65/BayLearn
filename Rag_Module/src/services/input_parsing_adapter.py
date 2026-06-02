@@ -66,6 +66,8 @@ class InputParsingAdapter:
         file_content: bytes,
         filename: str,
         project_id: str,
+        user_id: Optional[str] = None,
+        course_id: Optional[str] = None,
     ) -> tuple[list, Optional[str]]:
         """
         Upload a file to the Input Parsing Module (which parses it and persists
@@ -90,7 +92,7 @@ class InputParsingAdapter:
             raise ValueError("Input parsing module URL not configured")
 
         # 1. Upload — parsing module parses and saves to the DB, returns file_id.
-        parsed_content = await self._call_parsing_module(file_content, filename)
+        parsed_content = await self._call_parsing_module(file_content, filename, user_id, course_id)
         file_id = parsed_content.get("file_id")
 
         # 2. Prefer reading chunks back from the DB (single source of truth).
@@ -101,6 +103,8 @@ class InputParsingAdapter:
                 source_filename=filename,
                 source_type=parsed_content.get("source_type", "unknown"),
                 doc_title=parsed_content.get("title") or filename,
+                user_id=user_id,
+                course_id=course_id
             )
             if rag_chunks:
                 return rag_chunks, file_id
@@ -111,6 +115,8 @@ class InputParsingAdapter:
             parsed_content=parsed_content,
             project_id=project_id,
             source_filename=filename,
+            user_id=user_id,
+            course_id=course_id
         )
         return rag_chunks, file_id
 
@@ -121,6 +127,8 @@ class InputParsingAdapter:
         source_filename: str = "",
         source_type: str = "unknown",
         doc_title: str = "",
+        user_id: Optional[str] = None,
+        course_id: Optional[str] = None,
     ) -> list:
         """
         Read a file's chunks from the parsing module's database via
@@ -156,25 +164,38 @@ class InputParsingAdapter:
             raise RuntimeError(f"Input parsing get-chunks error: {e.response.status_code}")
 
         rag_chunks = []
-        for i, c in enumerate(db_chunks):
-            content = (c.get("content") or "").strip()
-            if not content:
-                continue
-            chunk_metadata = c.get("chunk_metadata") or {}
-            metadata = {
-                "source": source_filename,
-                "source_type": source_type,
-                "doc_title": doc_title or source_filename,
-                "page": chunk_metadata.get("page"),
-                "section_heading": chunk_metadata.get("section_heading"),
-                "chunk_type": c.get("chunk_type") or chunk_metadata.get("chunk_type", "text"),
-                "project_id": project_id,
-                "file_id": file_id,
-                "parsing_chunk_id": c.get("chunk_id"),
-            }
-            if chunk_metadata.get("image_path"):
-                metadata["image_path"] = chunk_metadata["image_path"]
-            rag_chunks.append(RAGChunk(chunk_id=i, text=content, metadata=metadata))
+        chunk_counter = 0
+
+        final_source_type = db_chunks.get("source_type") or source_type
+        final_doc_title = db_chunks.get("title") or doc_title or source_filename
+        sections = db_chunks.get("sections", [])
+
+        for section in sections:
+            heading = section.get("heading", "")
+            page = section.get("page")
+
+            for c in section.get("chunks", []):
+                content = (c.get("content") or "").strip()
+                if not content:
+                    continue
+                chunk_metadata = c.get("metadata") or {}
+                metadata = {
+                    "source": source_filename,
+                    "source_type": final_source_type,
+                    "doc_title": final_doc_title,
+                    "page": page or chunk_metadata.get("page"),
+                    "section_heading": heading or chunk_metadata.get("section_heading"),
+                    "chunk_type": chunk_metadata.get("chunk_type", "text"),
+                    "project_id": project_id,
+                    "user_id": user_id,
+                    "course_id": course_id,
+                    "file_id": file_id,
+                    "parsing_chunk_id": c.get("id"),
+                }
+                if chunk_metadata.get("image_path"):
+                    metadata["image_path"] = chunk_metadata["image_path"]
+                rag_chunks.append(RAGChunk(chunk_id=chunk_counter, text=content, metadata=metadata))
+                chunk_counter += 1
 
         logger.info(
             f"Fetched {len(rag_chunks)} chunks from DB for file_id={file_id} "
@@ -183,7 +204,7 @@ class InputParsingAdapter:
         return rag_chunks
 
     async def _call_parsing_module(
-        self, file_content: bytes, filename: str
+        self, file_content: bytes, filename: str, user_id: Optional[str] = None, course_id: Optional[str] = None
     ) -> dict:
         """
         Forward file to the input parsing module's POST /upload endpoint.
@@ -192,11 +213,13 @@ class InputParsingAdapter:
         Returns the ParsedContent JSON response.
         """
         url = f"{self.module_url.rstrip('/')}/upload"
-
+        params = {}
+        if user_id: params["user_id"] = user_id
+        if course_id: params["course_id"] = course_id
         try:
             async with httpx.AsyncClient(timeout=PARSING_TIMEOUT) as client:
                 files = {"file": (filename, file_content)}
-                resp = await client.post(url, files=files)
+                resp = await client.post(url, files=files, params=params)
                 resp.raise_for_status()
                 # Validate the response shape against our contract.
                 # Defensive: if the parsing module drifts, we fail fast here
@@ -230,6 +253,8 @@ class InputParsingAdapter:
         parsed_content: dict,
         project_id: str,
         source_filename: str,
+        user_id: Optional[str] = None,
+        course_id: Optional[str] = None,
     ) -> list:
         """
         Convert the Input Parsing Module's ParsedContent format into
@@ -293,6 +318,8 @@ class InputParsingAdapter:
                     ),
                     "chunk_type": chunk_type,
                     "project_id": project_id,
+                    "user_id": user_id,
+                    "course_id": course_id,
                     "parsing_chunk_id": chunk.get("id"),
                 }
 
@@ -318,6 +345,8 @@ class InputParsingAdapter:
         parsed_content: dict,
         project_id: str,
         source_filename: str,
+        user_id: Optional[str] = None,
+        course_id: Optional[str] = None,
     ) -> list:
         """
         Handle the legacy video response format from the input parsing module.
@@ -351,6 +380,8 @@ class InputParsingAdapter:
                     "section_heading": section.get("heading", "Transcript"),
                     "chunk_type": "text",
                     "project_id": project_id,
+                    "user_id": user_id,
+                    "course_id": course_id,
                 },
             ))
 
