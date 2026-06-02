@@ -69,13 +69,13 @@ GROQ_API_KEY=your_key_here
 
 ### Running the Application
 
-#### Run Streamlit UI
+#### Run React UI
 
 ```bash
-streamlit run src/baylearn/ui/app.py
+python run.py ui
 ```
 
-Access at `http://localhost:8501`
+This starts the React TypeScript UI on `http://localhost:5173` and the local API on `http://127.0.0.1:8000`.
 
 #### Run FastAPI Server
 
@@ -92,6 +92,13 @@ Access at `http://localhost:8000`
 
 ```bash
 python -c "from baylearn import level_2_solver; print(level_2_solver('Solve 2x + 5 = 15'))"
+```
+
+#### Run the frontend directly
+
+```bash
+cd src/baylearn-frontend
+npm run dev
 ```
 
 ### Usage as a Module

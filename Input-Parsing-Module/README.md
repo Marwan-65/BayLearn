@@ -138,7 +138,7 @@ Open:
 
 - Method: `GET`
 - Path: `/files/{file_id}/chunks`
-- Purpose: Return all chunks for a specific file in chunk order
+- Purpose: Return the same `ParsedContent` structure as `POST /upload` for a specific file
 
 - Method: `DELETE`
 - Path: `/files/{file_id}`
@@ -262,21 +262,34 @@ Audio and video uploads now return the same `ParsedContent` structure as PDF/ima
 
 `GET /files/{file_id}/chunks`
 
+Returns the parsed content structure for a file. Unlike `POST /upload`, this response does not include `file_id` or `course_id`.
+
 ```json
-[
-	{
-		"chunk_id": "0f2dd7e7-0f53-4b0f-9d73-6f2a0f2a4bb3",
-		"content": "Welcome to the course...",
-		"chunk_index": 0,
-		"chunk_type": "transcript_segment",
-		"chunk_metadata": {
-			"chunk_type": "transcript_segment",
-			"start_seconds": 0,
-			"end_seconds": 18.42,
-			"language": "en"
+{
+	"source_type": "video",
+	"title": "Lecture 1",
+	"sections": [
+		{
+			"id": "7b9a2c41-7d3d-4c4b-81a5-3ec4d2a45f41",
+			"heading": "Lecture 1",
+			"page": null,
+			"chunks": [
+				{
+					"id": "0f2dd7e7-0f53-4b0f-9d73-6f2a0f2a4bb3",
+					"content": "Welcome to the course...",
+					"chunk_index": 0,
+					"metadata": {
+						"chunk_type": "transcript_segment",
+						"start_seconds": 0,
+						"end_seconds": 18.42,
+						"language": "en"
+					}
+				}
+			]
 		}
-	}
-]
+	],
+	"total_chunks": 1
+}
 ```
 
 ### File Metadata Response

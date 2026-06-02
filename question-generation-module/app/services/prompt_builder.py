@@ -3,7 +3,14 @@ from typing import List, Optional
 def format_few_shot_examples(examples: list) -> str:
     if not examples:
         return ""
-    lines = ["Examples of questions at the requested level (imitate their style and depth):"]
+    lines = [
+        "Reference questions written by expert instructors at the requested level. "
+        "Learn from HOW they probe understanding — the cognitive depth and the angle of "
+        "questioning — to guide your own questions. Do NOT copy their wording or topics, "
+        "and do NOT reuse facts/numbers from them. Every question you write must be "
+        "answerable strictly from the SOURCE MATERIAL provided, introducing no detail "
+        "that isn't in that source:"
+    ]
     for i, ex in enumerate(examples, 1):
         lines.append(f"\nExample {i} [level={ex.level}]:")
         lines.append(f"  Q: {ex.question}")
@@ -29,16 +36,43 @@ DIFFICULTY_GUIDANCE = {
     }
 }
 
+def _difficulty_header(kind: str, num_questions: int, difficulty: str,
+                       include_guidance: bool) -> str:
+    """
+    The difficulty section of the prompt.
+
+    include_guidance=True  → explicit difficulty rules + verb patterns (default).
+    include_guidance=False → ablation: NO explicit rules; the model must infer the
+                             target level from the reference (ICL) questions. Used to
+                             isolate whether the examples alone carry the difficulty.
+    """
+    if include_guidance:
+        g = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
+        return (
+            f"Generate exactly {num_questions} {kind} at the difficulty level: "
+            f"{difficulty.upper()} ({g['description']}).\n\n"
+            f"LEVEL GUIDANCE: {g['instruction']}\n"
+            f"QUESTION PATTERNS TO USE: {g['examples']}"
+        )
+    return (
+        f"Generate exactly {num_questions} {kind}. Infer the target cognitive depth and "
+        f"difficulty from the REFERENCE QUESTIONS provided below and match their level — "
+        f"do not rely on any explicit difficulty rule."
+    )
+
+
 def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str,
-                     few_shot_examples: Optional[list] = None) -> tuple[str, str]:
+                     few_shot_examples: Optional[list] = None,
+                     include_guidance: bool = True) -> tuple[str, str]:
     """
     Returns (system_prompt, user_prompt) for MCQ generation.
 
     chunks_text: All retrieved chunk texts joined together
     difficulty: Difficulty level (easy, medium, hard)
     few_shot_examples: Optional list of ExampleEntry objects (from ExampleBank.retrieve)
+    include_guidance: include explicit difficulty rules (see _difficulty_header)
     """
-    diff_guide = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
+    header = _difficulty_header("multiple choice questions", num_questions, difficulty, include_guidance)
     examples_block = format_few_shot_examples(few_shot_examples or [])
 
     system_prompt = (
@@ -48,16 +82,13 @@ def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str,
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} multiple choice questions at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
-
-LEVEL GUIDANCE: {diff_guide['instruction']}
-QUESTION PATTERNS TO USE: {diff_guide['examples']}
+{header}
 
 {examples_block}
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question structure and content.
 
-The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
+The EXAMPLES above are reference questions at the target level. Ignore their
 format — generate your questions strictly in the multiple choice question format defined
 in the OUTPUT FORMAT section below.
 
@@ -86,9 +117,10 @@ Generate {num_questions} diverse questions now:
 
     
 def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: str,
-                            few_shot_examples: Optional[list] = None) -> tuple[str, str]:
-    
-    diff_guide = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
+                            few_shot_examples: Optional[list] = None,
+                            include_guidance: bool = True) -> tuple[str, str]:
+
+    header = _difficulty_header("short-answer questions", num_questions, difficulty, include_guidance)
     examples_block = format_few_shot_examples(few_shot_examples or [])
 
     system_prompt = (
@@ -98,16 +130,13 @@ def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: 
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} short-answer questions at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
-
-LEVEL GUIDANCE: {diff_guide['instruction']}
-QUESTION PATTERNS TO USE: {diff_guide['examples']}
+{header}
 
 {examples_block}
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
 
-The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
+The EXAMPLES above are reference questions at the target level. Ignore their
 format — generate your questions strictly in the short answer question format defined
 in the OUTPUT FORMAT section below.
 
@@ -138,9 +167,10 @@ Generate {num_questions} diverse questions now:
 
     
 def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: str,
-                            few_shot_examples: Optional[list] = None) -> tuple[str, str]:
-    
-    diff_guide = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
+                            few_shot_examples: Optional[list] = None,
+                            include_guidance: bool = True) -> tuple[str, str]:
+
+    header = _difficulty_header("true/false questions", num_questions, difficulty, include_guidance)
     examples_block = format_few_shot_examples(few_shot_examples or [])
 
     system_prompt = (
@@ -150,16 +180,13 @@ def build_true_false_prompt(chunks_text: str, num_questions: int, difficulty: st
     )
 
     user_prompt = f"""
-Generate exactly {num_questions} true/false questions at the difficulty level: {difficulty.upper()} ({diff_guide['description']}).
-
-LEVEL GUIDANCE: {diff_guide['instruction']}
-QUESTION PATTERNS TO USE: {diff_guide['examples']}
+{header}
 
 {examples_block}
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question focus and content.
 
-The EXAMPLES above illustrate the target DIFFICULTY LEVEL. Ignore their
+The EXAMPLES above are reference questions at the target level. Ignore their
 format — generate your questions strictly in the true/false question format defined
 in the OUTPUT FORMAT section below.
 

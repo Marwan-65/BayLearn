@@ -48,13 +48,20 @@ class JsonChunkRepository(AbstractChunkRepository):
     def _load(self) -> dict:
         """Read all data from the JSON file into memory.
 
-        If the file got corrupted by a rogue control character from a
-        previous parse, quarantine the bad copy and start fresh rather
-        than blocking every subsequent upload.
+        Handles two failure modes gracefully:
+        - File deleted at runtime (FileNotFoundError): recreate it and return {}.
+        - File corrupted by bad control chars from PDF/OCR (JSONDecodeError):
+          quarantine the bad copy and start fresh.
         """
         try:
             with open(self.storage_path, "r") as f:
                 return json.load(f)
+        except FileNotFoundError:
+            logger.warning(
+                f"{self.storage_path} was deleted at runtime; recreating it."
+            )
+            self._ensure_file_exists()
+            return {}
         except json.JSONDecodeError as e:
             backup = self.storage_path + ".corrupt"
             try:
@@ -72,6 +79,7 @@ class JsonChunkRepository(AbstractChunkRepository):
 
     def _save(self, data: dict):
         """Write all data back to the JSON file."""
+        self._ensure_file_exists()
         with open(self.storage_path, "w") as f:
             json.dump(data, f, indent=2)
 
@@ -113,6 +121,29 @@ class JsonChunkRepository(AbstractChunkRepository):
             )
             for c in raw_chunks
         ]
+
+    async def delete_chunks_by_source(self, project_id: str, source_filename: str):
+        """Remove all chunks whose metadata["source"] matches source_filename.
+
+        Called before re-uploading a file so stale chunks (e.g. with the old
+        chunk_type or missing image_path) don't stay in the buffer alongside
+        the freshly-parsed ones and cause Qdrant to return the wrong version.
+        """
+        data = self._load()
+        if project_id not in data:
+            return
+        before = len(data[project_id])
+        data[project_id] = [
+            c for c in data[project_id]
+            if c.get("metadata", {}).get("source") != source_filename
+        ]
+        removed = before - len(data[project_id])
+        if removed:
+            self._save(data)
+            logger.info(
+                f"Removed {removed} stale chunk(s) for source '{source_filename}' "
+                f"in project {project_id}"
+            )
 
     async def delete_project_chunks(self, project_id: str):
         data = self._load()

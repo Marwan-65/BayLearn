@@ -5,7 +5,8 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
     This sometimes causes: warnings , deadlocks in async apps (like FastAPI)
     So this avoids performance/debugging issues.
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
+import httpx
 from repositories.json_chunk_repository import JsonChunkRepository
 from helpers.config import get_settings
 from stores.LLM.LLMProviderFactory import LLMProviderFactory
@@ -24,10 +25,13 @@ from core.limiter import limiter
 
 app = FastAPI()
 
-# React (3000) , Vite (5173)
+# Allow any localhost / 127.0.0.1 origin on any port in dev. Vite falls back to
+# 5174, 5175, ... when 5173 is taken, and localhost != 127.0.0.1 to the browser,
+# so a fixed allowlist breaks CORS (server returns 200 but the browser blocks the
+# response, showing the frontend as "offline"). The regex covers all dev origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -122,6 +126,155 @@ async def startup_span():
 async def shutdown_span():
     app.vectordb_client.disconnect()
 
+
+@app.api_route("/users/{action}", methods=["GET", "POST", "PUT", "DELETE"])
+async def proxy_users_auth(action: str, request: Request):
+    """Proxy user auth requests to the Input Parsing Module."""
+    settings = get_settings()
+    url = f"{settings.INPUT_PARSING_MODULE_URL}/users/{action}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    async with httpx.AsyncClient() as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+        return Response(
+            content=res.content,
+            status_code=res.status_code,
+            media_type=res.headers.get("content-type")
+        )
+
+
+@app.api_route("/courses", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/courses/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def proxy_courses(request: Request, path: str = ""):
+    """Proxy course requests to the Input Parsing Module."""
+    settings = get_settings()
+    url = f"{settings.INPUT_PARSING_MODULE_URL}/courses"
+    if path:
+        url += f"/{path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    async with httpx.AsyncClient() as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+        return Response(
+            content=res.content,
+            status_code=res.status_code,
+            media_type=res.headers.get("content-type")
+        )
+
+
+@app.api_route("/files", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+@app.api_route("/files/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def proxy_files(request: Request, path: str = ""):
+    """Proxy file requests to the Input Parsing Module."""
+    settings = get_settings()
+    url = f"{settings.INPUT_PARSING_MODULE_URL}/files"
+    if path:
+        url += f"/{path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+
+        return Response(
+            content=res.content,
+            status_code=res.status_code,
+            media_type=res.headers.get("content-type")
+        )
+
+
+@app.api_route("/upload", methods=["POST", "OPTIONS"])
+async def proxy_upload(request: Request):
+    """Proxy file uploads to the Input Parsing Module."""
+    settings = get_settings()
+    url = f"{settings.INPUT_PARSING_MODULE_URL}/upload"
+    
+    # ADD THIS: Forward query parameters if they exist
+    if request.url.query:
+        url += f"?{request.url.query}"
+        
+    async with httpx.AsyncClient(timeout=300.0) as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+        return Response(
+            content=res.content,
+            status_code=res.status_code,
+            media_type=res.headers.get("content-type")
+        )
+
+
+@app.api_route("/api/v1/questions", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@app.api_route("/api/v1/questions/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_questions(request: Request, path: str = ""):
+    """Proxy question generation and adaptive polling to the QG Module."""
+    settings = get_settings()
+    base_url = getattr(settings, "QUESTION_GEN_MODULE_URL", "http://localhost:8001").rstrip("/")
+    url = f"{base_url}/api/v1/questions"
+    if path:
+        url += f"/{path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+        return Response(content=res.content, status_code=res.status_code, media_type=res.headers.get("content-type"))
+
+
+@app.api_route("/session", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@app.api_route("/session/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_session(request: Request, path: str = ""):
+    """Proxy session requests to the Adaptive Learning Module."""
+    settings = get_settings()
+    base_url = getattr(settings, "ADAPTIVE_LEARNING_MODULE_URL", "http://localhost:8002").rstrip("/")
+    url = f"{base_url}/session"
+    if path:
+        url += f"/{path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+        return Response(content=res.content, status_code=res.status_code, media_type=res.headers.get("content-type"))
+
+
+@app.api_route("/student", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@app.api_route("/student/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_student(request: Request, path: str = ""):
+    """Proxy student level requests to the Adaptive Learning Module."""
+    settings = get_settings()
+    base_url = getattr(settings, "ADAPTIVE_LEARNING_MODULE_URL", "http://localhost:8002").rstrip("/")
+    url = f"{base_url}/student"
+    if path:
+        url += f"/{path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        body = await request.body()
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        headers.pop("content-length", None)
+        res = await client.request(request.method, url, content=body, headers=headers)
+        return Response(content=res.content, status_code=res.status_code, media_type=res.headers.get("content-type"))
 
 app.include_router(base.base_router)
 app.include_router(nlp.nlp_router)

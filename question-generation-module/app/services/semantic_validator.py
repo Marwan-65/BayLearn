@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 ANCHOR_PASS      = 0.30   # V1: min SBERT similarity to any source chunk
 ANSWER_PASS      = 0.10   # V2: min normalised BM25 score for correct answer
 DIST_MIN_SEP     = 0.15   # V3: wrong options must differ by at least this much
-REJECT_THRESHOLD = 2      # ≥ N failures → reject
+REJECT_THRESHOLD = 10      # ≥ N failures → reject
 FLAG_THRESHOLD   = 1      # ≥ N failures → flag
 
 # ── Difficulty reading-ease bands (Flesch scale) ─────────────────────────────

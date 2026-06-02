@@ -10,8 +10,10 @@ class Settings(BaseSettings):
     GENERATION_BACKEND: str
     EMBEDDING_BACKEND: str
     GROQ_API_KEY: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
     # Model identifiers
     GENERATION_MODEL_ID: Optional[str] = None
+    GEMINI_MODEL_ID: Optional[str] = "gemini-2.5-flash"
     EMBEDDING_MODEL_ID: Optional[str] = None
     EMBEDDING_MODEL_SIZE: Optional[int] = None
 
@@ -73,8 +75,27 @@ class Settings(BaseSettings):
     RRF_K: Optional[int] = 60
     HYBRID_OVER_RETRIEVAL_MULTIPLIER: Optional[int] = 2
 
+    # Same-page image promotion: after text retrieval, also surface image
+    # chunks from the same pages so figures get rendered alongside answers.
+    SAME_PAGE_IMAGE_PROMOTION: Optional[bool] = True
+    SAME_PAGE_IMAGE_MAX: Optional[int] = 2
+    # When promoting an image, also pull this many text chunks within
+    # ±N chunk-ids of the image so the LLM gets the caption / surrounding
+    # paragraph that explains what the figure shows.
+    SAME_PAGE_IMAGE_NEIGHBOR_RADIUS: Optional[int] = 2
+    SAME_PAGE_IMAGE_NEIGHBORS_PER_IMAGE: Optional[int] = 2
+    # Cosine-similarity gate between (image's text description) and (query
+    # embedding). Images below this never get promoted, even if they live on
+    # the same page as a top text match. Tune higher for stricter relevance,
+    # lower for more visual content. 0.30 is a reasonable starting point.
+    IMAGE_PROMOTION_MIN_SIMILARITY: Optional[float] = 0.40
+
     class Config:
         env_file = ".env"
+        # Ignore env vars that aren't declared here (e.g. GEMINI_* added for other
+        # modules) instead of failing startup. Prevents the recurring
+        # "Extra inputs are not permitted" error when teammates add new .env keys.
+        extra = "ignore"
 
 
 def get_settings():
