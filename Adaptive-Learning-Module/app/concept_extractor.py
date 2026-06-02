@@ -431,7 +431,7 @@ def save_concepts(
             session.execute(text("""
                 INSERT INTO courses (id, name, created_at)
                 VALUES (:cid, :name, NOW())
-                ON CONFLICT (id) DO NOTHING
+                ON CONFLICT DO NOTHING
             """), {"cid": course_id, "name": course_name})
             print(f"[concept-db] Created course '{course_name}' (id={course_id}).")
         else:
