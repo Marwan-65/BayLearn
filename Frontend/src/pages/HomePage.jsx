@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import BaymaxSvg from "../components/BaymaxSvg";
 
-const API_BASE        = import.meta.env.VITE_API_BASE        || "http://127.0.0.1:8000";
-const VISUALIZER_BASE = import.meta.env.VITE_VISUALIZER_BASE || "http://localhost:8010";
+// Parser backend  — login, signup, courses, file upload
+const PARSER_API_BASE   = import.meta.env.VITE_PARSER_API_BASE   || "http://127.0.0.1:8000";
+// Adaptive backend — session/start, session/status, session/results
+const ADAPTIVE_API_BASE = import.meta.env.VITE_ADAPTIVE_API_BASE || "http://127.0.0.1:8002";
+const VISUALIZER_BASE   = import.meta.env.VITE_VISUALIZER_BASE   || "http://localhost:8010";
 
 const RAG_URL = import.meta.env.VITE_RAG_URL      || "http://localhost:5173";
 const EQ_URL  = import.meta.env.VITE_EQUATION_URL || "http://localhost:8501";
@@ -40,7 +43,7 @@ const MODULES = [
     color: "#d97706",
     fileMode: "one",
     hint: "Select exactly one file to animate",
-    url: null, // resolved at runtime via /v1/file-launch
+    url: null,
   },
   {
     id: "equation",
@@ -55,15 +58,15 @@ const MODULES = [
   },
 ];
 
-async function apiFetch(method, path, body, isForm = false) {
+async function apiFetch(method, path, body, isForm = false, base = PARSER_API_BASE) {
   const opts = {
     method,
     headers: isForm ? {} : { "Content-Type": "application/json" },
     body: isForm ? body : (body ? JSON.stringify(body) : undefined),
   };
-  const res = await fetch(`${API_BASE}${path}`, opts);
+  const res = await fetch(`${base}${path}`, opts);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(data.detail || data.error || `HTTP ${res.status}`);
   return data;
 }
 
@@ -76,15 +79,19 @@ export default function HomePage() {
 
   const [courses, setCourses]           = useState([]);
   const [selectedCourseId, setSelected] = useState(null);
-  const [filesMap, setFilesMap]         = useState({});   // courseId → file[]
+  const [filesMap, setFilesMap]         = useState({});
   const [toast, setToast]               = useState(null);
   const [showCreate, setShowCreate]     = useState(false);
   const [createForm, setCreateForm]     = useState({ name: "", description: "" });
   const [creating, setCreating]         = useState(false);
   const [uploading, setUploading]       = useState(false);
-  const [launchModule, setLaunchModule] = useState(null); // module obj
-  const [pickedFiles, setPickedFiles]   = useState([]);   // file_ids selected in modal
-  const [launching, setLaunching]       = useState(false); // animation API in-flight
+  const [launchModule, setLaunchModule] = useState(null);
+  const [pickedFiles, setPickedFiles]   = useState([]);
+  const [launching, setLaunching]       = useState(false);
+
+  // Question type selector — only used when launchModule.id === "quiz"
+  const [questionType, setQuestionType] = useState("mcq");
+
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -217,6 +224,7 @@ export default function HomePage() {
       return;
     }
     setPickedFiles([]);
+    setQuestionType("mcq"); // reset each time modal opens
     setLaunchModule(mod);
   }
 
@@ -225,6 +233,31 @@ export default function HomePage() {
     localStorage.setItem("baylearn:launch_module", launchModule.id);
     localStorage.setItem("baylearn:selected_files", JSON.stringify(pickedFiles));
     if (selectedCourseId) localStorage.setItem("baylearn:pid", selectedCourseId);
+
+    // ── Quiz / Question Studio: start a session first ─────────────────────
+    if (launchModule.id === "quiz") {
+      setLaunching(true);
+      try {
+        const _sessionUrl = `${ADAPTIVE_API_BASE}/session/start`;
+        console.log("[BayLearn] POST session/start →", _sessionUrl, { user_id: user.user_id, scope_ids: pickedFiles, question_type: questionType });
+        const sessionData = await apiFetch("POST", "/session/start", {
+          user_id:       user.user_id,
+          scope_ids:     pickedFiles,
+          question_type: questionType,
+        }, false, ADAPTIVE_API_BASE);
+        // Persist session info for QuestionStudioPage to pick up
+        localStorage.setItem("baylearn:session_id",    sessionData.session_id);
+        localStorage.setItem("baylearn:question_type", questionType);
+        setLaunchModule(null);
+        navigate("/question-studio");
+      } catch (err) {
+        showToast(err.message || "Failed to start session", "error");
+      } finally {
+        setLaunching(false);
+      }
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────
 
     if (launchModule.url && launchModule.url.startsWith("/")) {
       navigate(launchModule.url);
@@ -279,7 +312,6 @@ export default function HomePage() {
             <div style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>BayLearn</div>
             <div style={{ fontSize: 11, color: "#888" }}>Adaptive study hub</div>
           </div>
-          {/* Small Baymax mascot in header */}
           <div style={S.headerBaymax} title="Hello, I am Baymax. Your personal study companion.">
             <BaymaxSvg size={28} />
           </div>
@@ -341,7 +373,6 @@ export default function HomePage() {
         {/* ── Main ──────────────────────────────────────────────── */}
         <main style={S.main}>
           {!selectedCourse ? (
-            /* Empty state */
             <div style={S.emptyState}>
               <BaymaxSvg size={110} />
               <div style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginTop: 16 }}>
@@ -356,7 +387,6 @@ export default function HomePage() {
             </div>
           ) : (
             <div style={S.mainContent}>
-              {/* Course headline */}
               <div style={S.courseHeadline}>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>{selectedCourse.name}</div>
@@ -464,7 +494,7 @@ export default function HomePage() {
 
       {/* ── File selection / launch modal ─────────────────────── */}
       {launchModule && (
-        <Modal onClose={() => setLaunchModule(null)} wide>
+        <Modal onClose={() => { if (!launching) setLaunchModule(null); }} wide>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
             <div style={{ ...S.modEmoji, background: launchModule.gradient }}>{launchModule.emoji}</div>
             <div>
@@ -473,13 +503,46 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* ── Question type picker — only for quiz module ────── */}
+          {launchModule.id === "quiz" && (
+            <div style={{ marginTop: 14, marginBottom: 4 }}>
+              <label style={S.label}>Question type</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  { value: "mcq",          label: "Multiple Choice" },
+                  { value: "true_false",   label: "True / False"    },
+                  { value: "short_answer", label: "Short Answer"    },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setQuestionType(opt.value)}
+                    style={{
+                      flex: 1,
+                      padding: "8px 6px",
+                      border: `1.5px solid ${questionType === opt.value ? "#059669" : "#d6d6de"}`,
+                      borderRadius: 8,
+                      background: questionType === opt.value ? "#ecfdf5" : "#fafafd",
+                      color: questionType === opt.value ? "#059669" : "#6b7280",
+                      fontSize: 12,
+                      fontWeight: questionType === opt.value ? 700 : 500,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {allFiles.length === 0 ? (
             <div style={{ textAlign: "center", padding: "32px 0", color: "#999", fontSize: 13 }}>
               No files uploaded yet. Add materials to a course first.
             </div>
           ) : (
-            <div style={{ marginTop: 16, maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
-              {/* Group files by course */}
+            <div style={{ marginTop: 16, maxHeight: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
               {courses.map(c => {
                 const cFiles = filesMap[c.course_id] || [];
                 if (cFiles.length === 0) return null;
@@ -524,7 +587,9 @@ export default function HomePage() {
           {launching && (
             <div style={S.launchingBanner}>
               <span style={S.spinner} />
-              Analysing file and generating animation… this may take up to 30 s
+              {launchModule.id === "quiz"
+                ? "Starting adaptive session… this may take a moment"
+                : "Analysing file and generating animation… this may take up to 30 s"}
             </div>
           )}
 
@@ -535,7 +600,7 @@ export default function HomePage() {
               disabled={!canLaunch() || launching}
               style={{ ...S.primaryBtn, flex: 1, opacity: canLaunch() && !launching ? 1 : 0.45 }}
             >
-              {launching ? "Launching…" : `Launch ${launchModule.name} ↗`}
+              {launching ? "Starting…" : `Launch ${launchModule.name} ↗`}
             </button>
           </div>
         </Modal>
@@ -616,9 +681,7 @@ const S = {
   userPill:     { display: "flex", alignItems: "center", gap: 7, padding: "5px 10px", background: "#f4f4f8", borderRadius: 20, border: "1px solid #e6e6ec" },
   avatarSmall:  { width: 24, height: 24, borderRadius: 6, background: "linear-gradient(135deg,#6c63ff,#a78bfa)", color: "white", fontWeight: 700, fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center" },
   logoutBtn:    { padding: "6px 12px", border: "1px solid #e6e6ec", borderRadius: 8, background: "white", color: "#6b7280", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-
   body:         { display: "flex", flex: 1, minHeight: 0, overflow: "hidden" },
-
   sidebar:      { width: 260, flexShrink: 0, background: "white", borderRight: "1px solid #e6e6ec", display: "flex", flexDirection: "column", overflowY: "auto", padding: "16px 12px" },
   sideHeader:   { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   sideTitle:    { fontSize: 10, fontWeight: 700, letterSpacing: 1.2, color: "#888" },
@@ -630,7 +693,6 @@ const S = {
   courseDesc:   { fontSize: 11, color: "#6b7280", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   courseMeta:   { fontSize: 10, color: "#9ca3af", marginTop: 3 },
   deleteBtn:    { border: "none", background: "transparent", color: "#9ca3af", fontSize: 16, cursor: "pointer", padding: "0 2px", flexShrink: 0, lineHeight: 1, fontFamily: "inherit" },
-
   main:         { flex: 1, minWidth: 0, overflowY: "auto" },
   emptyState:   { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40 },
   mainContent:  { padding: "28px 32px", display: "flex", flexDirection: "column", gap: 28 },
@@ -644,29 +706,22 @@ const S = {
   fileIcon:     { fontSize: 18, flexShrink: 0 },
   fileName:     { fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   fileMeta:     { fontSize: 11, color: "#9ca3af", marginTop: 1 },
-
   modulesGrid:  { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 14 },
   modCard:      { background: "white", border: "1px solid #e6e6ec", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", transition: "box-shadow 0.2s, transform 0.2s" },
   modBanner:    { height: 64, display: "flex", alignItems: "center", justifyContent: "center" },
   modBody:      { padding: "12px 14px 10px", flex: 1 },
   modEmoji:     { width: 44, height: 44, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 },
   modLaunchBtn: { margin: "0 14px 14px", padding: "8px 0", border: "none", borderRadius: 7, color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-
   primaryBtn:   { padding: "9px 18px", border: "none", borderRadius: 8, background: "linear-gradient(135deg,#6c63ff,#a78bfa)", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" },
   ghostBtn:     { padding: "9px 18px", border: "1px solid #e6e6ec", borderRadius: 8, background: "white", color: "#6b7280", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" },
-
   label:        { fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: "#6b7280", textTransform: "uppercase", marginBottom: 5, display: "block" },
   input:        { width: "100%", padding: "9px 12px", border: "1px solid #d6d6de", borderRadius: 8, fontSize: 14, outline: "none", background: "#fafafd", fontFamily: "inherit", color: "#111827", boxSizing: "border-box" },
-
   overlay:      { position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200, padding: 16 },
   modal:        { width: "100%", background: "white", borderRadius: 14, padding: "28px 24px 24px", position: "relative", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" },
   modalClose:   { position: "absolute", top: 14, right: 16, background: "none", border: "none", fontSize: 22, color: "#888", cursor: "pointer", lineHeight: 1 },
-
   fileGroupLabel: { fontSize: 10, fontWeight: 700, letterSpacing: 1, color: "#9ca3af", padding: "8px 0 4px", textTransform: "uppercase" },
   filePickRow:  { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "1px solid #e6e6ec", borderRadius: 7, cursor: "pointer", transition: "all 0.15s", marginBottom: 4 },
-
   toast:        { position: "fixed", bottom: 20, right: 20, padding: "10px 16px", background: "white", border: "1px solid #d6d6de", borderRadius: 10, fontSize: 13, boxShadow: "0 4px 12px rgba(0,0,0,0.08)", zIndex: 300, maxWidth: 320 },
-
   launchingBanner: { marginTop: 16, padding: "10px 14px", background: "#fef3c7", border: "1px solid #fcd34d", borderRadius: 8, fontSize: 13, color: "#92400e", display: "flex", alignItems: "center", gap: 10 },
   spinner:      { display: "inline-block", width: 14, height: 14, border: "2px solid #f59e0b", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite", flexShrink: 0 },
 };
