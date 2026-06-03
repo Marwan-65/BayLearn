@@ -49,6 +49,7 @@ class AblationRecord(BaseModel):
     validator_overall_score: float = 1.0
     validator_failure_count: int = 0
     failed_validators: str = "" # Comma separated list of V1, V2 etc.
+    validator_details: str = "" # The exact reasons why it failed (useful for tuning thresholds)
 
 # ==========================================
 # 2. Bypasses (Mocks) for Layer Toggling
@@ -143,6 +144,7 @@ class AblationHarness:
         try:
             questions, _ = await service.generate(
                 project_id=self.project_id,
+                num_questions=1,
                 difficulty=difficulty,
                 question_type=q_type,
                 topic=topic
@@ -150,7 +152,9 @@ class AblationHarness:
             if not questions:
                 empty_output = True
         except Exception as e:
+            print(f"      [!] Generation Exception: {e}")
             parse_success = False
+            empty_output = True
             
         latency = time.time() - start_time
         
@@ -181,13 +185,18 @@ class AblationHarness:
             
             # 3. Shadow Validation for A and B, Real Validation for C
             if condition in ["A", "B"]:
-                # Run the validator silently just to record what it *would* have scored
-                shadow_report = self.shadow_validator.validate_all([q], ["dummy text chunk"])[0] 
+                # Run the validator silently just to record what it *would* have scored.
+                # We fetch the real chunks so V1 (Anchoring) and V2 (Answer overlap) work accurately.
+                dummy_chunks = await self.chunk_fetcher.fetch_relevant_chunks(self.project_id, topic, limit=1)
+                c_texts = [c.get("payload", {}).get("text", "") for c in dummy_chunks]
+                shadow_report = self.shadow_validator.validate_all([q], c_texts)[0] 
                 
                 record.validator_decision = shadow_report.decision
                 record.validator_overall_score = shadow_report.overall_score
                 record.validator_failure_count = shadow_report.failure_count
-                record.failed_validators = ",".join([r.validator for r in shadow_report.results if not r.passed])
+                failed_results = [r for r in shadow_report.results if not r.passed]
+                record.failed_validators = ",".join([r.validator for r in failed_results])
+                record.validator_details = " | ".join([r.detail for r in failed_results])
             else:
                 rep = getattr(q, "validation_report", {}) or {}
                 if hasattr(rep, "decision"):
@@ -195,13 +204,17 @@ class AblationHarness:
                     record.validator_overall_score = rep.overall_score
                     record.validator_failure_count = rep.failure_count
                     res = getattr(rep, "results", getattr(rep, "validators", []))
-                    record.failed_validators = ",".join([getattr(r, "validator", "") for r in res if not getattr(r, "passed", True)])
+                    failed_results = [r for r in res if not getattr(r, "passed", True)]
+                    record.failed_validators = ",".join([getattr(r, "validator", "") for r in failed_results])
+                    record.validator_details = " | ".join([getattr(r, "detail", "") for r in failed_results])
                 elif isinstance(rep, dict):
                     record.validator_decision = rep.get("decision", "pass")
                     record.validator_overall_score = rep.get("overall_score", 1.0)
                     record.validator_failure_count = rep.get("failure_count", 0)
                     res = rep.get("results", rep.get("validators", []))
-                    record.failed_validators = ",".join([r.get("validator", "") for r in res if isinstance(r, dict) and not r.get("passed", True)])
+                    failed_results = [r for r in res if isinstance(r, dict) and not r.get("passed", True)]
+                    record.failed_validators = ",".join([r.get("id", r.get("validator", "")) for r in failed_results])
+                    record.validator_details = " | ".join([r.get("detail", "") for r in failed_results])
             
         self.records.append(record)
         return record

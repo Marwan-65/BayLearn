@@ -1,7 +1,4 @@
-"""Basic examples of using the BayLearn module."""
-
 from baylearn import level_2_solver, solve_math_string
-
 
 def example_basic_equation():
     """Example 1: Solve a basic equation."""
@@ -39,7 +36,6 @@ def example_derivative():
     result = level_2_solver(query)
     print(f"Query: {query}")
     print(f"Result:\n{result}\n")
-
 
 def example_integral():
     """Example 4: Compute integral."""

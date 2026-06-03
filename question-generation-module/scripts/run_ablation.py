@@ -1,8 +1,10 @@
 import asyncio
 import os
 import csv
+import re
 import json
 import random
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -18,7 +20,6 @@ from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
 from app.services.example_bank import ExampleBank
 from scripts.ablation_harness import AblationHarness
 from scripts.generate_baseline_vs_icl import TEST_CHUNKS, make_fake_chunk_fetcher
-from scripts.llm_judge_baseline_vs_icl import build_judge_prompt, JUDGE_SYSTEM_PROMPT, parse_judge_response
 
 load_dotenv(ROOT / ".env")
 
@@ -54,6 +55,60 @@ def avg_self_bleu(qs):
         
     return sum(bleu_scores) / len(bleu_scores)
 
+# ── Bespoke Ablation Judge Prompt ─────────────────────────────────────────────
+ABLATION_JUDGE_SYSTEM_PROMPT = (
+    "You are a strict academic evaluator. Your job is to compare two sets of "
+    "multiple-choice questions generated from the same text.\n"
+    "Output VALID JSON only — no markdown, no prose outside the JSON.\n"
+)
+
+def build_ablation_judge_prompt(chunk_text: str, set_a: list[str], set_b: list[str]) -> str:
+    a_block = "\n".join(f"  A{i+1}. {q}" for i, q in enumerate(set_a))
+    b_block = "\n".join(f"  B{i+1}. {q}" for i, q in enumerate(set_b))
+    return f"""SOURCE MATERIAL:
+{chunk_text}
+
+RUBRIC:
+1. TOPICAL_DIVERSITY (Tests Context Enrichment): Does the set cover a broad range of concepts from the text? Punish sets that repeatedly ask about the exact same narrow sentence or concept.
+2. DISTRACTOR_QUALITY (Tests Semantic Validation): Are the wrong options (distractors) plausible but clearly incorrect? Punish sets that have near-identical options, duplicate labels, or completely off-topic garbage options.
+3. SOURCE_GROUNDING (Tests Hallucination): Can the correct answer be explicitly derived from the text provided? Punish sets that invent facts not present in the source material.
+4. OVERALL: Which set is strictly better for an exam?
+
+STEP 1 — For each of the 4 dimensions above, decide which set is better ("A", "B", or "tie") and give a one-sentence reason.
+
+SET A:
+{a_block}
+
+SET B:
+{b_block}
+
+OUTPUT FORMAT — return ONLY this JSON object:
+{{
+  "topical_diversity":  {{"winner": "A" | "B" | "tie", "reason": "..."}},
+  "distractor_quality": {{"winner": "A" | "B" | "tie", "reason": "..."}},
+  "source_grounding":   {{"winner": "A" | "B" | "tie", "reason": "..."}},
+  "overall":            {{"winner": "A" | "B" | "tie", "reason": "..."}}
+}}"""
+
+def parse_ablation_judge_response(text: str) -> dict:
+    m = re.search(r"\{.*\}", text.strip(), re.DOTALL)
+    return json.loads(m.group(0)) if m else {}
+
+
+def safe_judge_generate(client, sys_prompt, user_prompt, max_retries=3):
+    """Wraps the LLM judge call with exponential backoff for network/rate-limit errors."""
+    for attempt in range(max_retries):
+        try:
+            return client.generate(sys_prompt, user_prompt, temperature=0.2, max_tokens=1200)
+        except Exception as e:
+            print(f"      [!] Judge API Error (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                sleep_time = (2 ** attempt) * 5
+                print(f"      Retrying in {sleep_time} seconds...")
+                time.sleep(sleep_time)
+    print("      [!] Max retries reached for Judge. Returning empty JSON.")
+    return "{}"
+
 async def main():
     print("=" * 60)
     print("BayLearn Ablation Study: Execution Pipeline")
@@ -61,8 +116,17 @@ async def main():
 
     # 1. Initialize Core Models
     api_key = os.environ.get("GROQ_API_KEY")
-    llm_client = QuestionGenLLMClient(api_key=api_key, model_id=os.environ.get("GROQ_MODEL_ID", "llama-3.1-8b-instant"))
-    judge_client = llm_client # Reusing for the judge
+    
+    # Decouple generating model from judging model to avoid self-bias
+    gen_model = os.environ.get("GROQ_MODEL_ID", "llama-3.1-8b-instant")
+    llm_client = QuestionGenLLMClient(api_key=api_key, model_id=gen_model)
+    
+    judge_model = os.environ.get("JUDGE_GROQ_MODEL", "llama-3.3-70b-versatile")
+    if judge_model == gen_model: # Force them to be different
+        judge_model = "llama-3.3-70b-versatile" if gen_model != "llama-3.3-70b-versatile" else "llama-3.1-8b-instant"
+    judge_client = QuestionGenLLMClient(api_key=api_key, model_id=judge_model)
+    print(f"Generator Model: {gen_model}")
+    print(f"Judge Model: {judge_model}")
     
     classifier = BloomClassifier.load(ROOT / "models" / "bloom_distilbert")
     bank = ExampleBank.load(ROOT / "data" / "processed" / "example_bank.jsonl")
@@ -79,6 +143,7 @@ async def main():
     
     generation_records = []
     judge_records = []
+    stats_records = []
 
     for chunk in TEST_CHUNKS:
         topic = chunk["topic"]
@@ -124,7 +189,14 @@ async def main():
                 q_embs = embedder.encode(qs, convert_to_numpy=True, show_progress_bar=False, normalize_embeddings=True)
                 sims = [cosine_sim(qv, chunk_embs[chunk_id]) for qv in q_embs]
                 
-                print(f"    Cond {condition} Stats: Distinct 2-Grams: {distinct_n_grams(qs):.2f} | Avg Self-BLEU: {avg_self_bleu(qs):.2f} | Grounding: {sum(sims)/len(sims):.2f}")
+                d2g = distinct_n_grams(qs)
+                bleu = avg_self_bleu(qs)
+                grnd = sum(sims)/len(sims)
+                print(f"    Cond {condition} Stats: Distinct 2-Grams: {d2g:.2f} | Avg Self-BLEU: {bleu:.2f} | Grounding: {grnd:.2f}")
+                stats_records.append({
+                    "chunk": chunk_id, "level": diff_b6, "condition": condition,
+                    "distinct_2_grams": d2g, "avg_self_bleu": bleu, "grounding": grnd
+                })
 
             # Phase 5: LLM Judge Head-to-Head
             rng = random.Random(42)
@@ -146,16 +218,21 @@ async def main():
                 flip = rng.random() < 0.5
                 cond_1, cond_2 = ("B", "A") if flip else ("A", "B")
                 set_1, set_2 = cell_questions[cond_1], cell_questions[cond_2]
-                prompt = build_judge_prompt(chunk_text, diff_b6, set_1, set_2)
-                response = judge_client.generate(JUDGE_SYSTEM_PROMPT, prompt, temperature=0.2, max_tokens=1200)
-                verdict = parse_judge_response(response)
+                prompt = build_ablation_judge_prompt(chunk_text, set_1, set_2)
+                response = safe_judge_generate(judge_client, ABLATION_JUDGE_SYSTEM_PROMPT, prompt)
+                verdict = parse_ablation_judge_response(response)
                 
                 judge_records.append({
                     "chunk": chunk_id, "level": diff_b6, "comparison": "A_vs_B",
                     "base_condition_was": "set_2" if flip else "set_1",
-                    "answerability_winner": resolve_winner(verdict["answerability"]["winner"], cond_1, cond_2) if verdict else "error",
-                    "difficulty_winner": resolve_winner(verdict["difficulty_match"]["winner"], cond_1, cond_2) if verdict else "error",
-                    "overall_winner": resolve_winner(verdict["overall"]["winner"], cond_1, cond_2) if verdict else "error",
+                    "diversity_winner": resolve_winner(verdict.get("topical_diversity", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "diversity_reason": verdict.get("topical_diversity", {}).get("reason", ""),
+                    "distractor_winner": resolve_winner(verdict.get("distractor_quality", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "distractor_reason": verdict.get("distractor_quality", {}).get("reason", ""),
+                    "grounding_winner": resolve_winner(verdict.get("source_grounding", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "grounding_reason": verdict.get("source_grounding", {}).get("reason", ""),
+                    "overall_winner": resolve_winner(verdict.get("overall", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "overall_reason": verdict.get("overall", {}).get("reason", ""),
                 })
 
             # Comparison 2: B vs C (Impact of Semantic Validation)
@@ -163,16 +240,21 @@ async def main():
                 flip = rng.random() < 0.5
                 cond_1, cond_2 = ("C", "B") if flip else ("B", "C")
                 set_1, set_2 = cell_questions[cond_1], cell_questions[cond_2]
-                prompt = build_judge_prompt(chunk_text, diff_b6, set_1, set_2)
-                response = judge_client.generate(JUDGE_SYSTEM_PROMPT, prompt, temperature=0.2, max_tokens=1200)
-                verdict = parse_judge_response(response)
+                prompt = build_ablation_judge_prompt(chunk_text, set_1, set_2)
+                response = safe_judge_generate(judge_client, ABLATION_JUDGE_SYSTEM_PROMPT, prompt)
+                verdict = parse_ablation_judge_response(response)
                 
                 judge_records.append({
                     "chunk": chunk_id, "level": diff_b6, "comparison": "B_vs_C",
                     "base_condition_was": "set_2" if flip else "set_1",
-                    "answerability_winner": resolve_winner(verdict["answerability"]["winner"], cond_1, cond_2) if verdict else "error",
-                    "difficulty_winner": resolve_winner(verdict["difficulty_match"]["winner"], cond_1, cond_2) if verdict else "error",
-                    "overall_winner": resolve_winner(verdict["overall"]["winner"], cond_1, cond_2) if verdict else "error",
+                    "diversity_winner": resolve_winner(verdict.get("topical_diversity", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "diversity_reason": verdict.get("topical_diversity", {}).get("reason", ""),
+                    "distractor_winner": resolve_winner(verdict.get("distractor_quality", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "distractor_reason": verdict.get("distractor_quality", {}).get("reason", ""),
+                    "grounding_winner": resolve_winner(verdict.get("source_grounding", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "grounding_reason": verdict.get("source_grounding", {}).get("reason", ""),
+                    "overall_winner": resolve_winner(verdict.get("overall", {}).get("winner"), cond_1, cond_2) if verdict else "error",
+                    "overall_reason": verdict.get("overall", {}).get("reason", ""),
                 })
 
     # Export
@@ -184,6 +266,12 @@ async def main():
             writer.writeheader()
             writer.writerows(judge_records)
         
+    if stats_records:
+        with open(OUT_DIR / "ablation_stats.csv", "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=stats_records[0].keys())
+            writer.writeheader()
+            writer.writerows(stats_records)
+            
     print("\nStudy complete. Artifacts saved to data/processed/ablation/")
 
 if __name__ == "__main__":

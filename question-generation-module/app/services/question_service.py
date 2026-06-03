@@ -57,6 +57,7 @@ class QuestionGenerationService:
     async def generate(
         self,
         project_id: str,
+        num_questions: int,        
         difficulty: str,
         question_type: str,
         topic: Optional[str] = None,
@@ -139,13 +140,16 @@ class QuestionGenerationService:
 
         while attempts < MAX_REJECTION_RETRIES:
             attempts += 1
-            questions = await self._generate_with_retry(
-                question_type=question_type,
-                chunks_text=chunks_text,
-                difficulty=difficulty,
-                target_level=target_level,
-                few_shot=few_shot,
-            )
+            if attempts > 1:
+                questions = await self._generate_with_retry(
+                    question_type=question_type,
+                    chunks_text=chunks_text,
+                    num_questions=num_questions,
+                    difficulty=difficulty,
+                    target_level=target_level,
+                    few_shot=few_shot,
+                    include_guidance=include_guidance,
+                )
 
             if not questions:
                 logger.warning("Generation attempt %d returned no questions. Retrying.", attempts)

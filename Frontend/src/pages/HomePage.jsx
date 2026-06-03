@@ -517,7 +517,6 @@ async function uploadFile(e) {
                 {[
                   { value: "mcq",          label: "Multiple Choice" },
                   { value: "true_false",   label: "True / False"    },
-                  { value: "short_answer", label: "Short Answer"    },
                 ].map(opt => (
                   <button
                     key={opt.value}
