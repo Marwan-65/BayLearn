@@ -11,12 +11,12 @@ endpoint definitions. This module owns:
   - _retrieval_metadata    : response-shape helper for retrieval metadata
   - _handle_rag_only       : intent handler for rag_only
   - _handle_equation_from_context : intent handler + equation module call
-  - _handle_animation_from_context : intent handler + animation extraction
   - _run_batch             : evaluate a batch of test cases under a config
   - _avg_latency           : average timings across a batch
 """
 
 import logging
+import os
 import time
 from typing import Optional
 
@@ -24,6 +24,7 @@ import httpx
 from fastapi import Request
 
 from controllers import NLPController
+from helpers.config import get_settings
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -58,6 +59,7 @@ def _run_rag(
     enable_hybrid: Optional[bool] = None,
     enable_reranker: Optional[bool] = None,
     enable_compression: Optional[bool] = None,
+    chat_history: list = None,
 ) -> dict:
     retrieval = controller.retrieve_sources(
         project_id=project_id,
@@ -71,10 +73,6 @@ def _run_rag(
     )
 
     if "error" in retrieval:
-        # Retrieval found nothing (empty collection, no match, etc.).
-        # Instead of failing, answer conversationally using the LLM directly.
-        # This covers greetings, thanks, general knowledge questions, and
-        # any case where the user hasn't uploaded matching materials yet.
         try:
             system_prompt = (
                 "You are BayLearn, a friendly engineering tutor. The student's "
@@ -83,9 +81,16 @@ def _run_rag(
                 "from your own knowledge. Do NOT mention that their materials don't "
                 "cover it — just answer the question directly. Keep answers concise."
             )
+            prior = []
+            if chat_history:
+                for msg in chat_history[-6:]:
+                    role = msg.get("role", "")
+                    content = (msg.get("content") or "")[:800]
+                    if role in ("user", "assistant") and content:
+                        prior.append({"role": role, "content": content})
             answer = controller.generation_client.generate_text(
                 prompt=question,
-                chat_history=[{"role": "system", "content": system_prompt}],
+                chat_history=[{"role": "system", "content": system_prompt}] + prior,
             )
         except Exception:
             answer = (
@@ -109,6 +114,7 @@ def _run_rag(
         question=question,
         filtered_results=filtered_results,
         timings=timings,
+        chat_history=chat_history,
     )
     timings["total_ms"] = sum(
         v for v in timings.values() if isinstance(v, (int, float))
@@ -122,9 +128,35 @@ def _run_rag(
     }
 
 
+def _image_url(raw_path: Optional[str]) -> Optional[str]:
+    """Convert a local image_path (e.g. 'extracted_images/page1_1.png')
+    to a full URL served by the Input Parsing Module's /images/ endpoint."""
+    if not raw_path:
+        return None
+    if raw_path.startswith("http"):
+        return raw_path
+    settings = get_settings()
+    base = getattr(settings, "INPUT_PARSING_MODULE_URL", None)
+    if not base:
+        return None
+    filename = os.path.basename(raw_path)
+    return f"{base.rstrip('/')}/images/{filename}"
+
+
 def _sources_payload(filtered_results: list, controller: NLPController) -> dict:
+    source_meta = [
+        {
+            "chunk_type": r["payload"].get("chunk_type", "text"),
+            "image_url": _image_url(r["payload"].get("image_path")),
+            "page": r["payload"].get("page"),
+            "source": r["payload"].get("source"),
+            "section_heading": r["payload"].get("section_heading"),
+        }
+        for r in filtered_results
+    ]
     return {
         "sources": [r["payload"].get("text", "") for r in filtered_results],
+        "source_meta": source_meta,
         "scores": [r["score"] for r in filtered_results],
         "rerank_scores": (
             [r.get("rerank_score") for r in filtered_results]
@@ -152,13 +184,14 @@ def _retrieval_metadata(retrieval: dict) -> dict:
 # Intent-first handlers
 # =====================================================================
 
-async def _handle_rag_only(controller, project_id, question, limit):
+async def _handle_rag_only(controller, project_id, question, limit, chat_history=None):
     return _run_rag(
         controller=controller,
         project_id=project_id,
         question=question,
         limit=limit,
         intent="rag_only",
+        chat_history=chat_history,
     )
 
 
@@ -316,78 +349,6 @@ async def _handle_equation_from_context(
         **_retrieval_metadata(retrieval),
     }
 
-
-async def _handle_animation_from_context(
-    controller, project_id, question, limit, extracted_params, confidence
-):
-    retrieval = controller.retrieve_sources(
-        project_id=project_id,
-        question=question,
-        limit=limit,
-        intent="animation_from_context",
-    )
-    if "error" in retrieval:
-        # Any retrieval error → fall back to a best-effort spec built from
-        # the classifier hints alone.
-        ds = (extracted_params or {}).get("data_structure") or "linked_list"
-        op = (extracted_params or {}).get("operation") or "insertAtTail"
-        vals = (extracted_params or {}).get("initial_values") or [3, 7, 1, 9, 4]
-        fallback_spec = {
-            "data_structure": ds,
-            "operation": op,
-            "initial_values": vals,
-            "source": "fallback_from_question",
-        }
-        return {
-            "intent": "animation_from_context",
-            "intent_confidence": confidence,
-            "query": question,
-            "answer": (
-                "I built an animation spec from your question. "
-                "Open **Animation Lab ↗** in the sidebar to run it."
-            ),
-            "animation_spec": fallback_spec,
-            "sources": [],
-            "scores": [],
-            "num_sources": 0,
-            **_retrieval_metadata(retrieval),
-        }
-
-    filtered_results = retrieval["filtered_results"]
-    timings = retrieval["timings"]
-
-    t0 = time.time()
-    animation_spec = controller.extract_animation_params_from_sources(
-        filtered_results=filtered_results,
-        question=question,
-        classifier_params=extracted_params,
-    )
-    timings["animation_extraction_ms"] = round((time.time() - t0) * 1000)
-
-    if animation_spec:
-        answer = (
-            "I built an animation spec from your materials and question. "
-            "Open **Animation Lab ↗** in the sidebar to run it."
-        )
-    else:
-        answer = controller.generate_answer_from_sources(
-            question=question,
-            filtered_results=filtered_results,
-            timings=timings,
-        )
-    timings["total_ms"] = sum(
-        v for v in timings.values() if isinstance(v, (int, float))
-    )
-
-    return {
-        "intent": "animation_from_context",
-        "intent_confidence": confidence,
-        "query": question,
-        "answer": answer,
-        "animation_spec": animation_spec,
-        **_sources_payload(filtered_results, controller),
-        **_retrieval_metadata(retrieval),
-    }
 
 
 # =====================================================================
