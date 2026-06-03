@@ -6,28 +6,27 @@ from typing import Optional
 from app.models.database import get_db
 from app.services.db_service import DBService
 
-router = APIRouter(prefix="/courses", tags=["courses"])
-db_service = DBService()
+router=APIRouter(prefix="/courses", tags=["courses"])
+db_service =DBService()
 
 
-# ── Request bodies ────────────────────────────────────────────────
+# req bodies
 
 class CreateCourseRequest(BaseModel):
     user_id: str
     name: str
-    description: Optional[str] = None
+    description: Optional[str] =None
 
 class UpdateCourseRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] =   None
+    description: Optional[str] =None
 
 
-# ── Helpers ───────────────────────────────────────────────────────
 
 def _course_response(course):
     return {
         "course_id"  : course.id,
-        "name"       : course.name,
+        "name"  : course.name,
         "description": course.description,
         "created_at" : course.created_at.isoformat(),
     }
@@ -43,15 +42,15 @@ def _file_response(f):
     }
 
 
-# ── Endpoints ─────────────────────────────────────────────────────
+# endpoints
 
 @router.post("")
 def create_course(body: CreateCourseRequest, db: Session = Depends(get_db)):
-    """Create a new course for a user."""
+    """create a new course for a user."""
     course = db_service.create_course(
-        db          = db,
-        user_id     = body.user_id,
-        name        = body.name,
+        db   = db,
+        user_id    = body.user_id,
+        name  = body.name,
         description = body.description,
     )
     return _course_response(course)
@@ -59,27 +58,29 @@ def create_course(body: CreateCourseRequest, db: Session = Depends(get_db)):
 
 @router.get("/user/{user_id}")
 def get_user_courses(user_id: str, db: Session = Depends(get_db)):
-    """Get all courses for a user."""
-    courses = db_service.get_courses_by_user(db, user_id)
+    """Get all courses for a user"""
+    courses =   db_service.get_courses_by_user(db, user_id)
     return [_course_response(c) for c in courses]
 
 
 @router.get("/{course_id}")
 def get_course(course_id: str, db: Session = Depends(get_db)):
     """Get a single course by ID."""
-    course = db_service.get_course_by_id(db, course_id)
+    course   =db_service.get_course_by_id(db, course_id)
     if not course:
+
         raise HTTPException(status_code=404, detail="Course not found")
     return _course_response(course)
 
 
 @router.patch("/{course_id}")
 def update_course(course_id: str, body: UpdateCourseRequest, db: Session = Depends(get_db)):
-    """Update a course name or description."""
-    course = db_service.update_course(
-        db          = db,
-        course_id   = course_id,
-        name        = body.name,
+    """Update a course name or description"""
+
+    course =db_service.update_course(
+        db   = db,
+        course_id  = course_id,
+        name   = body.name,
         description = body.description,
     )
     if not course:
@@ -89,12 +90,12 @@ def update_course(course_id: str, body: UpdateCourseRequest, db: Session = Depen
 
 @router.delete("/{course_id}")
 def delete_course(course_id: str, db: Session = Depends(get_db)):
+    """delete a course band set file course_id is to NULL 
     """
-    Delete a course. Files inside it are NOT deleted — their course_id
-    is set to NULL so they become uncategorized uploads.
-    """
-    deleted = db_service.delete_course(db, course_id)
+
+    deleted= db_service.delete_course(db, course_id)
     if not deleted:
+
         raise HTTPException(status_code=404, detail="Course not found")
     return {"message": "Course deleted. Files have been moved to uncategorized."}
 
@@ -102,8 +103,11 @@ def delete_course(course_id: str, db: Session = Depends(get_db)):
 @router.get("/{course_id}/files")
 def get_course_files(course_id: str, db: Session = Depends(get_db)):
     """Get all files uploaded to a course."""
-    course = db_service.get_course_by_id(db, course_id)
-    if not course:
+
+    course= db_service.get_course_by_id(db, course_id)
+
+    if  not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    files = db_service.get_files_by_course(db, course_id)
+    
+    files=db_service.get_files_by_course(db, course_id)
     return [_file_response(f) for f in files]
