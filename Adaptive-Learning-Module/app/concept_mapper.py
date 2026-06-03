@@ -33,9 +33,9 @@ Required .env key:
 
 Optional .env keys:
     BI_ENCODER_MODEL    (default: sentence-transformers/all-mpnet-base-v2)
-    CROSS_ENCODER_MODEL (default: cross-encoder/ms-marco-MiniLM-L-6-v2)
-    TOP_K               (default: 10)
-    MATCH_THRESHOLD     (default: 0.50)
+    CROSS_ENCODER_MODEL (default: cross-encoder/nli-deberta-v3-small)
+    TOP_K               (default: 15)
+    MATCH_THRESHOLD     (default: 0.80)
     CACHE_DIR           (default: ./cache)
 """
 
@@ -63,9 +63,9 @@ CONCEPT_DB_URL      = os.environ.get("CONCEPT_DB_URL", "").strip()
 BI_ENCODER_MODEL    = os.environ.get("BI_ENCODER_MODEL",
                                      "sentence-transformers/all-mpnet-base-v2")
 CROSS_ENCODER_MODEL = os.environ.get("CROSS_ENCODER_MODEL",
-                                     "cross-encoder/ms-marco-MiniLM-L-6-v2")
-TOP_K           = int(os.environ.get("TOP_K",           "10"))
-MATCH_THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.50"))
+                                     "cross-encoder/nli-deberta-v3-small")
+TOP_K           = int(os.environ.get("TOP_K",           "15"))
+MATCH_THRESHOLD = float(os.environ.get("MATCH_THRESHOLD", "0.80"))
 CACHE_DIR       = Path(os.environ.get("CACHE_DIR",       "./cache"))
 
 if not CONCEPT_DB_URL:
@@ -367,9 +367,21 @@ def map_concepts_for_course(
 
         # Stage 3 — cross-encoder reranking
         pairs = [(query_text, _node_to_doc(c[0])) for c in candidates]
-        raw_scores: np.ndarray = cross_encoder.predict(
-            pairs, show_progress_bar=False)
-        scores = np.array([_sigmoid(float(s)) for s in raw_scores])
+        raw_scores: np.ndarray = np.array(cross_encoder.predict(
+            pairs, show_progress_bar=False))
+
+        # NLI models (e.g. nli-deberta-v3-small) return shape (N, 3):
+        #   col 0 = contradiction, col 1 = entailment, col 2 = neutral
+        # Apply softmax across all 3 columns so the result is a true
+        # probability in [0, 1].  Use the entailment column as confidence.
+        #
+        # Single-score models (e.g. ms-marco) return shape (N,) as raw
+        # logits — apply sigmoid to map to [0, 1].
+        if raw_scores.ndim == 2:
+            exp = np.exp(raw_scores - raw_scores.max(axis=1, keepdims=True))
+            scores = (exp / exp.sum(axis=1, keepdims=True))[:, 1].astype(float)
+        else:
+            scores = np.array([_sigmoid(float(s)) for s in raw_scores])
 
         best_pos   = int(np.argmax(scores))
         best_score = float(scores[best_pos])

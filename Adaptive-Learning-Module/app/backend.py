@@ -132,6 +132,16 @@ swagger_template = {
             "type": "object",
             "properties": {"error": {"type": "string"}},
         },
+        "SessionTerminateRequest": {
+            "type": "object",
+            "required": ["session_id"],
+            "properties": {
+                "session_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440002",
+                },
+            },
+        },
     },
 }
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
@@ -159,7 +169,7 @@ def add_cors_headers(response):
     if origin in ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, DELETE"
         response.headers["Access-Control-Allow-Headers"] = ", ".join(sorted(ALLOWED_HEADERS))
         response.headers["Access-Control-Max-Age"] = "86400"
     return response
@@ -486,6 +496,64 @@ def session_status():
     row.pop("result_json", None)   # don't expose raw JSON string
 
     return jsonify(row), 200
+
+
+# ---------------------------------------------------------------------------
+# POST /session/terminate
+# ---------------------------------------------------------------------------
+
+@app.route("/session/terminate", methods=["POST", "OPTIONS"])
+def terminate_session():
+    """
+    Request early termination of a running session.
+    Sets terminate_requested=true in the DB; eppo_inference picks it up
+    within one long-poll cycle (≤55 s) and saves PFA state before exiting.
+    ---
+    tags:
+      - Session
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/SessionTerminateRequest'
+    responses:
+      200:
+        description: Termination flag set. Poll /session/status for finished=true.
+      400:
+        description: Missing session_id.
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+      404:
+        description: Session not found or already finished.
+        schema:
+          $ref: '#/definitions/ErrorResponse'
+    """
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json(force=True) or {}
+    session_id = data.get("session_id")
+    if not session_id:
+        return jsonify({"error": "session_id is required"}), 400
+
+    row = get_session_row(session_id)
+    if row is None:
+        return jsonify({"error": "session not found"}), 404
+    if row["finished"]:
+        return jsonify({"error": "session already finished"}), 404
+
+    with Session(_concept_engine()) as session:
+        session.execute(text("""
+            UPDATE sessions SET terminate_requested = TRUE WHERE id = :sid
+        """), {"sid": session_id})
+        session.commit()
+
+    print(f"[backend] Termination requested for session {session_id[:8]}...")
+    return jsonify({
+        "status":  "terminating",
+        "message": "Termination flag set. Poll /session/status for finished=true.",
+    }), 200
 
 
 # ---------------------------------------------------------------------------
