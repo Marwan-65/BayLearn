@@ -282,6 +282,28 @@ def mark_session_ended(db_url: str, session_id: str,
 
 
 # ---------------------------------------------------------------------------
+# Early-termination signal
+# ---------------------------------------------------------------------------
+
+class SessionTerminatedError(Exception):
+    """Raised when the user requests early session termination."""
+
+
+def _is_termination_requested(db_url: str, session_id: str) -> bool:
+    """Return True if terminate_requested has been set for this session."""
+    try:
+        engine = create_engine(db_url)
+        with Session(engine) as session:
+            row = session.execute(text("""
+                SELECT terminate_requested FROM sessions WHERE id = :sid
+            """), {"sid": session_id}).fetchone()
+        return bool(row and row[0])
+    except Exception as e:
+        print(f"[eppo] WARNING: termination check failed: {e}", file=sys.stderr)
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 class Config:
@@ -772,7 +794,10 @@ def api_send_question(topic: str, difficulty: str,
         data = ans_resp.json()
         if data.get("answered"):
             return bool(data["correct"])
-        # answered=False → server timed out before student answered, retry
+        # answered=False → server timed out before student answered
+        # Check if the user requested early termination before retrying
+        if _is_termination_requested(CONCEPT_DB_URL, SESSION_ID):
+            raise SessionTerminatedError()
 
 
 
@@ -842,6 +867,10 @@ def run_session(
 
         try:
             correct = api_send_question(concept_name, difficulty_name)
+        except SessionTerminatedError:
+            if verbose:
+                print(f"\n  Session terminated early by user at step {step + 1}.")
+            break
         except requests.exceptions.RequestException as e:
             print(
                 f"  [API-ERROR] Question generation failed for '{concept_name}': {e}",
@@ -871,6 +900,7 @@ def run_session(
                 print(f"\n  Goal met at step {step + 1}!")
             break
 
+    early_termination = _is_termination_requested(CONCEPT_DB_URL, SESSION_ID)
     apr_final  = tracker.compute_session_apr()
     wapr_final = tracker.compute_session_wapr()
     global_apr = tracker.compute_global_apr()
@@ -890,14 +920,15 @@ def run_session(
         print(f"  Newly mastered     : {n_mastered}")
 
     return {
-        "apr_start":      info["apr_start"],
-        "apr_final":      apr_final,
-        "wapr_final":     wapr_final,
-        "global_apr":     global_apr,
-        "apr_per_course": apr_per,
-        "goal_met":       tracker.goal_met(),
-        "steps":          step + 1,
-        "newly_mastered": n_mastered,
+        "apr_start":         info["apr_start"],
+        "apr_final":         apr_final,
+        "wapr_final":        wapr_final,
+        "global_apr":        global_apr,
+        "apr_per_course":    apr_per,
+        "goal_met":          tracker.goal_met(),
+        "steps":             step + 1,
+        "newly_mastered":    n_mastered,
+        "early_termination": early_termination,
     }
 
 

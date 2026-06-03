@@ -145,14 +145,16 @@ class ConceptFile(Base):
 class Session(Base):
     __tablename__ = "sessions"
 
-    id         = Column(String, primary_key=True, default=_uuid)
-    user_id    = Column(String, ForeignKey("users.id", ondelete="CASCADE"),
-                        nullable=False)
-    scope_type = Column(String, nullable=False)
-    scope_ids  = Column(String, nullable=False)   # comma-separated UUIDs
-    started_at = Column(DateTime, nullable=False,
-                        server_default=text("NOW()"))
-    ended_at   = Column(DateTime, nullable=True)
+    id                  = Column(String, primary_key=True, default=_uuid)
+    user_id             = Column(String, ForeignKey("users.id", ondelete="CASCADE"),
+                                 nullable=False)
+    scope_type          = Column(String, nullable=False)
+    scope_ids           = Column(String, nullable=False)   # comma-separated UUIDs
+    started_at          = Column(DateTime, nullable=False,
+                                 server_default=text("NOW()"))
+    ended_at            = Column(DateTime, nullable=True)
+    terminate_requested = Column(Boolean, nullable=False,
+                                 server_default=text("FALSE"))
 
     user         = relationship("User", back_populates="sessions")
     interactions = relationship("SessionInteraction",
@@ -361,13 +363,19 @@ def ensure_tables(db_url: str) -> None:
         # 6. sessions — depends on users
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS sessions (
-                id          VARCHAR PRIMARY KEY,
-                user_id     VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                scope_ids   VARCHAR NOT NULL,
-                started_at  TIMESTAMP NOT NULL DEFAULT NOW(),
-                ended_at    TIMESTAMP,
-                result_json TEXT
+                id                  VARCHAR PRIMARY KEY,
+                user_id             VARCHAR NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                scope_ids           VARCHAR NOT NULL,
+                started_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+                ended_at            TIMESTAMP,
+                result_json         TEXT,
+                terminate_requested BOOLEAN NOT NULL DEFAULT FALSE
             )
+        """))
+        # Migration: add terminate_requested to existing sessions tables
+        conn.execute(text("""
+            ALTER TABLE sessions
+                ADD COLUMN IF NOT EXISTS terminate_requested BOOLEAN NOT NULL DEFAULT FALSE
         """))
 
         # 7. student_pfa_state — depends on users, concepts
