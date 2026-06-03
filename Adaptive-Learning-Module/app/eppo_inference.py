@@ -309,6 +309,10 @@ class Config:
     HARD_FLOOR  = 0.40
     P_ONE_COURSE = 0.50
     DEVICE = DEVICE
+    # Dependency graph — additive sort_key reduction per unmastered dependent.
+    # Small by design: a false graph edge shifts the score by at most this
+    # value, which is negligible relative to the [0, 1] mastery range.
+    PREREQ_BOOST = 0.05
 
 cfg = Config()
 
@@ -337,6 +341,68 @@ for i in range(N_GLOBAL):
     global_neighbours.append(top)
 
 print(f"Embedding shape: {global_embeddings.shape}")
+
+
+# ---------------------------------------------------------------------------
+# Dependency graph — prerequisite pairs for the current concept pool
+# ---------------------------------------------------------------------------
+
+def _load_prerequisite_pairs(db_url: str,
+                              concept_ids: list[str]) -> dict[int, list[int]]:
+    """
+    Two-hop query: concept → concept_node_mappings → knowledge_edges
+                            → concept_node_mappings → concept
+
+    Returns prereq_of[pool_idx_A] = [pool_idx_B, pool_idx_C, ...]
+    meaning concept A must be mastered before concepts B and C.
+
+    DISTINCT eliminates duplicate paths (multiple graph routes A→B through
+    different intermediate nodes produce only one entry per pair).
+    Fails silently — if the dependency tables don't exist or the query
+    errors, the preselection runs as normal with no boost applied.
+    """
+    if not concept_ids:
+        return {}
+
+    id_to_idx = {cid: i for i, cid in enumerate(concept_ids)}
+    engine = create_engine(db_url)
+    try:
+        with Session(engine) as session:
+            rows = session.execute(text("""
+                SELECT DISTINCT
+                    cm_pre.concept_id  AS prereq_id,
+                    cm_dep.concept_id  AS dependent_id
+                FROM  knowledge_edges          ke
+                JOIN  concept_node_mappings    cm_pre
+                        ON cm_pre.node_id = ke.from_node_id
+                JOIN  concept_node_mappings    cm_dep
+                        ON cm_dep.node_id = ke.to_node_id
+                WHERE cm_pre.concept_id = ANY(:ids)
+                  AND cm_dep.concept_id = ANY(:ids)
+            """), {"ids": concept_ids}).fetchall()
+    except Exception as exc:
+        print(f"[deps] WARNING: prerequisite query failed ({exc}). "
+              "Dependency boost disabled.", file=sys.stderr)
+        return {}
+
+    prereq_of: dict[int, list[int]] = {}
+    for prereq_id, dependent_id in rows:
+        if prereq_id == dependent_id:
+            continue
+        a = id_to_idx.get(prereq_id)
+        b = id_to_idx.get(dependent_id)
+        if a is None or b is None:
+            continue
+        prereq_of.setdefault(a, []).append(b)
+
+    n_pairs = sum(len(v) for v in prereq_of.values())
+    print(f"[deps] {n_pairs} prerequisite pair(s) found across "
+          f"{len(prereq_of)} concept(s) in the pool.")
+    return prereq_of
+
+
+PREREQ_OF: dict[int, list[int]] = _load_prerequisite_pairs(
+    CONCEPT_DB_URL, GLOBAL_CONCEPT_IDS)
 
 
 # ---------------------------------------------------------------------------
@@ -544,17 +610,67 @@ class PFATracker:
 # ---------------------------------------------------------------------------
 
 def preselect_session_concepts(tracker, candidate_indices, cap, rng,
-                                priority_indices=None):
-    candidates = list(candidate_indices)
-    priority   = list(priority_indices) if priority_indices else []
+                                priority_indices=None, verbose=True):
+    candidates     = list(candidate_indices)
+    candidates_set = set(candidates)
+    priority       = list(priority_indices) if priority_indices else []
+
     if len(candidates) <= cap:
         return candidates
-    scores   = np.array([tracker.predict(ci, 2) for ci in candidates])
-    diff_sc  = np.array([GLOBAL_LLM_DIFF[ci] for ci in candidates])
-    jitter   = rng.uniform(0, 1e-4, size=len(candidates))
-    sort_key = scores - diff_sc * 1e-3 + jitter
+
+    scores  = np.array([tracker.predict(ci, 2) for ci in candidates])
+    diff_sc = np.array([GLOBAL_LLM_DIFF[ci]    for ci in candidates])
+    jitter  = rng.uniform(0, 1e-4, size=len(candidates))
+
+    # ── Dependency boost ──────────────────────────────────────────────────
+    # For each concept A that is a graph prerequisite of one or more
+    # unmastered concepts in the same pool, reduce its sort_key by
+    # PREREQ_BOOST per such dependent.  Lower sort_key = selected earlier.
+    #
+    # Effect is intentionally small: a false mapping shifts A's rank
+    # by at most PREREQ_BOOST, which is negligible if the mastery gap
+    # between candidates is large.  The RL actor still drives the session
+    # once the pool is selected.
+    dep_boost = np.zeros(len(candidates), dtype=np.float32)
+
+    for i, ci in enumerate(candidates):
+        if ci not in PREREQ_OF:
+            continue
+        for dep_ci in PREREQ_OF[ci]:
+            if dep_ci not in candidates_set:
+                continue
+            # Only boost toward prerequisites of still-unmastered concepts
+            if tracker.predict(dep_ci, 2) < cfg.MASTERY_THRESHOLD:
+                dep_boost[i] += cfg.PREREQ_BOOST
+
+    sort_key = scores - diff_sc * 1e-3 + jitter - dep_boost
     ranked   = [candidates[i] for i in np.argsort(sort_key)]
-    selected = [ci for ci in priority if ci in set(candidates)][:cap]
+
+    # ── Diagnostic print ──────────────────────────────────────────────────
+    if verbose:
+        boosted = [(i, ci) for i, ci in enumerate(candidates)
+                   if dep_boost[i] > 0]
+        if boosted:
+            print(f"\n[presel] Dependency boost applied to "
+                  f"{len(boosted)} concept(s) "
+                  f"(PREREQ_BOOST={cfg.PREREQ_BOOST}):")
+            print(f"  {'concept':<35} {'mastery':>7}  {'boost':>6}  unlocks")
+            print(f"  {'─'*72}")
+            for i, ci in sorted(boosted, key=lambda x: -dep_boost[x[0]]):
+                unmastered_deps = [
+                    GLOBAL_CONCEPTS[d]
+                    for d in PREREQ_OF.get(ci, [])
+                    if d in candidates_set
+                    and tracker.predict(d, 2) < cfg.MASTERY_THRESHOLD
+                ]
+                print(f"  {GLOBAL_CONCEPTS[ci]:<35} {scores[i]:>7.3f}"
+                      f"  {dep_boost[i]:>6.3f}  "
+                      f"→ {', '.join(unmastered_deps)}")
+        else:
+            print("[presel] No active dependency relationships in this pool.")
+
+    # ── Selection ─────────────────────────────────────────────────────────
+    selected     = [ci for ci in priority if ci in candidates_set][:cap]
     selected_set = set(selected)
     rem = cap - len(selected)
     for ci in ranked:
@@ -673,7 +789,8 @@ def run_session(
     verbose: bool = True,
 ) -> dict:
     sess_idx = preselect_session_concepts(
-        tracker, candidate_indices, cfg.CONCEPT_CAP, rng, priority_indices)
+        tracker, candidate_indices, cfg.CONCEPT_CAP, rng, priority_indices,
+        verbose=verbose)
     info = tracker.start_session(sess_idx)
 
     if verbose:
