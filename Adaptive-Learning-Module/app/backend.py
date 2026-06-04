@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-
 import numpy as np
 import requests
 from dotenv import load_dotenv
@@ -145,10 +144,10 @@ def add_cors_headers(response):
     return response
 
 
-CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
-CHUNK_DB_URL          = os.environ.get("CHUNK_DB_URL",          "").strip()
+CONCEPT_DB_URL   = os.environ.get("CONCEPT_DB_URL",        "").strip()
+CHUNK_DB_URL    = os.environ.get("CHUNK_DB_URL",          "").strip()
 QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL", "http://localhost:8001").strip()
-EPPO_SCRIPT           = Path(__file__).parent / "eppo_inference.py"
+EPPO_SCRIPT  = Path(__file__).parent / "eppo_inference.py"
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr); sys.exit(1)
@@ -160,11 +159,9 @@ if not QUESTION_GEN_BASE_URL:
 def _chunk_engine():
     return create_engine(CHUNK_DB_URL)
 
-
 def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
     """
-    Return {id, name} of the course these files belong to.
-    Returns None if files are uncategorized.
+    returns the course id and name for session files
     """
     from sqlalchemy import bindparam, ARRAY
     from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -186,12 +183,9 @@ def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
 def _concept_engine():
     return create_engine(CONCEPT_DB_URL)
 
-
 def get_unextracted_files(file_uuids: list[str]) -> list[str]:
     """
-    Core check used by both scope modes.
-    Returns file UUIDs that do NOT yet have any concepts in concept_files.
-    A file is considered extracted if it has at least one row in concept_files.
+    returns file uuids with no concepts in concept files relationship
     """
     if not file_uuids:
         return []
@@ -208,7 +202,7 @@ def get_unextracted_files(file_uuids: list[str]) -> list[str]:
 
 
 def create_session_row(user_id: str, scope_ids: str) -> str:
-    """Insert a session row, return its UUID."""
+    """create a new session row and return the id"""
     import uuid
     session_uuid = str(uuid.uuid4())
     with Session(_concept_engine()) as session:
@@ -218,6 +212,18 @@ def create_session_row(user_id: str, scope_ids: str) -> str:
         """), {"sid": session_uuid, "uid": user_id, "si": scope_ids})
         session.commit()
     return session_uuid
+
+
+def run_concept_extractor(file_ids: list[str], course_id: str,
+                           course_name: str, user_id: str) -> None:
+    from concept_extractor import extract_and_store
+    result = extract_and_store(
+        file_ids=file_ids,
+        course_id=course_id,
+        course_name=course_name,
+        user_id=user_id,
+    )
+    print(f"[backend] Extraction result: {result}")
 
 
 def get_session_row(session_id: str) -> dict | None:
@@ -239,7 +245,6 @@ def get_session_row(session_id: str) -> dict | None:
         "result_json": row[5],
     }
 
-
 def get_student_apr(user_id: str) -> float | None:
     with Session(_concept_engine()) as session:
         rows = session.execute(text("""
@@ -260,24 +265,11 @@ def get_student_apr(user_id: str) -> float | None:
     return float(np.mean(probs))
 
 
-def run_concept_extractor(file_ids: list[str], course_id: str,
-                           course_name: str, user_id: str) -> None:
-    from concept_extractor import extract_and_store
-    result = extract_and_store(
-        file_ids=file_ids,
-        course_id=course_id,
-        course_name=course_name,
-        user_id=user_id,
-    )
-    print(f"[backend] Extraction result: {result}")
-
 
 def call_config_endpoint(session_id: str, file_ids: list[str],
                           question_type: str) -> None:
     """
-    Call POST /api/v1/questions/adaptive/{session_id}/config on the
-    question generation module to register file IDs and question type
-    for this session before eppo starts sending generate requests.
+    call config before the loop
     """
     url = (f"{QUESTION_GEN_BASE_URL}"
            f"/api/v1/questions/adaptive/{session_id}/config")
@@ -296,40 +288,15 @@ def call_config_endpoint(session_id: str, file_ids: list[str],
 @app.route("/session/start", methods=["POST"])
 def start_session():
     """
-    Start a new adaptive learning session.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/SessionStartRequest'
-    responses:
-      200:
-        description: Session created and inference process launched.
-        schema:
-          $ref: '#/definitions/SessionStartResponse'
-      400:
-        description: Missing or invalid parameters.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      404:
-        description: Course or file not found.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      422:
-        description: Course has no concepts yet.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    to start a session
+  
     """
     data = request.get_json(force=True)
 
     data = request.get_json(force=True)
 
-    user_id       = data.get("user_id")           # chunk DB user UUID
-    file_ids      = data.get("scope_ids", [])     # chunk DB file UUIDs
+    user_id   = data.get("user_id")           # chunk DB user uuid
+    file_ids   = data.get("scope_ids", [])     # chunk DB file uuid
     question_type = data.get("question_type", "mcq")
 
     if not user_id:
@@ -395,29 +362,7 @@ def start_session():
 @app.route("/session/status", methods=["GET"])
 def session_status():
     """
-    Poll the status of a running or finished session.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: query
-        name: session_id
-        type: string
-        required: true
-        example: "550e8400-e29b-41d4-a716-446655440002"
-    responses:
-      200:
-        description: Session status.
-        schema:
-          $ref: '#/definitions/SessionStatusResponse'
-      400:
-        description: Missing session_id.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      404:
-        description: Session not found.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    poll session status and results
     """
     session_id = request.args.get("session_id")
     if not session_id:
@@ -452,29 +397,8 @@ def session_status():
 @app.route("/session/terminate", methods=["POST", "OPTIONS"])
 def terminate_session():
     """
-    Request early termination of a running session.
-    Sets terminate_requested=true in the DB; eppo_inference picks it up
-    within one long-poll cycle (≤55 s) and saves PFA state before exiting.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/SessionTerminateRequest'
-    responses:
-      200:
-        description: Termination flag set. Poll /session/status for finished=true.
-      400:
-        description: Missing session_id.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      404:
-        description: Session not found or already finished.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    to request early termination of a running session
+    Sets terminate_requested=true in the db so eppo inference picks it up 
     """
     if request.method == "OPTIONS":
         return "", 204
@@ -591,7 +515,7 @@ def session_results():
 
     concept_probs.sort(key=lambda x: x["p_hard"], reverse=True)
     strongest = concept_probs[:3]
-    weakest   = concept_probs[-3:][::-1] if len(concept_probs) >= 3                 else concept_probs[::-1]
+    weakest   = concept_probs[-3:][::-1] if len(concept_probs) >= 3    else concept_probs[::-1]
     focus_concept = weakest[0]["name"] if weakest else None
 
 
@@ -662,21 +586,17 @@ def session_results():
         "goal_description":  goal_description,
         "progress_summary":  progress_summary,
         "mastery_message":   mastery_message,
-        "next_step":         next_step,
-        "level_message":     level_message,
+        "next_step":     next_step,
+        "level_message":   level_message,
 
-
-        "goal_met":              goal_met,
+        "goal_met":     goal_met,
         "goal_achieved_pct":     goal_achieved_pct,
         "target_improvement_pct": target_improvement_pct,
         "actual_improvement_pct": actual_improvement_pct,
-
         "steps_taken":       steps,
         "concepts_mastered": n_mastered,
-
         "global_apr": round(global_apr, 4),
-        "level":      level,
-
+        "level":   level,
         "apr_per_course": {
             course: round(apr, 4)
             for course, apr in apr_per.items()
@@ -691,26 +611,7 @@ def session_results():
 @app.route("/student/level", methods=["GET"])
 def student_level():
     """
-    Get a student's current global knowledge level (APR).
-    ---
-    tags:
-      - Student
-    parameters:
-      - in: query
-        name: user_id
-        type: string
-        required: true
-        description: Chunk DB user UUID
-        example: "550e8400-e29b-41d4-a716-446655440000"
-    responses:
-      200:
-        description: Student's global APR.
-        schema:
-          $ref: '#/definitions/StudentLevelResponse'
-      400:
-        description: Missing user_id.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    get the student apr level
     """
     user_id = request.args.get("user_id")
     if not user_id:
@@ -726,13 +627,7 @@ def student_level():
 @app.route("/")
 def index():
     """
-    Health check.
-    ---
-    tags:
-      - Session
-    responses:
-      200:
-        description: Server is running.
+     health check 
     """
     return jsonify({
         "status": "BayLearn adaptive backend running",

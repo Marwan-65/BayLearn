@@ -21,11 +21,9 @@ import requests
 load_dotenv(Path(__file__).parent / ".env")
 warnings.filterwarnings("ignore")
 
-CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
-QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL",
-                                       "http://localhost:8001").strip()
-MODEL_PATH   = os.path.join(os.path.dirname(__file__),
-                                "models", "eppo_prod.pt")
+CONCEPT_DB_URL  = os.environ.get("CONCEPT_DB_URL",        "").strip()
+QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL",  "http://localhost:8001").strip()
+MODEL_PATH   = os.path.join(os.path.dirname(__file__), "models", "eppo_prod.pt")
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr)
@@ -74,9 +72,9 @@ def _load_concepts(db_url: str, user_id: str, scope_ids: list[str]):
             print(f"[eppo] concept_files lookup failed: {e}", file=sys.stderr)
             return [], [], [], {}
 
-    global_concepts:        list[str]              = []
-    global_llm_diff:        list[int]              = []
-    global_concept_ids:     list[str]              = []
+    global_concepts:  list[str]    = []
+    global_llm_diff:   list[int]   = []
+    global_concept_ids:   list[str]   = []
     course_concept_indices: dict[str, list[int]]   = {}
 
     for concept_id, name, diff, course_name in rows:
@@ -86,9 +84,7 @@ def _load_concepts(db_url: str, user_id: str, scope_ids: list[str]):
         global_concept_ids.append(concept_id)
         key = course_name.lower().replace(" ", "_")
         course_concept_indices.setdefault(key, []).append(idx)
-
-    return (global_concepts, global_llm_diff,
-            global_concept_ids, course_concept_indices)
+    return (global_concepts, global_llm_diff,   global_concept_ids, course_concept_indices)
 
 
 print(f"[eppo] Loading concept pool  user={EPPO_USER_ID} "
@@ -103,8 +99,7 @@ print(f"[eppo] Pool: {N_GLOBAL} concepts across "
       f"{list(COURSE_CONCEPT_INDICES.keys())}")
 
 if N_GLOBAL == 0:
-    print("ERROR: No concepts found. Run concept_extractor first.",
-          file=sys.stderr)
+    print("ERROR: No concepts found. Run concept_extractor first.",   file=sys.stderr)
     sys.exit(1)
 
 def load_pfa_history(db_url: str, user_id: str) -> dict | None:
@@ -125,7 +120,7 @@ def load_pfa_history(db_url: str, user_id: str) -> dict | None:
     id_to_idx = {cid: i for i, cid in enumerate(GLOBAL_CONCEPT_IDS)}
     successes = np.zeros((N_GLOBAL, 3), dtype=np.float32)
     failures  = np.zeros((N_GLOBAL, 3), dtype=np.float32)
-    bonuses   = np.zeros((N_GLOBAL, 3), dtype=np.float32)
+    bonuses  = np.zeros((N_GLOBAL, 3), dtype=np.float32)
 
     loaded = 0
     for (cid, se, sm, sh, fe, fm, fh, be, bm, bh) in rows:
@@ -134,12 +129,11 @@ def load_pfa_history(db_url: str, user_id: str) -> dict | None:
             continue
         successes[idx] = [se, sm, sh]
         failures[idx]  = [fe, fm, fh]
-        bonuses[idx]   = [be, bm, bh]
+        bonuses[idx]  = [be, bm, bh]
         loaded += 1
 
     print(f"[pfa] Loaded history for {loaded} concepts.")
     return {"successes": successes, "failures": failures, "bonuses": bonuses}
-
 
 def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
     engine = create_engine(db_url)
@@ -178,6 +172,27 @@ def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
     print(f"[pfa] Saved state for {len(GLOBAL_CONCEPT_IDS)} concepts.")
 
 
+def mark_session_ended(db_url: str, session_id: str,
+                       result: dict | None = None) -> None:
+    """
+    end this session and send the result to be to save in db
+    """
+    if not session_id:
+        return
+    import json as _json
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        session.execute(text("""
+            UPDATE sessions
+            SET    ended_at   = NOW(),
+                   result_json = :result
+            WHERE  id = :sid
+        """), {
+            "sid":    session_id,
+            "result": _json.dumps(result) if result else None,
+        })
+        session.commit()
+
 def log_interaction(db_url: str, session_id: str, user_id: str,
                     concept_id: str, difficulty: str, correct: bool,
                     p_before: float, p_after: float,
@@ -199,35 +214,11 @@ def log_interaction(db_url: str, session_id: str, user_id: str,
                    now=datetime.utcnow()))
         session.commit()
 
-
-def mark_session_ended(db_url: str, session_id: str,
-                       result: dict | None = None) -> None:
-    """
-    Mark the session as ended and persist the full result so
-    the backend can surface it via GET /session/results.
-    """
-    if not session_id:
-        return
-    import json as _json
-    engine = create_engine(db_url)
-    with Session(engine) as session:
-        session.execute(text("""
-            UPDATE sessions
-            SET    ended_at   = NOW(),
-                   result_json = :result
-            WHERE  id = :sid
-        """), {
-            "sid":    session_id,
-            "result": _json.dumps(result) if result else None,
-        })
-        session.commit()
-
 # for early termination 3ashan manotesh fel ses 
 class SessionTerminatedError(Exception):
-    """Raised when the user requests early session termination."""
+    """raised when user end session early"""
 
-
-def _is_termination_requested(db_url: str, session_id: str) -> bool:
+def _is_terminated(db_url: str, session_id: str) -> bool:
     """Return True if terminate_requested has been set for this session."""
     try:
         engine = create_engine(db_url)
@@ -392,9 +383,9 @@ class PFATracker:
         raw_weights  = 1.0 - p_hard_start
         self.session_weights = raw_weights / raw_weights.sum()
 
-        mean_p_hard       = float(p_hard_start.mean())
+        mean_p_hard    = float(p_hard_start.mean())
         difficulty_factor = float(np.clip(mean_p_hard / 0.65, 0.50, 1.0))
-        effective_pct     = self.cfg.IMPROVEMENT_PCT * difficulty_factor
+        effective_pct   = self.cfg.IMPROVEMENT_PCT * difficulty_factor
 
         self.wapr_start  = self.compute_session_wapr()
         self.wapr_target = min(0.97, self.wapr_start * (1.0 + effective_pct))
@@ -409,10 +400,10 @@ class PFATracker:
         return {
             "n_session_concepts": len(self.session_indices),
             "already_mastered":   len(self.session_mastered_before),
-            "apr_start":          self.apr_start,
-            "apr_target":         self.apr_target,
-            "wapr_start":         self.wapr_start,
-            "wapr_target":        self.wapr_target,
+            "apr_start":   self.apr_start,
+            "apr_target": self.apr_target,
+            "wapr_start":   self.wapr_start,
+            "wapr_target":  self.wapr_target,
         }
 
     def predict(self, ci, level):
@@ -674,9 +665,8 @@ def api_send_question(topic: str, difficulty: str,
         data = ans_resp.json()
         if data.get("answered"):
             return bool(data["correct"])
-        if _is_termination_requested(CONCEPT_DB_URL, SESSION_ID):
+        if _is_terminated(CONCEPT_DB_URL, SESSION_ID):
             raise SessionTerminatedError()
-
 
 
 # run ses
@@ -779,9 +769,9 @@ def run_session(
 
         buf_ref_levels.append(level)
         db_concept_id   = GLOBAL_CONCEPT_IDS[global_ci]
-        concept_name    = GLOBAL_CONCEPTS[global_ci]
+        concept_name   = GLOBAL_CONCEPTS[global_ci]
         difficulty_name = cfg.LEVEL_NAMES[level]
-        course_label    = idx_to_course.get(global_ci, "?")
+        course_label   = idx_to_course.get(global_ci, "?")
 
         try:
             correct = api_send_question(concept_name, difficulty_name)
@@ -842,7 +832,7 @@ def run_session(
                 print(f"\n  Goal met at step {step + 1}!")
             break
 
-    early_termination = _is_termination_requested(CONCEPT_DB_URL, SESSION_ID)
+    early_termination = _is_terminated(CONCEPT_DB_URL, SESSION_ID)
     apr_final  = tracker.compute_session_apr()
     wapr_final = tracker.compute_session_wapr()
     global_apr = tracker.compute_global_apr()
