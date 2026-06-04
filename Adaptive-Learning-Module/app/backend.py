@@ -1,28 +1,3 @@
-"""
-backend.py
-==========
-Adaptive Learning backend.
-
-Endpoints:
-    POST /session/start      — frontend triggers a new session
-    GET  /session/status     — frontend polls for progress
-    GET  /student/level      — returns student's current global APR
-
-Swagger UI: http://localhost:8000/docs
-
-Both DBs use UUIDs. The same user UUID and course UUID work in both DBs.
-Frontend always sends raw UUIDs — backend resolves names internally.
-
-Required .env keys:
-    CONCEPT_DB_URL
-    CHUNK_DB_URL
-    GROQ_API_KEY
-
-Run:
-    pip install flask flasgger psycopg2-binary sqlalchemy python-dotenv numpy
-    python backend.py
-"""
-
 from __future__ import annotations
 
 import os
@@ -44,9 +19,6 @@ load_dotenv(Path(__file__).parent / ".env")
 
 app = Flask(__name__)
 
-# ---------------------------------------------------------------------------
-# Swagger
-# ---------------------------------------------------------------------------
 swagger_config = {
     "headers": [],
     "specs": [{"endpoint": "apispec", "route": "/apispec.json",
@@ -146,9 +118,7 @@ swagger_template = {
 }
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-# ---------------------------------------------------------------------------
-# CORS
-# ---------------------------------------------------------------------------
+# cors
 ALLOWED_ORIGINS = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -174,9 +144,7 @@ def add_cors_headers(response):
         response.headers["Access-Control-Max-Age"] = "86400"
     return response
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
+
 CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
 CHUNK_DB_URL          = os.environ.get("CHUNK_DB_URL",          "").strip()
 QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL", "http://localhost:8001").strip()
@@ -188,11 +156,6 @@ if not CHUNK_DB_URL:
     print("ERROR: CHUNK_DB_URL not set in .env",   file=sys.stderr); sys.exit(1)
 if not QUESTION_GEN_BASE_URL:
     print("ERROR: QUESTION_GEN_BASE_URL not set in .env", file=sys.stderr); sys.exit(1)
-
-
-# ---------------------------------------------------------------------------
-# Chunk DB helpers
-# ---------------------------------------------------------------------------
 
 def _chunk_engine():
     return create_engine(CHUNK_DB_URL)
@@ -219,10 +182,6 @@ def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
         ).fetchone()
     return {"id": row[0], "name": row[1]} if row else None
 
-
-# ---------------------------------------------------------------------------
-# Concept DB helpers
-# ---------------------------------------------------------------------------
 
 def _concept_engine():
     return create_engine(CONCEPT_DB_URL)
@@ -333,9 +292,6 @@ def call_config_endpoint(session_id: str, file_ids: list[str],
         print(f"[backend] WARNING: config call failed: {e}", file=sys.stderr)
 
 
-# ---------------------------------------------------------------------------
-# POST /session/start
-# ---------------------------------------------------------------------------
 
 @app.route("/session/start", methods=["POST"])
 def start_session():
@@ -392,7 +348,7 @@ def start_session():
 
     scope_ids_str = ",".join(file_ids)
 
-    # ── Step 1: extract concepts for any files not yet processed ────────
+    # extract concepts if not done
     missing_file_ids = get_unextracted_files(file_ids)
     if missing_file_ids:
         course_info = get_course_info_for_files(missing_file_ids)
@@ -409,15 +365,11 @@ def start_session():
     else:
         print(f"[backend] All {len(file_ids)} files already extracted.")
 
-    # ── Step 2: create session row ──────────────────────────────────────
     session_id = create_session_row(user_id, scope_ids_str)
     print(f"[backend] Created session {session_id} for user {user_id[:8]}...")
 
-    # ── Step 3: configure the question generation module ────────────────
-    # Must happen before eppo starts — eppo POSTs /generate on its first step
     call_config_endpoint(session_id, file_ids, question_type)
 
-    # ── Step 4: launch eppo_inference.py ───────────────────────────────
     cmd = [
         sys.executable, str(EPPO_SCRIPT),
         "--user-id",       user_id,
@@ -438,9 +390,7 @@ def start_session():
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /session/status
-# ---------------------------------------------------------------------------
+# get status
 
 @app.route("/session/status", methods=["GET"])
 def session_status():
@@ -497,10 +447,7 @@ def session_status():
 
     return jsonify(row), 200
 
-
-# ---------------------------------------------------------------------------
-# POST /session/terminate
-# ---------------------------------------------------------------------------
+# terminate session
 
 @app.route("/session/terminate", methods=["POST", "OPTIONS"])
 def terminate_session():
@@ -556,31 +503,10 @@ def terminate_session():
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /session/results
-# ---------------------------------------------------------------------------
-
 @app.route("/session/results", methods=["GET"])
 def session_results():
     """
-    Get the full results and learning insights for a finished session.
-    The frontend calls this at session end to show the progress card.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: query
-        name: session_id
-        type: string
-        required: true
-        example: "550e8400-e29b-41d4-a716-446655440002"
-    responses:
-      200:
-        description: Session results with human-readable messages and insights.
-      400:
-        description: Missing session_id.
-      404:
-        description: Session not found or not finished yet.
+   get sessin results
     """
     import json as _json
     import numpy as np
@@ -594,8 +520,6 @@ def session_results():
         return jsonify({"error": "session not found"}), 404
     if not row["finished"]:
         return jsonify({"error": "session not finished yet"}), 404
-
-    # ── Parse raw result from eppo ─────────────────────────────────────
     raw = {}
     if row.get("result_json"):
         try:
@@ -614,16 +538,24 @@ def session_results():
     n_mastered = raw.get("newly_mastered", 0)
     apr_per    = raw.get("apr_per_course", {})
 
-    # ── Goal progress ─────────────────────────────────────────────────
-    goal_range        = wapr_target - wapr_start
-    goal_achieved_pct = (
-        round(min((wapr_final - wapr_start) / goal_range * 100, 100), 1)
-        if goal_range > 1e-6 else 100.0
-    )
-    target_improvement_pct = round((wapr_target - wapr_start) * 100, 1)
-    actual_improvement_pct = round((wapr_final  - wapr_start) * 100, 1)
+   # goal prog
+    goal_range = wapr_target - wapr_start
 
-    # ── Level label ───────────────────────────────────────────────────
+    if goal_range > 1e-6:
+        raw_pct = (wapr_final - wapr_start) / goal_range * 100
+        # Clamp between 0 and 99 when goal not met,
+        # only show 100 when goal_met is actually True
+        if goal_met:
+            goal_achieved_pct = 100.0
+        else:
+            goal_achieved_pct = round(max(0.0, min(raw_pct, 99.9)), 1)
+    else:
+        goal_achieved_pct = 100.0 if goal_met else 0.0
+
+    # Always show as a positive target (how much we aimed to improve)
+    target_improvement_pct = round(abs(wapr_target - wapr_start) * 100, 1)
+    actual_improvement_pct = round((wapr_final - wapr_start) * 100, 1)
+
     def _level_label(apr: float) -> str:
         if apr >= 0.85: return "Advanced"
         if apr >= 0.70: return "Proficient"
@@ -633,7 +565,6 @@ def session_results():
 
     level = _level_label(global_apr)
 
-    # ── Concept breakdown from PFA state ──────────────────────────────
     GAMMA = 0.8884; RHO = 0.2331; BETA_L = 0.4271
     LLM_BETA_SCALE = -0.4; LLM_BETA_MID = 3.0
 
@@ -663,33 +594,37 @@ def session_results():
     weakest   = concept_probs[-3:][::-1] if len(concept_probs) >= 3                 else concept_probs[::-1]
     focus_concept = weakest[0]["name"] if weakest else None
 
-    # ── Human-readable messages ───────────────────────────────────────
-    # Goal description — what the session was trying to achieve
+
+    # Goal description — always positive, human-readable target
     goal_description = (
         f"Improve your mastery of these concepts by "
         f"{target_improvement_pct}% during this session."
     )
 
-    # Progress summary — what actually happened
+    # Progress summary
     if goal_met:
         progress_summary = (
-            f"Great work! You achieved {goal_achieved_pct}% of your session "
-            f"goal and answered {steps} questions."
+            f"Well done! You reached your session goal "
+            f"and answered {steps} questions. "
+            f"Your level is {level}."
         )
     elif goal_achieved_pct >= 75:
         progress_summary = (
             f"Almost there — you achieved {goal_achieved_pct}% of your "
-            f"session goal across {steps} questions. Keep going!"
+            f"session goal across {steps} questions. "
+            f"You're {level} level. Keep going!"
         )
     elif goal_achieved_pct >= 40:
         progress_summary = (
             f"You achieved {goal_achieved_pct}% of your session goal "
-            f"across {steps} questions. More practice will get you there."
+            f"across {steps} questions. "
+            f"You're {level} level. More practice will get you there."
         )
     else:
         progress_summary = (
             f"You achieved {goal_achieved_pct}% of your session goal "
-            f"across {steps} questions. This material needs more attention."
+            f"across {steps} questions. "
+            f"You're {level} level. This material needs more attention."
         )
 
     # Mastery message
@@ -723,43 +658,35 @@ def session_results():
     )
 
     return jsonify({
-        # ── Human-readable (ready to display directly) ─────────────────
+   
         "goal_description":  goal_description,
         "progress_summary":  progress_summary,
         "mastery_message":   mastery_message,
         "next_step":         next_step,
         "level_message":     level_message,
 
-        # ── Goal ───────────────────────────────────────────────────────
+
         "goal_met":              goal_met,
         "goal_achieved_pct":     goal_achieved_pct,
         "target_improvement_pct": target_improvement_pct,
         "actual_improvement_pct": actual_improvement_pct,
 
-        # ── Session numbers ────────────────────────────────────────────
         "steps_taken":       steps,
         "concepts_mastered": n_mastered,
 
-        # ── Knowledge level ────────────────────────────────────────────
         "global_apr": round(global_apr, 4),
         "level":      level,
 
-        # ── Per-course breakdown ───────────────────────────────────────
         "apr_per_course": {
             course: round(apr, 4)
             for course, apr in apr_per.items()
         },
 
-        # ── Concept insights ───────────────────────────────────────────
         "strongest_concepts":  strongest,
         "weakest_concepts":    weakest,
         "next_session_focus":  focus_concept,
     }), 200
 
-
-# ---------------------------------------------------------------------------
-# GET /student/level
-# ---------------------------------------------------------------------------
 
 @app.route("/student/level", methods=["GET"])
 def student_level():
@@ -796,10 +723,6 @@ def student_level():
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /
-# ---------------------------------------------------------------------------
-
 @app.route("/")
 def index():
     """
@@ -815,11 +738,6 @@ def index():
         "status": "BayLearn adaptive backend running",
         "docs":   request.host_url + "docs",
     }), 200
-
-
-# ---------------------------------------------------------------------------
-# Run
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     ensure_tables(CONCEPT_DB_URL)

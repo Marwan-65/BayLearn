@@ -422,20 +422,38 @@ def save_concepts(
     engine = create_engine(CONCEPT_DB_URL)
     with Session(engine) as session:
 
-        # Upsert course using chunk DB UUID as PK
+        resolved_course_id = course_id
+
+        # Reuse an existing course row by UUID or name before inserting.
         existing_course = session.execute(text("""
             SELECT id FROM courses WHERE id = :cid
         """), {"cid": course_id}).fetchone()
 
-        if existing_course is None:
-            session.execute(text("""
-                INSERT INTO courses (id, name, created_at)
-                VALUES (:cid, :name, NOW())
-                ON CONFLICT DO NOTHING
-            """), {"cid": course_id, "name": course_name})
-            print(f"[concept-db] Created course '{course_name}' (id={course_id}).")
-        else:
+        if existing_course is not None:
             print(f"[concept-db] Reusing course '{course_name}' (id={course_id}).")
+        else:
+            existing_course_by_name = session.execute(text("""
+                SELECT id FROM courses WHERE name = :name
+            """), {"name": course_name}).fetchone()
+
+            if existing_course_by_name is not None:
+                resolved_course_id = existing_course_by_name[0]
+                print(f"[concept-db] Reusing existing course '{course_name}' "
+                      f"(id={resolved_course_id}) for incoming id={course_id}.")
+            else:
+                session.execute(text("""
+                    INSERT INTO courses (id, name, created_at)
+                    VALUES (:cid, :name, NOW())
+                """), {"cid": course_id, "name": course_name})
+                session.flush()   # ensure the insert is sent to the DB
+                # Commit here to avoid FK visibility issues across adapters/clients.
+                # This makes the course row durable before inserting concepts.
+                session.commit()
+                # Re-open a transaction for the remainder of the work
+                session.begin()
+                print(f"[concept-db] Created course '{course_name}' (id={course_id}).")
+
+        course_id = resolved_course_id
 
         # Existing concept names for this course
         existing_names = {
