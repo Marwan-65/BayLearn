@@ -185,8 +185,6 @@ def log_interaction(db_url: str, session_id: str, user_id: str,
     if not session_id:
         return
     import uuid as _uuid
-    # NOTE: All IDs (session, user, concept) are UUID strings.
-    # The DB schema uses VARCHAR for all of them.
     engine = create_engine(db_url)
     with Session(engine) as session:
         session.execute(text("""
@@ -224,7 +222,7 @@ def mark_session_ended(db_url: str, session_id: str,
         })
         session.commit()
 
-# for early termination
+# for early termination 3ashan manotesh fel ses 
 class SessionTerminatedError(Exception):
     """Raised when the user requests early session termination."""
 
@@ -254,15 +252,15 @@ class Config:
     PFA_TOP_K  = 5
     PFA_ALPHA  = 0.04
     SIM_THRESHOLD  = 0.45
-    MAX_STEPS      = 60
+    MAX_STEPS  = 60
     CONCEPT_CAP    = 10
     IMPROVEMENT_PCT    = 0.07
     SESSION_DONE_BONUS = 10.0
     MASTERY_THRESHOLD  = 0.65
     EMBED_MODEL = "BAAI/bge-base-en-v1.5"
-    EMBED_DIM   = 768
+    EMBED_DIM = 768
     STATE_DIM   = 19
-    SCORER_IN   = 22
+    SCORER_IN  = 22
     HIDDEN_DIM  = 64
     ITEM_DIFFICULTY = np.array([0.0, 1.0, 2.2])
     HARD_FLOOR  = 0.40
@@ -282,7 +280,7 @@ class Config:
 
 cfg = Config()
 
-# emded and sim gragh
+# emded and sim gragh 3ashan n propagate w keda 
 print(f"Loading {cfg.EMBED_MODEL} ...")
 embed_model = SentenceTransformer(cfg.EMBED_MODEL)
 print(f"Embedding {N_GLOBAL} concepts...")
@@ -361,7 +359,6 @@ PREREQ_OF: dict[int, list[int]] = _load_preqs(
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-np.clip(x, -15, 15)))
 
-
 class PFATracker:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -398,7 +395,7 @@ class PFATracker:
         self.action_history   = {}
         self.session_mastered_now = set()
 
-        all_p        = self.predict_all_global()
+        all_p     = self.predict_all_global()
         p_hard_start = all_p[self.session_indices, 2]
         raw_weights  = 1.0 - p_hard_start
         self.session_weights = raw_weights / raw_weights.sum()
@@ -667,27 +664,24 @@ def api_send_question(topic: str, difficulty: str,
     gen_url = f"{base}/api/v1/questions/adaptive/{SESSION_ID}/generate"
     ans_url = f"{base}/api/v1/questions/adaptive/{SESSION_ID}/answer"
 
-    # Step 1 — generate and publish the question to the frontend
-    # question_type is already registered via POST /config at session start
+    # geberate quest
     gen_resp = requests.post(gen_url, json={
         "topic":      topic,
         "difficulty": difficulty.lower(),
     }, timeout=60)
     gen_resp.raise_for_status()
 
-    # Step 2 — long-poll for the student answer, retry until answered
+    # poll or asnwer and retry 
     while True:
         ans_resp = requests.get(
             ans_url,
             params={"timeout": 55},
-            timeout=65,    # slightly over server timeout so we don't race
+            timeout=65,    # over server timeout so we don't race
         )
         ans_resp.raise_for_status()
         data = ans_resp.json()
         if data.get("answered"):
             return bool(data["correct"])
-        # answered=False → server timed out before student answered
-        # Check if the user requested early termination before retrying
         if _is_termination_requested(CONCEPT_DB_URL, SESSION_ID):
             raise SessionTerminatedError()
 
@@ -725,7 +719,7 @@ def run_session(
               f"{'Diff':>6} {'Correct':>7} {'P(Hard)':>8}")
         print("-" * 85)
 
-    # Build reverse index: global_concept_idx -> course name for logging
+    # get course names from ids
     idx_to_course = {}
     for course, indices in COURSE_CONCEPT_INDICES.items():
         for idx in indices:
@@ -810,7 +804,6 @@ def run_session(
             )
             if hasattr(e, "response") and e.response is not None:
                 print(f"  [API-ERROR] Response: {e.response.text[:200]}", file=sys.stderr)
-            # Skip this step and try another concept
             continue
 
         p_before, p_after = tracker.update(global_ci, level, int(correct))
@@ -882,7 +875,7 @@ def run_session(
         "wapr_final":        wapr_final,
         "global_apr":  global_apr,
         "apr_per_course":    apr_per,
-        "goal_met":          tracker.goal_met(),
+        "goal_met":  tracker.goal_met(),
         "steps":      step + 1,
         "newly_mastered":    n_mastered,
         "early_termination": early_termination,
