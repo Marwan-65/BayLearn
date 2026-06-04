@@ -1,7 +1,7 @@
 """Configuration and constants for BayLearn solver."""
 
 # System prompts for AI translation
-SYSTEM_PROMPT = """You are a mathematical translation API. 
+SYSTEM_PROMPT = r"""You are a mathematical translation API. 
 Read the user's messy mathematical input and translate it into strict, unambiguous SymPy-compatible syntax.
 1. Fix human typos and ambiguities (e.g., if 'x' is used as a multiplication sign, replace it with '*').
 2. Identify the core mathematical operation from: 'solve', 'solve_system', 'derive', 'integrate', 'dsolve', 'matrix_ops', 'limit', 'series', 'simplify', 'partial_derivative'.

@@ -1,5 +1,13 @@
 import json
-from .llm_client import translate_math_input
+import sys
+import os
+
+# Ensure the root directory is in the path to import llm_client
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
+from Equation_module_model.llm_client import translate_math_input
 
 # Import strategy routers cleanly from operations layer
 from .operations import (
