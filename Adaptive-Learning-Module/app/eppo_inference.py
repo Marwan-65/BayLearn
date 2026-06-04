@@ -25,7 +25,7 @@ CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
 QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL",
                                        "http://localhost:8001").strip()
 MODEL_PATH   = os.path.join(os.path.dirname(__file__),
-                                "models", "eppo_ep2500.pt")
+                                "models", "eppo_prod.pt")
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr)
