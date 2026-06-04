@@ -250,7 +250,7 @@ class Config:
     LLM_BETA_SCALE = -0.4
     LLM_BETA_MID   = 3.0
     PFA_TOP_K  = 5
-    PFA_ALPHA  = 0.04
+    PFA_ALPHA  = 0.02
     SIM_THRESHOLD  = 0.45
     MAX_STEPS  = 60
     CONCEPT_CAP    = 10
@@ -266,16 +266,8 @@ class Config:
     HARD_FLOOR  = 0.40
     P_ONE_COURSE = 0.50
     DEVICE = DEVICE
-    # Dependency graph — additive sort_key reduction per unmastered dependent.
-    # Small by design: a false graph edge shifts the score by at most this
-    # value, which is negligible relative to the [0, 1] mastery range.
     PREREQ_BOOST = 0.05
 
-    # WARMUP_THRESHOLD: fraction of session concepts that must have at least
-    # one prior interaction (any level) before warmup is skipped.
-    #   1.0 → all concepts must have been seen before → warmup always runs
-    #          on the first session on any new material (recommended)
-    #   0.5 → skip warmup if at least half the concepts have prior history
     WARMUP_THRESHOLD = 1.0
 
 cfg = Config()
