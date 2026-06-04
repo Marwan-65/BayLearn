@@ -5,9 +5,8 @@ BayLearn is a neuro-symbolic math solver that translates natural language math p
 ### Project Structure
 
 ```
-baylearn/
+Equation_Solving_Module/
 ├── src/
-│   └── baylearn/              # Main package
 │       ├── __init__.py
 │       ├── core/              # Core solver components
 │       │   ├── __init__.py
@@ -19,10 +18,8 @@ baylearn/
 │       │   ├── __init__.py
 │       │   ├── models.py       # Pydantic models
 │       │   └── routes.py       # API endpoints
-│       └── ui/                 # Streamlit UI
-│           ├── __init__.py
-│           ├── app.py          # Main UI application
-│           └── static/         # Static assets
+|       |   └── helpers.py      # Helper functions
+│       └── ui/                 # react UI
 ├── tests/                      # Test suite
 ├── examples/                   # Example usage
 ├── pyproject.toml             # Project configuration

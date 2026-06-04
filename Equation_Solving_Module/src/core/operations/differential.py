@@ -1,14 +1,11 @@
-"""Solves Ordinary Differential Equations via analytical calculus methods."""
-
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 from ..formatting import format_dsolve_steps
 
 def handle_dsolve(ai_data: dict) -> str:
-    """Parses structural notations (e.g., Derivative chains) and solves ordinary differential systems."""
+
     dep_var_name = ai_data["target_variables"][0]
     ind_var_name = "x"
-    
     dep_var = sp.Function(dep_var_name)
     ind_var = sp.Symbol(ind_var_name)
     

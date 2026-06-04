@@ -1,5 +1,3 @@
-"""BayLearn: Neuro-symbolic math solver for RAG pipeline integration."""
-
 __version__ = "1.0.0"
 __author__ = "SalmaNasser"
 __email__ = "salma.naser1020@gmail.com"

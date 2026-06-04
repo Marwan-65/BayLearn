@@ -1,16 +1,17 @@
-"""FastAPI interface routes managing endpoint definitions for BayLearn."""
-
 import json
 import time
 from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+import re
 
 # Import refactored solver targets and new helper positions safely
 from src.core.solver import level_2_solver
 from .helpers import extract_api_graphable_functions
 from .models import SolveRequest, SolveResponse
+from src.core.formatting.latex import sanitize_latex_artifacts
+
 
 app = FastAPI(
     title="Baylearn Equation Solver API",
@@ -57,7 +58,7 @@ async def run(request: SolveRequest):
     try:
         start_time = time.time()
         
-        # Pull responses directly from our orchestrator matrix core file
+        # Pull responses directly from the orchestrator core file
         solver_output, ai_data = level_2_solver(
             request.query,
             show_translation=False,
@@ -110,12 +111,12 @@ def _parse_steps_from_output(output: str) -> List[str]:
     for line in lines:
         if "Step" in line and ":" in line:
             if current_step:
-                steps.append(current_step.strip())
+                steps.append(sanitize_latex_artifacts(current_step.strip()))
             current_step = line
         else:
             current_step += "\n" + line
     if current_step:
-        steps.append(current_step.strip())
+        steps.append(sanitize_latex_artifacts(current_step.strip()))
     return [s for s in steps if s]
 
 
@@ -123,5 +124,9 @@ def _extract_final_result(output: str) -> str:
     if "Final Result:" in output:
         parts = output.split("Final Result:")
         if len(parts) > 1:
-            return parts[-1].split("\n")[0].strip()
+            after_result_lines = parts[-1].split("\n")
+            for line in after_result_lines:
+                cleaned_line = line.strip()
+                if cleaned_line and not cleaned_line.startswith("Graphable"):
+                    return sanitize_latex_artifacts(cleaned_line)
     return "No result"

@@ -4,7 +4,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000/api/v1"
 const QUESTION_API_BASE =
   import.meta.env.VITE_QUESTION_API_BASE || "http://127.0.0.1:8002/api/v1";
 const EQUATION_URL =
-  import.meta.env.VITE_EQUATION_FRONTEND_URL || "http://localhost:8501";
+  import.meta.env.VITE_EQUATION_FRONTEND_URL || "http://localhost:5173";
 const ANIMATION_URL =
   import.meta.env.VITE_ANIMATION_FRONTEND_URL || "http://localhost:3001";
 

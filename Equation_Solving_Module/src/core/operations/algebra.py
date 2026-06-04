@@ -1,5 +1,3 @@
-"""Symbolic operations for equation systems solving and basic term simplifications."""
-
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 from ..formatting import (
@@ -10,7 +8,8 @@ from ..formatting import (
 )
 
 def handle_solve(ai_data: dict) -> str:
-    """Parses and computes algebraic intersections for systems of symbols."""
+
+
     sympy_equations = []
     for eq_data in ai_data["equations"]:
         lhs = parse_expr(str(eq_data["lhs"]))
@@ -29,7 +28,7 @@ def handle_solve(ai_data: dict) -> str:
 
 
 def handle_simplify(ai_data: dict) -> str:
-    """Simplifies complex expressions into concise equivalent equations."""
+
     try:
         expression = parse_expr(str(ai_data["equations"][0]["lhs"]))
         result = sp.simplify(expression)

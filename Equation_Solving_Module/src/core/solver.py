@@ -1,5 +1,3 @@
-"""Main orchestrator for BayLearn mathematical processing pipelines."""
-
 import json
 from .llm_client import translate_math_input
 
@@ -16,7 +14,7 @@ from .operations import (
     handle_matrix_ops
 )
 
-# Operational map strategy dictionary configuration 
+# dictionary to map each mode to it's handler function instead of relying on a long if-else chain
 EXECUTION_ROUTERS = {
     "solve": handle_solve,
     "solve_system": handle_solve,
@@ -26,12 +24,12 @@ EXECUTION_ROUTERS = {
     "limit": handle_limit,
     "series": handle_series,
     "partial_derivative": handle_partial_derivative,
-    "dsolve": handle_dsolve,
+    "dsolve": handle_dsolve,        #differential equation solving 
     "matrix_ops": handle_matrix_ops,
 }
 
 def _dispatch_operation(ai_data: dict) -> str:
-    """Matches the identified operation with its specialized mathematical engine routine."""
+    """helper function to match each operation to it's routine"""
     operation = ai_data.get("operation")
     handler = EXECUTION_ROUTERS.get(operation)
     
@@ -43,7 +41,7 @@ def _dispatch_operation(ai_data: dict) -> str:
 
 def level_2_solver(user_input: str, show_translation: bool = False, return_translation: bool = False):
     """
-    Core entry endpoint running translation inference and mathematical execution.
+    advanced version of level one solver that handles the full pipeline instead of only solving the equation
     """
     try:
         # Phase 1: Translate messy human requests using the LLM engine

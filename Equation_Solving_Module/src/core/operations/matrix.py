@@ -1,26 +1,23 @@
-"""Executes linear algebra routines on dimensional coordinate matrices."""
-
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 from ..formatting import format_matrix_steps, matrix_to_latex, expr_to_clean_text
 
 def handle_matrix_ops(ai_data: dict) -> str:
-    """Routes array configurations to appropriate internal numerical linear transforms."""
     try:
-        # Explicitly cast to sp.Matrix to prevent lazy evaluation classes from leaking out
+        # cast to sp.Matrix to prevent issues with handling the matrix in sympy
         raw_matrix = parse_expr(str(ai_data["equations"][0]["lhs"]))
         matrix = sp.Matrix(raw_matrix)
         operation = ai_data.get("matrix_operation")
         
         if not operation or operation in ["none", "null"]:
-            return "Error: Matrix operation not specified."
+            return "Error: Matrix operation not specified"
             
         valid_ops = ["determinant", "inverse", "eigenvalues", "eigenvectors", "transpose", "rref", "rank", "trace"]
         if operation not in valid_ops:
             return f"Error: Matrix operation '{operation}' not recognized."
             
         if operation == "determinant":
-            res = sp.simplify(matrix.det()) # Simplify ensures numbers are clean
+            res = sp.simplify(matrix.det()) # this ensures numbers are clean
             st = format_matrix_steps(matrix, operation, res)
             return f"{st}\n\nFinal Result: Determinant = {expr_to_clean_text(res)}"
             
@@ -44,7 +41,7 @@ def handle_matrix_ops(ai_data: dict) -> str:
                 for vec in vecs:
                     parts.append(f"LATEX_MATRIX:{matrix_to_latex(vec)}")
             
-            # FIXED: Properly join the parts list without triggering f-string syntax errors
+            # join the parts list without any syntax errors
             joined_parts = "\n".join(parts)
             return f"{st}\n\nFinal Result:\n{joined_parts}"
             
@@ -56,7 +53,7 @@ def handle_matrix_ops(ai_data: dict) -> str:
         elif operation == "rref":
             res, pivots = matrix.rref()
             st = format_matrix_steps(matrix, operation, res)
-            note = "\n\n⚠️ Note: This is the RREF form, NOT the matrix inverse layout!"
+            note = "\n\n This is the RREF form, NOT the matrix inverse layout!"
             return f"{st}\n\nPivot columns: {pivots}\n\nFinal Result: RREF =\nLATEX_MATRIX:{matrix_to_latex(res)}{note}"
             
         elif operation == "rank":

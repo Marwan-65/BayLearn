@@ -1,5 +1,3 @@
-"""LLM client for mathematical translation via AI."""
-
 import json
 import os
 from typing import Dict, Any
@@ -9,7 +7,7 @@ from dotenv import load_dotenv
 
 from .config import SYSTEM_PROMPT, MODEL_NAME, MODEL_TEMPERATURE
 
-# Load environment variables
+# loading the environment variables
 load_dotenv()
 
 

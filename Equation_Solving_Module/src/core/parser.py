@@ -1,5 +1,3 @@
-"""Basic equation parser for BayLearn."""
-
 import sympy as sp
 from sympy.parsing.sympy_parser import (
     parse_expr,
@@ -12,16 +10,15 @@ from sympy.parsing.sympy_parser import (
 def solve_math_string(user_input: str) -> str:
     """
     Parse and solve a simple math equation from a string.
-    
-    Handles equations with equality signs and automatically detects the variable.
+    this function is the level one solver that works on taking the equation and solving it directly
     
     Args:
         user_input: Mathematical equation as string (e.g., "2y - 4 = 14")
         
     Returns:
-        String representation of the solution
+        string representation of the solution
     """
-    # Phase 1: Lexical Analysis & Sanitization
+    #lexical analysis and cleanning of the input
     clean_input = user_input.replace(" ", "")
     
     if "=" not in clean_input:
@@ -29,8 +26,7 @@ def solve_math_string(user_input: str) -> str:
         
     lhs_string, rhs_string = clean_input.split("=")
     
-    # Phase 2: Parsing & Transformations (The Compiler step)
-    # Combine standard rules with implicit multiplication and XOR conversion
+    # parsing and transforming (The Compiler step) to handle natural math lang
     transformations = standard_transformations + (
         implicit_multiplication_application,
         convert_xor,
@@ -41,14 +37,14 @@ def solve_math_string(user_input: str) -> str:
         lhs_expr = parse_expr(lhs_string, transformations=transformations)
         rhs_expr = parse_expr(rhs_string, transformations=transformations)
         
-        # Phase 3: Semantic Evaluation
-        # Lock them into a strict SymPy Equation
+        # semantic evaluation of the equations
+        # save it a as sympy equation
         equation = sp.Eq(lhs_expr, rhs_expr)
         
-        # Automatically detect the variable (e.g., 'x', 'y', 't')
+        # detect the variable (e.g., 'x', 'y', 't')
         variables = equation.free_symbols
         if not variables:
-            return "Error: No variables found in equation."
+            return "Error: No variables found in the equation"
             
         target_var = list(variables)[0]
         

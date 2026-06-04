@@ -1,6 +1,5 @@
-"""Calculus execution engine handling limits, derivatives, and integration routines."""
-
 import sympy as sp
+
 from sympy.parsing.sympy_parser import parse_expr
 from ..formatting import (
     format_base_steps, 
@@ -13,7 +12,8 @@ from ..formatting import (
 )
 
 def handle_derive(ai_data: dict) -> str:
-    """Computes derivative equations and formats graphable function blocks."""
+    
+    
     expr = parse_expr(str(ai_data["equations"][0]["lhs"]))
     var = sp.Symbol(ai_data["target_variables"][0])
     derivative = sp.diff(expr, var)
@@ -30,7 +30,7 @@ def handle_derive(ai_data: dict) -> str:
 
 
 def handle_integrate(ai_data: dict) -> str:
-    """Evaluates analytic indefinite integrals."""
+
     expr = parse_expr(str(ai_data["equations"][0]["lhs"]))
     var = sp.Symbol(ai_data["target_variables"][0])
     integral = sp.integrate(expr, var)
@@ -47,7 +47,6 @@ def handle_integrate(ai_data: dict) -> str:
 
 
 def handle_limit(ai_data: dict) -> str:
-    """Evaluates symbolic limits approaching precise points or infinity."""
     try:
         expr = parse_expr(str(ai_data["equations"][0]["lhs"]))
         var = sp.Symbol(ai_data["target_variables"][0])
@@ -63,7 +62,6 @@ def handle_limit(ai_data: dict) -> str:
 
 
 def handle_series(ai_data: dict) -> str:
-    """Generates localized Taylor or Maclaurin power series approximations."""
     try:
         expr = parse_expr(str(ai_data["equations"][0]["lhs"]))
         var = sp.Symbol(ai_data["target_variables"][0])
@@ -80,7 +78,6 @@ def handle_series(ai_data: dict) -> str:
 
 
 def handle_partial_derivative(ai_data: dict) -> str:
-    """Applies multi-pass partial differentiation across chosen variables."""
     try:
         expr = parse_expr(str(ai_data["equations"][0]["lhs"]))
         variables = [sp.Symbol(v) for v in ai_data["target_variables"]]

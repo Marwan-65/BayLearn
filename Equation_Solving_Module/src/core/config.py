@@ -30,6 +30,9 @@ NEVER use abstract function labels like "f(x)", "y", or "y(x)".
 - Euler's number 'e^x' MUST become 'exp(x)' (never 'e**x').
 - Natural log 'ln(x)' MUST become 'log(x)'.
 - Square root 'sqrt(x)' MUST become 'sqrt(x)'.
+14. ALWAYS use strict, proper LaTeX syntax for mathematical output. 
+- NEVER output unbraced fractions like \frac-12-3. You MUST use curly braces: \frac{-12}{-3}.
+- ALWAYS use standard \cdot for multiplication dots. Do not use corrupted text accents.
 """
 
 # Model configuration
