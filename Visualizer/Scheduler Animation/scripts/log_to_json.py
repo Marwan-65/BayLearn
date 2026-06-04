@@ -90,6 +90,33 @@ def parse_log(path):
 
     return sequence, extra_stats
 
+
+#parse Scheduler_perf.txt to a stats dict
+# the stats are key value pairs.
+def parse_perf(path):
+    stats = {}
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if '=' not in line:
+                continue
+            key, _, val = line.partition('=')
+            key = key.strip()
+            try:
+                val = float(val.strip())
+            except ValueError:
+                continue
+            if 'CPU utilization' in key:
+                stats['cpuUtilization'] = round(val, 2)
+            elif 'Avg WTA' in key:
+                stats['avgWTA'] = round(val, 2)
+            elif 'Avg Waiting' in key:
+                stats['avgWait'] = round(val, 2)
+    return stats
+
+
+
+
 #parse reason_log.txt to dict mapping (pid, end_time) -> reason_code
 #only closing events (stopped, finished) carry a reason.
 # the reason code is the token before the em-dash in each reason string,
@@ -120,28 +147,7 @@ def parse_reason_log(path):
         pass
     return reason_map
 
-#parse Scheduler_perf.txt to a stats dict
-# the stats are key value pairs.
-def parse_perf(path):
-    stats = {}
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if '=' not in line:
-                continue
-            key, _, val = line.partition('=')
-            key = key.strip()
-            try:
-                val = float(val.strip())
-            except ValueError:
-                continue
-            if 'CPU utilization' in key:
-                stats['cpuUtilization'] = round(val, 2)
-            elif 'Avg WTA' in key:
-                stats['avgWTA'] = round(val, 2)
-            elif 'Avg Waiting' in key:
-                stats['avgWait'] = round(val, 2)
-    return stats
+
 
 
 def main():

@@ -1,23 +1,14 @@
 {
-  "initialList": [],
+  "initialList": [
+    10,
+    20,
+    30,
+    40,
+    50
+  ],
   "operations": [
     {
-      "op": "insertAtHead",
-      "value": 30,
-      "index": null
-    },
-    {
-      "op": "insertAtHead",
-      "value": 20,
-      "index": null
-    },
-    {
-      "op": "insertAtHead",
-      "value": 10,
-      "index": null
-    },
-    {
-      "op": "traverse",
+      "op": "deleteAtHead",
       "value": null,
       "index": null
     },
@@ -27,18 +18,8 @@
       "index": null
     },
     {
-      "op": "insertAtTail",
-      "value": 40,
-      "index": null
-    },
-    {
-      "op": "insertAtTail",
-      "value": 50,
-      "index": null
-    },
-    {
       "op": "deleteByValue",
-      "value": 20,
+      "value": 30,
       "index": null
     }
   ]
