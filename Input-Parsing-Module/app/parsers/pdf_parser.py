@@ -1,25 +1,3 @@
-"""
-PDFParser v3 — Universal PDF parser for learning tutor projects.
-
-OCR Strategy (dual-engine):
-  ┌─────────────────────────────────────────────────────────────────┐
-  │ Page type         │ Text source     │ Images/Diagrams            │
-  ├─────────────────────────────────────────────────────────────────┤
-  │ Digital PDF       │ PyMuPDF (free)  │ PaddleOCR (local, free)   │
-  │ Scanned/handwrit. │ Gemini API      │ PaddleOCR (Gemini fallback)│
-  └─────────────────────────────────────────────────────────────────┘
-
-Why this split:
-  - Gemini    → understands handwriting, math notation, layout context
-               → burns API quota (20 req/day free) — ONLY used for scans
-  - PaddleOCR → local, unlimited, fast for printed text in images/diagrams
-               → poor on handwriting/math, great on digital embedded content
-
-Install:
-  pip install google-genai PyMuPDF opencv-python-headless pillow numpy img2table
-  pip install paddlepaddle paddleocr
-  # CPU-only machines: pip install paddlepaddle-cpu paddleocr
-"""
 
 import fitz
 import uuid
@@ -45,19 +23,9 @@ from app.models.unified_content_schema import ParsedContent
 
 logger = logging.getLogger(__name__)
 
-
-# ═══════════════════════════════════════════════════════════════════
-# PADDLE OCR ENGINE  (local, free, for digital embedded images)
-# ═══════════════════════════════════════════════════════════════════
-
-class PaddleOCREngine:
-    """
-    Lazy-loaded PaddleOCR singleton.
-
-    - Initialises once on first use (~3-5s, downloads models on very first run)
-    - If PaddleOCR is not installed, silently returns "" so the parser never crashes
-    - Use for: printed text in embedded images and vector diagrams inside digital PDFs
-    - Do NOT use for: handwriting, math notation — use Gemini for those
+ # for printed text in embedded images and vector diagrams inside digital PDFs
+class PaddleOCR:
+    """ Used forprinted text in embedded images and vector diagrams inside digital PDFs
     """
 
     _instance = None
@@ -65,15 +33,15 @@ class PaddleOCREngine:
     _available: Optional[bool] = None
 
     @classmethod
+    # checks if paddle ocr is installed or not
     def _is_available(cls) -> bool:
         if cls._available is None:
             try:
-                import paddleocr  # noqa: F401
+                import paddleocr  
                 cls._available = True
             except ImportError:
                 logger.warning(
-                    "PaddleOCR not installed — embedded image OCR will return empty strings. "
-                    "Install with: pip install paddlepaddle paddleocr"
+                    "PaddleOCR not (installed embedded image OCR will return empty strings.) "
                 )
                 cls._available = False
         return cls._available
@@ -84,64 +52,56 @@ class PaddleOCREngine:
             with cls._lock:
                 if cls._instance is None:
                     from paddleocr import PaddleOCR
-                    # PP-OCRv4 uses lightweight mobile det+rec models
-                    # vs the default PP-OCRv5_server which is slow on CPU
                     cls._instance = PaddleOCR(ocr_version="PP-OCRv4")
         return cls._instance
 
     @classmethod
     def _preprocess(cls, image: Image.Image) -> Image.Image:
-        """
-        Upscale to minimum long edge for PaddleOCR.
-        PaddleOCR needs enough pixels to detect text regions accurately.
-        No contrast/denoise filtering — those hurt handwritten content.
+        """preprocess the image for PaddleOCR
         """
         MIN_LONG_EDGE = int(os.environ.get("PADDLE_MIN_LONG_EDGE_PX", "2400"))
         w, h = image.size
         long_edge = max(w, h)
         if long_edge < MIN_LONG_EDGE:
-            scale = MIN_LONG_EDGE / long_edge
-            image = image.resize(
+            scale =   MIN_LONG_EDGE / long_edge
+            image =   image.resize(
                 (int(w * scale), int(h * scale)), Image.LANCZOS
             )
         return image
 
     @classmethod
-    def ocr_image(cls, image: Image.Image, preprocess: bool = True) -> str:
-        """Run PaddleOCR on a PIL image. Returns "" if unavailable or fails."""
+    def ocr_image(cls, image: Image.Image, preprocess: bool =   True) -> str:
+        """Run PaddleOCR on a PIL image returns "" if unavailable or fails."""
         if not cls._is_available():
             return ""
         try:
             if preprocess:
-                image = cls._preprocess(image)
+                image =   cls._preprocess(image)
 
-            ocr = cls._get_instance()
-            arr = np.array(image.convert("RGB"))
-            min_conf = float(os.environ.get("PADDLE_MIN_CONFIDENCE", "0.5"))
+            ocr=   cls._get_instance()
+            arr=  np.array(image.convert("RGB"))
+            min_conf=  float(os.environ.get("PADDLE_MIN_CONFIDENCE", "0.5"))
 
-            # PaddleOCR v3: use predict() — ocr(cls=True) is removed
-            result = ocr.predict(arr)
+            result=  ocr.predict(arr)
 
             if not result:
                 return ""
 
-            lines = []
-            # v3 predict() returns a list of dicts with 'rec_texts' and 'rec_scores'
+            lines=  []
             for item in result:
                 if not item:
                     continue
                 if isinstance(item, dict):
-                    texts = item.get("rec_texts", [])
-                    scores = item.get("rec_scores", [])
+                    texts=  item.get("rec_texts", [])
+                    scores=  item.get("rec_scores", [])
                     for text, score in zip(texts, scores):
                         if score >= min_conf and text.strip():
                             lines.append(text.strip())
                 elif isinstance(item, list):
-                    # fallback: v2-style nested list [bbox, (text, conf)]
                     for line in item:
                         try:
-                            payload = line[1] if isinstance(line[0], list) else line
-                            text, confidence = payload[0], payload[1]
+                            payload=  line[1] if isinstance(line[0], list) else line
+                            text, confidence=  payload[0], payload[1]
                             if float(confidence) >= min_conf and str(text).strip():
                                 lines.append(str(text).strip())
                         except Exception:
@@ -153,9 +113,7 @@ class PaddleOCREngine:
             return ""
 
 
-# ═══════════════════════════════════════════════════════════════════
-# GEMINI OCR ENGINE  (API, for handwritten / scanned pages ONLY)
-# ═══════════════════════════════════════════════════════════════════
+# GEMINI OCR 
 
 OCR_PROMPT = """You are an expert OCR system for academic handwritten notes and documents.
 Your job is to extract and reconstruct ALL content from this image as accurately and completely as possible.
@@ -169,7 +127,7 @@ TEXT EXTRACTION RULES:
   * Summation: sum_{i=0}^{n}, product: prod, expectation: E[...]
   * Fractions: (num)/(denom)
 - Preserve line breaks, indentation, and section hierarchy
-- If a word is unclear, write your best guess followed by (?) — never skip content
+- If a word is unclear, write your best guess followed by (?) - never skip content
 
 TABLE RULES:
 - If you see a table or grid, reconstruct it as a markdown table
@@ -177,7 +135,7 @@ TABLE RULES:
   * Any checkmark, tick, filled dot, filled box, bullet, or check symbol -> [x]
   * Any empty box, empty circle, or blank cell -> [ ]
   * Any dash, minus, or explicit "none" -> [-]
-  * Be consistent — pick one and use it throughout
+  * Be consistent - pick one and use it throughout
 - Always include row headers and column headers
 
 STRUCTURE RULES:
@@ -186,20 +144,19 @@ STRUCTURE RULES:
 - Separate sections with a blank line
 - Do NOT confuse diagram boxes/nodes/flowchart shapes with checkboxes
 
-OUTPUT: extracted content only — no commentary, no explanations, no meta-statements.
+OUTPUT: extracted content only - no commentary, no explanations, no meta-statements.
 Ignore watermarks like "Scanned with CamScanner"."""
 
 
 class GeminiOCR:
-    """Gemini API OCR — reserved for scanned/handwritten pages to protect quota."""
-
-    _client = None
-    _mem_cache: dict = {}          # fast in-memory layer
-    _cache_lock = threading.Lock()
-    _quota_blocked_until: float = 0.0
-    _quota_error_logged: bool = False
-    _rate_lock = threading.Lock()
-    _next_request_time: float = 0.0
+    """ Gemini vision API for scanned/handwritten pages."""
+    _client  =  None
+    _mem_cache: dict  =  {}         
+    _cache_lock  =  threading.Lock()
+    _quota_blocked_until: float  =  0.0
+    _quota_error_logged: bool  =  False
+    _rate_lock  =  threading.Lock()
+    _next_request_time: float  =  0.0
 
 
 
@@ -209,7 +166,7 @@ class GeminiOCR:
 
     @classmethod
     def _is_quota_error(cls, error: Exception) -> bool:
-        s = str(error).lower()
+        s  =  str(error).lower()
         return (
             "resource_exhausted" in s
             or "quota exceeded" in s
@@ -218,8 +175,8 @@ class GeminiOCR:
         )
 
     @classmethod
-    def _quota_retry_seconds(cls, error: Exception, default: int = 60) -> int:
-        match = re.search(r"please retry in\s+(\d+(?:\.\d+)?)s", str(error).lower())
+    def _quota_retry_seconds(cls, error: Exception, default: int  =  60) -> int:
+        match  =  re.search(r"please retry in\s+(\d+(?:\.\d+)?)s", str(error).lower())
         if match:
             try:
                 return max(1, int(math.ceil(float(match.group(1)))))
@@ -234,36 +191,36 @@ class GeminiOCR:
     @classmethod
     def _get_client(cls):
         if cls._client is None:
-            api_key = os.environ.get("GEMINI_API_KEY")
+            api_key  =  os.environ.get("GEMINI_API_KEY")
             if not api_key:
                 raise ValueError("GEMINI_API_KEY not set")
             from google import genai
-            cls._client = genai.Client(api_key=api_key)
+            cls._client  =  genai.Client(api_key=api_key)
         return cls._client
 
     @classmethod
     def _wait_for_rate_slot(cls):
         if cls.is_quota_blocked():
             raise RuntimeError("Gemini quota blocked")
-        rpm = max(1, int(os.environ.get("GEMINI_MAX_REQUESTS_PER_MINUTE", "8")))
-        interval = 60.0 / rpm
+        rpm  =  max(1, int(os.environ.get("GEMINI_MAX_REQUESTS_PER_MINUTE", "8")))
+        interval  =  60.0 / rpm
         with cls._rate_lock:
-            now = time.monotonic()
+            now  =  time.monotonic()
             if now < cls._next_request_time:
                 time.sleep(cls._next_request_time - now)
-                now = time.monotonic()
-            cls._next_request_time = now + interval
+                now  =  time.monotonic()
+            cls._next_request_time  =  now + interval
 
     @classmethod
-    def ocr_image(cls, image: Image.Image, prompt: str = OCR_PROMPT) -> str:
+    def ocr_image(cls, image: Image.Image, prompt: str  =  OCR_PROMPT) -> str:
         """Send image to Gemini. Returns "" on any failure."""
         if cls.is_quota_blocked():
             return ""
-        model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
-        buf = BytesIO()
+        model  =  os.environ.get("GEMINI_MODEL", "gemini-2.5-flash-lite")
+        buf  =  BytesIO()
         image.convert("RGB").save(buf, format="JPEG", quality=75, optimize=True)
-        image_bytes = buf.getvalue()
-        cache_key = (
+        image_bytes  =  buf.getvalue()
+        cache_key  =  (
             f"{model}:{cls._image_hash(image_bytes)}"
             f":{hashlib.sha1(prompt.encode()).hexdigest()}"
         )
@@ -271,13 +228,13 @@ class GeminiOCR:
         # Memory cache
         with cls._cache_lock:
             if cache_key in cls._mem_cache:
-                print(f"[OCR]   Cache HIT (memory) — skipping Gemini call")
+                print(f"[OCR]   Cache HIT (memory) - skipping Gemini call")
                 return cls._mem_cache[cache_key]
 
         from google.genai import types
         try:
             cls._wait_for_rate_slot()
-            response = cls._get_client().models.generate_content(
+            response  =  cls._get_client().models.generate_content(
                 model=model,
                 contents=[
                     types.Content(
@@ -289,20 +246,20 @@ class GeminiOCR:
                     )
                 ],
             )
-            text = (response.text or "").strip()
+            text  =  (response.text or "").strip()
             with cls._cache_lock:
-                cls._mem_cache[cache_key] = text
-            cls._quota_error_logged = False
+                cls._mem_cache[cache_key]  =  text
+            cls._quota_error_logged  =  False
             return text
         except RuntimeError:
             return ""
         except Exception as e:
             if cls._is_quota_error(e):
-                wait = cls._quota_retry_seconds(e)
-                cls._quota_blocked_until = time.monotonic() + wait
+                wait  =  cls._quota_retry_seconds(e)
+                cls._quota_blocked_until  =  time.monotonic() + wait
                 if not cls._quota_error_logged:
-                    logger.warning(f"Gemini quota exhausted — pausing OCR for {wait}s.")
-                    cls._quota_error_logged = True
+                    logger.warning(f"Gemini quota exhausted - pausing OCR for {wait}s.")
+                    cls._quota_error_logged  =  True
             elif "404" in str(e):
                 logger.error(f"Gemini model not found: {e}")
             else:
@@ -310,9 +267,7 @@ class GeminiOCR:
             return ""
 
 
-# ═══════════════════════════════════════════════════════════════════
-# GROQ OCR ENGINE  (~14,400 req/day free on Llama-4-Scout-17B-16E)
-# ═══════════════════════════════════════════════════════════════════
+# GROQ OCR 
 
 GROQ_OCR_PROMPT = """You are an expert OCR system for academic handwritten notes and documents.
 Your job is to extract and reconstruct ALL content from this image as accurately and completely as possible.
@@ -326,7 +281,7 @@ TEXT EXTRACTION RULES:
   * Summation: sum_{i=0}^{n}, product: prod, expectation: E[...]
   * Fractions: (num)/(denom)
 - Preserve line breaks, indentation, and section hierarchy
-- If a word is unclear, write your best guess followed by (?) — never skip content
+- If a word is unclear, write your best guess followed by (?) - never skip content
 
 TABLE RULES:
 - If you see a table or grid, reconstruct it as a markdown table
@@ -334,7 +289,7 @@ TABLE RULES:
   * Any checkmark, tick, filled dot, filled box, bullet, or check symbol -> [x]
   * Any empty box, empty circle, or blank cell -> [ ]
   * Any dash, minus, or explicit "none" -> [-]
-  * Be consistent — pick one and use it throughout
+  * Be consistent - pick one and use it throughout
 - Always include row headers and column headers
 
 STRUCTURE RULES:
@@ -343,50 +298,39 @@ STRUCTURE RULES:
 - Separate sections with a blank line
 - Do NOT confuse diagram boxes/nodes/flowchart shapes with checkboxes
 
-OUTPUT: extracted content only — no commentary, no explanations, no meta-statements.
+OUTPUT: extracted content only - no commentary, no explanations, no meta-statements.
 Ignore watermarks like "Scanned with CamScanner"."""
 
 
 class GroqOCR:
-    """
-    Groq vision API — high-quota fallback for scanned/handwritten pages.
-
-    Free tier (as of 2025):
-      meta-llama/llama-4-scout-17b-16e-instruct  — 500 req/day, 30 req/min
-      meta-llama/llama-4-maverick-17b-128e-instruct — 1000 req/day
-
-    Install:  pip install groq
-    API key:  https://console.groq.com  (free, no credit card)
-    Env var:  GROQ_API_KEY=your_key
-    """
-
+    """ Groq vision API for scanned/handwritten pages."""
     _client = None
     _client_lock = threading.Lock()
     _available: Optional[bool] = None
     _quota_blocked_until: float = 0.0
     _rate_blocked_until: float = 0.0
-    _quota_error_logged: bool = False
-    _cache_lock = threading.Lock()
-    _mem_cache: dict = {}
+    _quota_error_logged: bool  =      False
+    _cache_lock  =      threading.Lock()
+    _mem_cache: dict  =      {}
 
     @classmethod
     def _is_available(cls) -> bool:
         if cls._available is None:
             if not os.environ.get("GROQ_API_KEY", ""):
-                logger.info("GROQ_API_KEY not set — Groq OCR disabled")
-                cls._available = False
+                logger.info("GROQ_API_KEY not set")
+                cls._available  =      False
                 return False
             try:
-                import groq  # noqa: F401
-                cls._available = True
+                import groq  
+                cls._available  =      True
             except ImportError:
-                logger.warning("groq not installed — run: pip install groq")
-                cls._available = False
+                logger.warning("groq not installed")
+                cls._available  =      False
         return cls._available
 
     @classmethod
     def is_quota_blocked(cls) -> bool:
-        now = time.monotonic()
+        now  =      time.monotonic()
         return now < cls._quota_blocked_until or now < cls._rate_blocked_until
 
     @classmethod
@@ -395,7 +339,7 @@ class GroqOCR:
             with cls._client_lock:
                 if cls._client is None:
                     from groq import Groq
-                    cls._client = Groq(api_key=os.environ["GROQ_API_KEY"])
+                    cls._client  =      Groq(api_key=os.environ["GROQ_API_KEY"])
         return cls._client
 
     @classmethod
@@ -404,24 +348,22 @@ class GroqOCR:
 
 
     @classmethod
-    def ocr_image(cls, image: Image.Image, prompt: str = GROQ_OCR_PROMPT) -> str:
+    def ocr_image(cls, image: Image.Image, prompt: str  =      GROQ_OCR_PROMPT) -> str:
         """
-        Send image to Groq vision model for OCR.
-        Returns extracted text or "" on failure.
+        send image to Groq  for OCR it returns extracted text or "" on failure
         """
         if not cls._is_available() or cls.is_quota_blocked():
             return ""
 
-        model = os.environ.get(
+        model  =     os.environ.get(
             "GROQ_VISION_MODEL",
             "meta-llama/llama-4-scout-17b-16e-instruct"
         )
 
-        # Resize image before sending — Groq has a 4MB base64 limit
-        # and smaller images are faster. 1600px long edge is plenty for OCR.
-        MAX_LONG_EDGE = int(os.environ.get("GROQ_MAX_LONG_EDGE_PX", "1600"))
-        w, h = image.size
-        long_edge = max(w, h)
+        # Resize image to 1600 pixl before sending as Groq has a 4MB limit
+        MAX_LONG_EDGE  =     int(os.environ.get("GROQ_MAX_LONG_EDGE_PX", "1600"))
+        w, h  =      image.size
+        long_edge  =      max(w, h)
         if long_edge > MAX_LONG_EDGE:
             scale = MAX_LONG_EDGE / long_edge
             image = image.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
@@ -435,11 +377,11 @@ class GroqOCR:
         # Memory cache
         with cls._cache_lock:
             if cache_key in cls._mem_cache:
-                print("[OCR]   Cache HIT (memory) — skipping Groq call")
+                print("[OCR]   Cache HIT (memory) - skipping Groq call")
                 return cls._mem_cache[cache_key]
 
         try:
-            client = cls._get_client()
+            client =   cls._get_client()
             response = client.chat.completions.create(
                 model=model,
                 messages=[
@@ -460,7 +402,7 @@ class GroqOCR:
                     }
                 ],
                 max_tokens=4096,
-                temperature=0.0,   # deterministic — we want exact transcription
+                temperature=0.0,   
             )
             text = (response.choices[0].message.content or "").strip()
 
@@ -472,13 +414,13 @@ class GroqOCR:
         except Exception as e:
             err = str(e).lower()
             if "429" in err or "rate" in err or "too many" in err:
-                # Rate limit (per-minute) — short block
+                # Rate limit (per-minute) 
                 cls._rate_blocked_until = time.monotonic() + 65
                 if not cls._quota_error_logged:
-                    logger.warning(f"Groq rate limit hit — pausing 65s: {e}")
+                    logger.warning(f"Groq rate limit hit - pausing 65s: {e}")
                     cls._quota_error_logged = True
             elif "quota" in err or "exceeded" in err or "limit" in err:
-                # Daily quota exhausted — block for the rest of the day
+                # Daily quota exhausted 
                 cls._quota_blocked_until = time.monotonic() + 3600
                 logger.warning(f"Groq daily quota exhausted: {e}")
             else:
@@ -486,42 +428,44 @@ class GroqOCR:
             return ""
 
 
-# ═══════════════════════════════════════════════════════════════════
 # PDF PARSER
-# ═══════════════════════════════════════════════════════════════════
 
 class PDFParser(BaseParser):
 
-    # ─────────────────────────────────────────────────────────────
     # TABLE EXTRACTION
-    # ─────────────────────────────────────────────────────────────
-    def _extract_tables_with_fallback(self, file_path: str) -> dict:
+
+    def _extract_tables(self, file_path: str) -> dict:
         if not os.environ.get("ENABLE_IMG2TABLE", "true").lower() in {"1", "true", "yes", "on"}:
             return {}
+        # borderless mode for tables with no rigid table grid
         try:
             from img2table.document import PDF as Img2TablePDF
             return Img2TablePDF(src=file_path).extract_tables(
                 ocr=None, borderless_tables=True,
                 implicit_rows=False, implicit_columns=True,
             )
+        
         except Exception as e:
-            logger.warning(f"img2table borderless mode failed, retrying in safe mode: {e}")
+            logger.warning(f"img2table borderless mode failed retrying in safe mode: {e}")
+        # safe mode if borderless failed
         try:
             from img2table.document import PDF as Img2TablePDF
             return Img2TablePDF(src=file_path).extract_tables(
                 ocr=None, borderless_tables=False,
                 implicit_rows=True, implicit_columns=True,
             )
+        
         except Exception as e:
-            logger.warning(f"img2table both modes failed — skipping table extraction: {e}")
+            logger.warning(f"img2table both modes failed skipping table extraction: {e}")
             return {}
 
     def preprocess(self, file_path):
         doc = fitz.open(file_path)
         if doc.page_count == 0:
             doc.close()
+
             raise ValueError(
-                "Uploaded PDF has zero pages or is invalid/corrupted. "
+                "The uploaded PDF has no pages or it is invalid/corrupted. "
                 "Please upload a valid, non-empty PDF file."
             )
         cleaned_path = file_path.replace(".pdf", "_clean.pdf")
@@ -529,63 +473,81 @@ class PDFParser(BaseParser):
         doc.close()
         return cleaned_path
 
-    # ─────────────────────────────────────────────────────────────
-    # PAGE TYPE DETECTION
-    # ─────────────────────────────────────────────────────────────
+
+    # PAGE TYPE DETECTION (Scanned or Digital)
+  
     def is_scanned_page(self, page) -> bool:
         text = page.get_text().strip()
         images = page.get_images(full=True)
         text_length = len(text)
+
+        # check 1: : if text found in page > 50 characters or has zero images then go to check 2 else chexk dominant imgs
         if text_length >= 50 or len(images) == 0:
             page_area = page.rect.width * page.rect.height
+
+            #check 2: if page text is small compared to the page size and it has images then check dominnant imgs else page is digital
+            # ya3ni law el page nono skip
             if page_area > 0 and text_length / page_area < 0.00005 and len(images) > 0:
                 return self._has_dominant_image(page)
+            
             return False
+        
         return self._has_dominant_image(page)
 
     def _has_dominant_image(self, page) -> bool:
         page_area = page.rect.width * page.rect.height
         if page_area == 0:
             return False
+
+
         for info in page.get_image_info():
-            bbox = info.get("bbox")
-            if bbox:
-                img_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            bounding_box = info.get("bbox")
+            if bounding_box:
+                img_area = (bounding_box[2] - bounding_box[0]) * (bounding_box[3] - bounding_box[1]) #area = length*width
+                # if image is more than 50% of the page then its scanned
                 if img_area / page_area > 0.5:
                     return True
+                
         return False
 
-    # ─────────────────────────────────────────────────────────────
+
     # RENDER PAGE
-    # ─────────────────────────────────────────────────────────────
-    def render_page(self, page, zoom: float = 2.0) -> Image.Image:
-        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-        mode = "RGB" if pix.n >= 3 else "L"
-        return Image.frombytes(mode, [pix.width, pix.height], pix.samples)
+    
+    # convert page to PIL image for OCR 
+    # 3ashan ne3raf n ocr it
+    def render_page_as_image(self, page, zoom: float = 2.0) -> Image.Image:
 
-    # ─────────────────────────────────────────────────────────────
-    # OCR QUALITY SCORING
-    # ─────────────────────────────────────────────────────────────
+        pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False) 
+        # from vector to pixels with twice resolution for better OCR (RGB not RGBA for memory and speed) 
+
+        mode = "RGB" if pix.n >= 3 else "L"  # RGB or Grayscale
+        return Image.frombyes(mode, [pix.width, pix.height], pix.samples) # PIL
+    
+
+    # OCR SCORE
+    
     _VISION_DESCRIBE_PROMPT = """You are analyzing an image from an academic document.
-Extract and describe ALL content you see, completely and factually.
+    Extract and describe ALL content you see, completely and factually.
 
-Start with [TYPE: diagram|chart|table|graph|photo|text|mixed]
+    Start with [TYPE: diagram|chart|table|graph|photo|text|mixed]
 
-Then:
-- If it contains TEXT: extract it exactly as written
-- If it is a TABLE or GRID:
-  * Reconstruct as markdown table
-  * For checkmarks/ticks/filled boxes -> [x], empty boxes -> [ ], dashes -> [-]
-  * Include all row and column headers
-- If it is a DIAGRAM or CHART: describe type, labels, axes, flow, key relationships
-- If it is a PHOTO: describe the subject plainly
-- If MIXED (text + visual): extract text first, then describe the visual
+    Then:
+    - If it contains TEXT: extract it exactly as written
+    - If it is a TABLE or GRID:
+    * Reconstruct as markdown table
+    * For checkmarks/ticks/filled boxes -> [x], empty boxes -> [ ], dashes -> [-]
+    * Include all row and column headers
+    - If it is a DIAGRAM or CHART: describe type, labels, axes, flow, key relationships
+    - If it is a PHOTO: describe the subject plainly
+    - If MIXED (text + visual): extract text first, then describe the visual
 
-Rules:
-- Be direct and factual — no commentary, no apologies
-- If the image is blank or unreadable: [TYPE: empty]
-- Never say you cannot see the image"""
+    Rules:
+    - Be direct and factual - no commentary, no apologies
+    - If the image is blank or unreadable: [TYPE: empty]
+    - Never say you cannot see the image"""
 
+
+   # model-generated known fallback patterns
     _HALLUCINATION_PATTERNS = [
         r"i('m| am) ready to",
         r"please provide",
@@ -604,49 +566,56 @@ Rules:
 
     def _ocr_quality_score(self, text: str) -> float:
         """
-        Score OCR output quality from 0.0 (garbage) to 1.0 (good).
-
-        Low scores indicate: empty output, hallucinated CJK characters,
-        single characters, or suspiciously short/fragmented text from
-        what is likely a diagram or figure.
+        Score OCR output quality from 0 (garbage) to 1 (real text).
+        Low scores: empty output, hallucinated CJK characters,
+        single characters, or short/fragmented text from diagrams.
+        High scores:  real words, especially in longer text.
         """
+        # if empty output -> low score 
         if not text or not text.strip():
             return 0.0
+        
+        stripped_text_seq = text.strip()
 
-        stripped = text.strip()
-
-        # Single character or just a number — almost certainly noise
-        if len(stripped) <= 2:
+        # if text is single character/number -> low score (noise)
+        if len(stripped_text_seq) <= 2:
             return 0.1
 
         # Count CJK characters (PaddleOCR hallucinates these on diagrams)
-        cjk = sum(1 for c in stripped if '\u4e00' <= c <= '\u9fff')
-        if len(stripped) > 0 and cjk / len(stripped) > 0.3:
-            return 0.1  # >30% CJK in a non-CJK doc = hallucination
+        # Chinese/Japanese/Kanji characters.
+        # 3ashan el model by3abat w yebda2 yetkalem yabany lama yela2y diagrams 
+        cjk = sum(1 for c in stripped_text_seq if '\u4e00' <= c <= '\u9fff')
+        
+        # if cjk count >30% of single character/number count -> low score (hallucination)
+        if len(stripped_text_seq) > 0 and cjk / len(stripped_text_seq) > 0.3:
+            return 0.1  
 
-        # Count real English words (crude but effective)
-        words = re.findall(r'[a-zA-Z]{2,}', stripped)
-        total_tokens = len(stripped.split())
+        # Count real english words  
+        real_words = re.findall(r'[a-zA-Z]{2,}', stripped_text_seq)
 
+        total_tokens = len(stripped_text_seq.split())
+
+        # if no tokens at all -> low score
         if total_tokens == 0:
             return 0.1
 
-        word_ratio = len(words) / max(total_tokens, 1)
+        word_ratio = len(real_words) / max(total_tokens, 1)
 
-        # Very few real words — likely noise or scattered diagram labels
-        if word_ratio < 0.2 and len(stripped) < 30:
+        # if very few real english words and short extracted text -> low score (garbage from diagrams)
+        if word_ratio < 0.2 and len(stripped_text_seq) < 30:
             return 0.2
 
-        # Short but has real words — could be a label, acceptable
-        if len(words) >= 2:
+        # Short but has real words -> could be a label ya3ni tmam w zay el fol
             return 0.8
-
+        
+        # Otherwise 50% score
         return 0.5
 
-    def _needs_vision_description(self, paddle_text: str) -> bool:
+    def _needs_better_description(self, paddle_text: str) -> bool:
         """
         Returns True if PaddleOCR output is low quality and we should
-        escalate to a vision API for a semantic description.
+        escalate to a vision API for a better meaningful description.
+        
         """
         threshold = float(os.environ.get("OCR_QUALITY_THRESHOLD", "0.4"))
         score = self._ocr_quality_score(paddle_text)
@@ -654,112 +623,129 @@ Rules:
               f"(threshold={threshold}, escalate={score < threshold})")
         return score < threshold
 
-    def _get_vision_description(self, image: Image.Image) -> str:
+    def _get_better_description(self, image: Image.Image) -> str:
         """
-        Use Gemini or Groq to get a concise semantic description of an image
-        that PaddleOCR failed on. Filters hallucinated/meta responses.
-        Only called when quota is available.
+        Use Gemini or Groq to get a better semantic description of an image
+        that PaddleOCR failed on.
         """
-        def is_hallucination(text: str) -> bool:
+
+        # check if response is hallucinated
+        def is_hallucnation(text: str) -> bool:
             return bool(self._HALLUCINATION_RE.search(text))
 
         # Try Gemini first
         if not GeminiOCR.is_quota_blocked():
-            print("[OCR]   Escalating to GEMINI for semantic description")
+            print("[OCR]   Escalating to GEMINI for better semantic description")
             result = GeminiOCR.ocr_image(image, prompt=self._VISION_DESCRIBE_PROMPT)
-            if result and not is_hallucination(result) and "[TYPE: empty]" not in result:
+
+            if result and not is_hallucnation(result) and "[TYPE: empty]" not in result:
                 print(f"[OCR]   Gemini description: {len(result)} chars")
                 return result
+            
+            # if resposnse is empty or hallucinated 
             print("[OCR]   Gemini description unusable -> trying Groq")
 
-        # Groq fallback — override its default OCR prompt with the describe prompt
+        # Groq 
         if GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
-            print("[OCR]   Escalating to GROQ for semantic description")
+            print("[OCR]   Escalating to GROQ for better semantic description")
+
             result = GroqOCR.ocr_image(image, prompt=self._VISION_DESCRIBE_PROMPT)
-            if result and not is_hallucination(result) and "[TYPE: empty]" not in result:
+
+            if result and not is_hallucnation(result) and "[TYPE: empty]" not in result:
                 print(f"[OCR]   Groq description: {len(result)} chars")
                 return result
+            # if resposnse is empty or hallucinated 
             print("[OCR]   Groq description unusable")
 
+        # returns empty string if everything fails
         return ""
 
-    # ─────────────────────────────────────────────────────────────
-    # DUAL OCR ROUTING  (PaddleOCR + quality-gated vision escalation)
-    # ─────────────────────────────────────────────────────────────
-    def ocr_embedded_content(self, image: Image.Image, page_is_scanned: bool) -> str:
+    # HYBRID OCR APPROACH
+
+    def ocr_embeded_content(self, image: Image.Image, page_is_scanned: bool) -> str:
         """
-        Hybrid OCR routing for embedded images and diagrams:
+        Hybrid OCR for embedded images and diagrams:
 
-        DIGITAL page images:
-          1. PaddleOCR (free, local, fast for printed text)
-          2. Quality check — if output is garbage/empty/hallucinated:
-             escalate to Gemini/Groq for semantic description (quota-gated)
-
+        DIGITAL page embedded images:
+          1.PaddleOCR 
+          2.Quality check if output has low score is garbage/empty/hallucinated -> escalate to Gemini/Groq for better semantic description
         SCANNED page images:
-          1. Gemini (best for handwriting/math)
-          2. Groq fallback
-          3. PaddleOCR + quality check + escalation if still bad
+          1.Gemini 
+          2.Groq 
+          3.PaddleOCR + quality check + escalation if still bad
         """
         page_type = "SCANNED" if page_is_scanned else "DIGITAL"
 
         if not page_is_scanned:
-            # ── Digital page: PaddleOCR first ────────────────────
+            #Digital page: PaddleOCR first
             print(f"[OCR]   embedded image ({page_type}) -> PADDLEOCR")
-            paddle_result = PaddleOCREngine.ocr_image(image)
+            paddle_result = PaddleOCR.ocr_image(image)
             print(f"[OCR]   PaddleOCR: {len(paddle_result)} chars" if paddle_result
                   else "[OCR]   PaddleOCR: no text found")
 
-            # Quality gate — escalate bad/empty results to vision API
-            if self._needs_vision_description(paddle_result):
-                vision_result = self._get_vision_description(image)
+            # Quality check 
+            if self._needs_better_description(paddle_result):
+                vision_result = self._get_better_description(image)
+
                 if vision_result:
                     return vision_result
-                # Vision also failed — return whatever Paddle got (even if bad)
-                # so the chunk isn't completely empty
+                # if vision models also failed then return whatever Paddle got 
                 return paddle_result
 
             return paddle_result
 
         else:
-            # ── Scanned page: API engines first ──────────────────
+            # Scanned page
+            # Gemini first
             if not GeminiOCR.is_quota_blocked():
                 print(f"[OCR]   embedded image ({page_type}) -> GEMINI")
                 result = GeminiOCR.ocr_image(image)
+
                 if result:
                     print(f"[OCR]   Gemini result: {len(result)} chars")
                     return result
+                
                 print("[OCR]   Gemini returned nothing -> trying Groq")
-
+            # Groq second
             if GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
                 print(f"[OCR]   embedded image ({page_type}) -> GROQ")
                 result = GroqOCR.ocr_image(image)
+
                 if result:
                     print(f"[OCR]   Groq result: {len(result)} chars")
                     return result
+                
                 print("[OCR]   Groq returned nothing -> PADDLEOCR")
 
+            # PaddleOCR if both gemini and groq failed
             print(f"[OCR]   embedded image ({page_type}) -> PADDLEOCR (last resort)")
-            paddle_result = PaddleOCREngine.ocr_image(image)
+            paddle_result = PaddleOCR.ocr_image(image)
             print(f"[OCR]   PaddleOCR: {len(paddle_result)} chars" if paddle_result
                   else "[OCR]   PaddleOCR: no text found")
 
-            # Even on scanned pages, quality-check PaddleOCR output
-            if self._needs_vision_description(paddle_result):
-                vision_result = self._get_vision_description(image)
+            # Even on scanned pages check PaddleOCR output quality and try one more time if it's bad
+            if self._needs_better_description(paddle_result):
+                vision_result = self._get_better_description(image)
                 if vision_result:
                     return vision_result
 
             return paddle_result
 
     # TEXT CLEANING
-    # ─────────────────────────────────────────────────────────────
+ 
     def clean_text(self, text: str) -> str:
         return re.sub(r"\s+", " ", text).strip()
 
-    # ─────────────────────────────────────────────────────────────
+
     # VECTOR DIAGRAM DETECTION
-    # ─────────────────────────────────────────────────────────────
-    def detect_diagram_regions(self, page, min_area=3000, merge_gap=50, max_page_ratio=0.85):
+
+    def detect_diagram_regons(self, page, min_area=3000, merge_gap=50, max_page_ratio=0.85):
+        """
+        detect diagrams drawn using vector graphics in digital PDFs not images and return their bounding boxes as a list of fitz.Rect.
+        min_area:minimum area in pixels for a region to be considered a diagram (to filter out small decorations)
+        merge_gap:maximum gap in pixels to merge nearby shapes into one diagram (to handle diagrams made of multiple shapes)
+        max_page_ratio: maximum area ratio for a diagram to filters out huge shapes that are likely not diagrams but page borders. 
+        """
         drawings = page.get_drawings()
         if not drawings:
             return []
@@ -776,153 +762,188 @@ Rules:
         page_area = page_rect.width * page_rect.height
 
         def is_thin_text_decorator(r):
-            if r.width > 15 and r.height > 15:
+            # if shape is large then it is not a decorator
+            if r.width > 15 and r.height > 15: 
                 return False
-            return any(tb.contains(r) for tb in text_bboxes)
-
+            
+            # any other shape around text taht is not large enouugh is a text decorator
+            for tb in text_bboxes:
+                    if tb.contains(r):
+                        return True
+            return False
+        
         all_drawing_rects = []
         rects = []
         for d in drawings:
-            r = d.get("rect")
+            r =  d.get("rect")
             if not r:
                 continue
-            r = fitz.Rect(r)
+            r =  fitz.Rect(r)
             if r.is_empty or r.is_infinite:
                 continue
             all_drawing_rects.append(r)
+            # ignore very small ones
             if r.width < 2 and r.height < 2:
                 continue
+            # ignore thin shapes around text that are decorators
             if is_thin_text_decorator(r):
                 continue
             rects.append(r)
 
         if not rects:
             return []
-
-        changed = True
+        
+        # merge small overlapping or near shape within merge gap into a big diagram
+        changed   = True
         while changed:
-            changed = False
-            merged = []
+            changed  = False
+            merged =  []
             used = [False] * len(rects)
+
             for i, r in enumerate(rects):
+                # skip already merged shapes
                 if used[i]:
                     continue
                 current = r
+
                 for j in range(i + 1, len(rects)):
                     if used[j]:
                         continue
+                    # if 2 shapes are overlapping or within merge_gap then merge them into one big diagram region
                     if (current + (-merge_gap, -merge_gap, merge_gap, merge_gap)).intersects(rects[j]):
-                        current = current | rects[j]
+                        current = current | rects[j] # union the two rectangles
                         used[j] = True
                         changed = True
                 merged.append(current)
+
             rects = merged
 
+        # validate regions 
         regions = []
+
         for r in rects:
-            r = r & page_rect
+            r =  r & page_rect
             if r.is_empty or r.is_infinite:
                 continue
             area = r.width * r.height
+            # filter out regions that are too small or too large compared to the page size (85% of the page -> page border or smthg) 
             if area < min_area or (page_area > 0 and area / page_area > max_page_ratio):
                 continue
+            # count how many drawing shapes in this regoin 
             density = sum(
                 1 for dr in all_drawing_rects if r.contains(dr) or r.intersects(dr)
             )
+            # if very few  in a small area then it is not a diagram mostly just a decorative line or box
             if density < 3 and area < 15000:
                 continue
-            if not any(
-                not (r & a).is_empty and (r & a).width * (r & a).height / area > 0.85
-                for a in regions
-            ):
+
+            # duplicate check if 2 regions are overlapping of more than 85% then they are the same region keep only one
+            found_overlap = False
+            for a in regions:
+                intersection = r & a
+
+                if not intersection.is_empty:
+                    intersection_area = intersection.width * intersection.height
+
+                    if intersection_area / area > 0.85:
+                        found_overlap = True
+                        break
+
+            if not found_overlap:
                 regions.append(r)
+
         return regions
 
-    # ─────────────────────────────────────────────────────────────
-    # IMAGE QUALITY FILTERS
-    # ─────────────────────────────────────────────────────────────
-    def is_garbage_image(self, pix) -> bool:
+    # IMAGE QUALITY CHECKING
+
+    def is_garbage_image(self,   pix) -> bool:
+        # image is too small basiclly garbage 
         if pix.width * pix.height < 2000:
             return True
+        
         arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, -1)
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY) if arr.ndim == 3 else arr
+
+        # image is black or white or very low contrast -> garbage (malhash lazma ma3ana)
         return gray.mean() < 15 or gray.mean() > 252 or gray.std() < 5
 
-    def is_duplicate_image(self, image_bytes: bytes, seen_hashes: set) -> bool:
+    def is_duplicate_image(self,  image_bytes: bytes,  seen_hashes: set) -> bool:
+        # compute hash of image bytes 
         h = hashlib.md5(image_bytes).hexdigest()
         if h in seen_hashes:
             return True
+        
+        # add hash to seen set 
         seen_hashes.add(h)
         return False
 
-    # ─────────────────────────────────────────────────────────────
-    # PIXMAP HELPERS
-    # ─────────────────────────────────────────────────────────────
+
+    # PIXMAP RELATED FUNS
+    
+    # Extract a fitz.Pixmap from the PDF handling masks and color spaces
     def _extract_pixmap(self, doc, img_tuple):
+        # xref is the reference number for the image in the PDF, smask_xref is for the soft mask (transparency)
         xref = img_tuple[0]
+        # create a pixmap from the image reference
         pix = fitz.Pixmap(doc, xref)
-        smask_xref = img_tuple[1] if len(img_tuple) > 1 else 0
+        # if there's a soft mask, apply it to the pixmap to handle transparency
+        smask_xref =  img_tuple[1] if len(img_tuple) > 1 else 0
         if smask_xref:
             try:
-                pix = fitz.Pixmap(pix, fitz.Pixmap(doc, smask_xref))
+                pix   = fitz.Pixmap(pix, fitz.Pixmap(doc, smask_xref))
+
             except Exception:
                 pass
         if pix.colorspace and pix.colorspace.n == 4:
             pix = fitz.Pixmap(fitz.csRGB, pix)
+
         if pix.alpha:
-            pix = fitz.Pixmap(fitz.csRGB, pix, 0)
+            pix   = fitz.Pixmap(fitz.csRGB, pix, 0)
         return pix
 
     def _pixmap_to_pil(self, pix) -> Image.Image:
-        mode = "RGB" if pix.colorspace and pix.colorspace.n >= 3 else "L"
-        img = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
-        return img.convert("RGB") if img.mode != "RGB" else img
+        mode= "RGB" if pix.colorspace and pix.colorspace.n >= 3 else "L"
+        img =  Image.frombytes(mode, [pix.width, pix.height], pix.samples)
 
-    # ─────────────────────────────────────────────────────────────
+        return  img.convert("RGB") if img.mode != "RGB" else img
+
+ 
     # TILE DETECTION & STITCHING
-    # ─────────────────────────────────────────────────────────────
-    def stitch_page_tiles(self, page, collected: list) -> list:
+  
+    def stitch_page_tiles(self, page, collected_imges_with_info: list) -> list:
         """
-        Many PDFs store large images as a grid of small tiles (e.g. 256x256px)
-        or horizontal strips. PyMuPDF extracts each tile separately, producing
-        dozens of tiny images instead of one coherent picture.
-
-        This method:
-          1. Gets the actual bbox of every image on the page from PyMuPDF
-          2. Groups images whose bboxes are adjacent (within TILE_GAP pt)
-          3. Stitches each group by re-rendering the union region from the page
-          4. Returns a new list — tile groups replaced by one stitched image,
-             non-tile images kept as-is
-
-        `collected` items are dicts:
-            {"pil": PIL.Image, "bbox": tuple|None, "xref": int|None}
+          Stitches titles after getting its bbox from image info and check if the are close enough to be a part of an image to stitsch them,
+          return a new list tile groups replaced by one stitched image non tile images kept as it is
+          collected_imges_with_info items are dicts of pil , bbox and xref
         """
-        TILE_GAP = float(os.environ.get("TILE_STITCH_GAP_PT", "8"))
-        MIN_TILES = int(os.environ.get("TILE_MIN_COUNT", "2"))
-        # Square tiles: both dims must be under this
-        MAX_TILE_DIM = int(os.environ.get("TILE_MAX_SINGLE_DIM_PX", "512"))
-        # Strips: short in ONE dimension (height for h-strips, width for v-strips)
-        MAX_STRIP_SHORT_DIM = int(os.environ.get("TILE_MAX_STRIP_SHORT_DIM_PX", "300"))
+    
+        TILE_GAP    = float(os.environ.get("TILE_STITCH_GAP_PT", "8")) # max space bet tils to be considered part of the same img
 
-        # Build xref->bbox map from page image info
+        MIN_TILES =  int(os.environ.get("TILE_MIN_COUNT", "2")) # min no of tiles to stich tghter to make an image
+   
+        MAX_TILE_DIM   = int(os.environ.get("TILE_MAX_SINGLE_DIM_PX", "512")) # max width or height for it to be a tile they are smol squares
+     
+        MAX_STRIP_SHORT_DIM   = int(os.environ.get("TILE_MAX_STRIP_SHORT_DIM_PX", "300")) # max width for vertical strip or max height for horizontal strip they are long rectangles strips not tiles
+
+        # build xref (image ids) ->bbox from page image info
         xref_to_bbox: dict = {}
         try:
             for info in page.get_image_info(xrefs=True):
-                xref = info.get("xref", 0)
-                bbox = info.get("bbox")
+                xref  = info.get("xref", 0)
+                bbox =  info.get("bbox")
                 if xref and bbox:
-                    xref_to_bbox[xref] = tuple(bbox)
-        except Exception:
-            return collected
-
-        for item in collected:
+                    xref_to_bbox[xref] =  tuple(bbox)
+        except Exception :
+            return collected_imges_with_info
+        
+        for item in collected_imges_with_info :
             if item.get("bbox") is None and item.get("xref"):
                 item["bbox"] = xref_to_bbox.get(item["xref"])
 
-        # Log what we see so you can tune thresholds
-        for item in collected:
+
+        for item in collected_imges_with_info :
             img = item["pil"]
-            bbox = item.get("bbox")
+            bbox  = item.get("bbox")
             logger.debug(
                 f"  image xref={item.get('xref')} "
                 f"pixels={img.width}x{img.height} "
@@ -932,10 +953,10 @@ Rules:
         def is_tile_or_strip(item) -> bool:
             """
             Returns True if this image looks like part of a tiled/stripped image:
-              - Square tile:     both width and height <= MAX_TILE_DIM
+              - Square tile: both width and height <= MAX_TILE_DIM
               - Horizontal strip: height <= MAX_STRIP_SHORT_DIM (any width)
-              - Vertical strip:   width  <= MAX_STRIP_SHORT_DIM (any height)
-            Must also have a known bbox so we can cluster by position.
+              - Vertical strip: width  <= MAX_STRIP_SHORT_DIM (any height)
+
             """
             if item.get("bbox") is None:
                 return False
@@ -944,101 +965,112 @@ Rules:
             is_square_tile = w <= MAX_TILE_DIM and h <= MAX_TILE_DIM
             is_h_strip = h <= MAX_STRIP_SHORT_DIM          # wide but short
             is_v_strip = w <= MAX_STRIP_SHORT_DIM          # tall but narrow
+        
             return is_square_tile or is_h_strip or is_v_strip
+        
+
 
         # Split into tile/strip candidates vs definite whole images
-        candidates = []
+        strip_tile_cand = []
         non_tiles = []
-        for item in collected:
-            if is_tile_or_strip(item):
-                candidates.append(item)
+        for item in collected_imges_with_info:
+            if  is_tile_or_strip(item):
+                strip_tile_cand.append(item)
             else:
                 non_tiles.append(item)
 
         logger.debug(
-            f"Page tile detection: {len(candidates)} candidates, "
+            f"Page tile detection: {len(strip_tile_cand)} candidates, "
             f"{len(non_tiles)} whole images, gap={TILE_GAP}pt"
         )
 
-        if len(candidates) < MIN_TILES:
-            # Not enough fragments — treat everything as whole images
-            return collected
+        if len(strip_tile_cand) < MIN_TILES:
+            # treat everything as whole images
+            return   collected_imges_with_info
 
-        # Cluster candidates whose bboxes are spatially adjacent.
-        # "Adjacent" means the bboxes touch or overlap when each is expanded by TILE_GAP.
+        # adj_tiles_collection candidates whose bboxes are spatially adjacent 
         def adjacent(a, b, gap):
             return (
-                a[0] - gap <= b[2] and a[2] + gap >= b[0]
-                and a[1] - gap <= b[3] and a[3] + gap >= b[1]
+                a[0] - gap <= b[2] and a[2] + gap >= b[0] # horizontal overlap chcek (left-right)
+                and a[1] - gap <= b[3] and a[3] + gap >= b[1] # vertical overlap chcek (top-bottom)
             )
 
-        clusters: list = []
-        used = [False] * len(candidates)
-        for i, item in enumerate(candidates):
+        adj_tiles_collections: list = []
+        used = [False] * len(strip_tile_cand)
+        for i, item in enumerate(strip_tile_cand):
             if used[i]:
                 continue
-            cluster = [item]
+            adj_tiles_collection  = [item]
             used[i] = True
-            # Keep expanding cluster until no new neighbours found
+            # Keep expanding adj_tiles_collections until no new neighbours found
             changed = True
             while changed:
                 changed = False
-                for j in range(len(candidates)):
+                for j in  range(len(strip_tile_cand)):
                     if used[j]:
                         continue
-                    if any(adjacent(m["bbox"], candidates[j]["bbox"], TILE_GAP)
-                           for m in cluster):
-                        cluster.append(candidates[j])
-                        used[j] = True
-                        changed = True
-            clusters.append(cluster)
+                    is_adjacent = False
+                    for m in adj_tiles_collection:
+                        if adjacent(m["bbox"], strip_tile_cand[j]["bbox"], TILE_GAP):
+                            is_adjacent =True
+                            break
+
+                    if is_adjacent:
+                        adj_tiles_collection.append(strip_tile_cand[j])
+                        used[j]  = True
+                        changed   =  True
+            adj_tiles_collections.append(adj_tiles_collection)
 
         result = list(non_tiles)
 
-        for cluster in clusters:
-            if len(cluster) < MIN_TILES:
-                result.extend(cluster)
+        for adj_tiles_collection in adj_tiles_collections:
+            if len(adj_tiles_collection) < MIN_TILES:
+                result.extend(adj_tiles_collection)
                 continue
 
-            # Union bbox of the entire cluster
-            xs0 = min(item["bbox"][0] for item in cluster)
-            ys0 = min(item["bbox"][1] for item in cluster)
-            xs1 = max(item["bbox"][2] for item in cluster)
-            ys1 = max(item["bbox"][3] for item in cluster)
+            # Union bbox of the entire adj_tiles_collection
+            xs0=min(item["bbox"][0] for item in adj_tiles_collection)
+            ys0=min(item["bbox"][1] for item in adj_tiles_collection)
+            xs1=max(item["bbox"][2] for item in adj_tiles_collection)
+            ys1=max(item["bbox"][3] for item in adj_tiles_collection)
 
             try:
-                # Re-render the union region from the page at 2x for quality
-                clip_pix = page.get_pixmap(
+                # re-render the union stiyched region from the page with twice res for quality
+                clip_pix=page.get_pixmap(
                     matrix=fitz.Matrix(2, 2),
                     clip=fitz.Rect(xs0, ys0, xs1, ys1),
                     alpha=False,
                 )
-                stitched = Image.frombytes(
+
+                stitched=Image.frombytes(
                     "RGB", [clip_pix.width, clip_pix.height], clip_pix.samples
                 )
+
                 logger.debug(
-                    f"Stitched {len(cluster)} tiles into "
+                    f"Stitched {len(adj_tiles_collection)} tiles into "
                     f"{stitched.width}x{stitched.height}px image"
                 )
+
                 result.append({
                     "pil": stitched,
                     "bbox": (xs0, ys0, xs1, ys1),
                     "xref": None,
                     "stitched": True,
                 })
+
             except Exception as e:
-                logger.warning(f"Tile stitching failed ({len(cluster)} tiles): {e}")
-                result.extend(cluster)
+                logger.warning(f"Tile stitching failed ({len(adj_tiles_collection)} tiles): {e}")
+                result.extend(adj_tiles_collection)
 
-        return result
+        return  result
 
-    # ─────────────────────────────────────────────────────────────
-    # TABLE HELPERS
-    # ─────────────────────────────────────────────────────────────
+  
+    # TABLE RELATED FUNS
+  
     def convert_table_to_markdown(self, table) -> str:
         if not table:
             return ""
-        header = table[0]
+        header= table[0]
         lines = [
             "| " + " | ".join(header) + " |",
             "|" + "|".join(["---"] * len(header)) + "|",
@@ -1050,64 +1082,62 @@ Rules:
     def normalize_table(self, rows):
         return [["" if c is None else str(c) for c in r] for r in rows]
 
-    # ═══════════════════════════════════════════════════════════════
     # MAIN EXTRACTION
-    # ═══════════════════════════════════════════════════════════════
+
     def extract(self, file_path: str) -> dict:
         doc = fitz.open(file_path)
         sections = []
 
-        # ── Config ───────────────────────────────────────────────
-        max_ocr_workers = max(1, int(os.environ.get("GEMINI_OCR_MAX_WORKERS", "1")))
-        scanned_page_zoom = float(os.environ.get("SCANNED_PAGE_RENDER_ZOOM", "1.5"))
-        # OCR_EMBEDDED_IMAGES=true → PaddleOCR runs on every embedded image/diagram
-        # in digital pages. No quota cost. Safe to leave on.
+        # Config
+        max_ocr_workers =max(1, int(os.environ.get("GEMINI_OCR_MAX_WORKERS", "1")))
+        scanned_page_zoom = float(os.environ.get("SCANNED_PAGE_RENDER_ZOOM", "1.5")) #res
+        # OCR_EMBEDDED_IMAGES=true -> PaddleOCR runs on every embedded image/diagram
         ocr_embedded_images = os.environ.get("OCR_EMBEDDED_IMAGES", "true").lower() in {
             "1", "true", "yes", "on"
         }
-        # Gemini budget — only full scanned-page calls count against this
-        max_gemini_calls = max(0, int(os.environ.get("MAX_OCR_CALLS_PER_DOC", "5")))
+        # limit Gemini calls to MAX_OCR_CALLS_PER_DOC per doc to avoid hitting quota 
+        max_gemini_calls= max(0, int(os.environ.get("MAX_OCR_CALLS_PER_DOC", "5")))
+        # to trace countsss
+        gemini_call_count= {"calls": 0}
 
-        # Mutable dict so the closure always reads the live count (not a stale int copy)
-        gemini_state = {"calls": 0}
 
         def can_call_gemini() -> bool:
             if GeminiOCR.is_quota_blocked():
                 return False
-            return max_gemini_calls == 0 or gemini_state["calls"] < max_gemini_calls
+            return max_gemini_calls == 0 or gemini_call_count["calls"] < max_gemini_calls
 
-        def charge_gemini():
-            gemini_state["calls"] += 1
+        def inc_gemini_call_counts():
+            gemini_call_count["calls"] += 1
 
-        # ── Setup dirs ───────────────────────────────────────────
+        # awel 7aga ne3mel el dir w ked
         for folder in ("extracted_images", "extracted_tables"):
             if os.path.exists(folder):
                 shutil.rmtree(folder)
             os.makedirs(folder)
 
+        
         extracted_xrefs: set = set()
-        seen_hashes: set = set()
-        extracted_tables = self._extract_tables_with_fallback(file_path)
+        seen_hashes: set =set()
+        extracted_tables = self._extract_tables(file_path)
 
         for page_index, page in enumerate(doc):
             page_number = page_index + 1
             blocks = []
-            ocr_jobs: list = []  # (block, pil_image, page_is_scanned, fallback_text)
-            is_scanned = self.is_scanned_page(page)
+            ocr_jobs: list = []  
+            is_scanned= self.is_scanned_page(page)
             print(f"[PDF] Page {page_number}/{len(doc)} -> "
                   f"{'SCANNED/HANDWRITTEN' if is_scanned else 'DIGITAL'}")
 
-            # ── SCANNED / HANDWRITTEN PAGE → Mistral → Gemini → PaddleOCR ──
+            #  SCANNED / HANDWRITTEN PAGE -> Gemini -> Groq-> PaddleOCR w bas keda 
             if is_scanned:
                 text = ""
-                # Standard zoom for API engines (smaller = faster upload)
-                image = self.render_page(page, zoom=scanned_page_zoom)
+                image = self.render_page_as_image(page, zoom=scanned_page_zoom)
 
-                # 1. Gemini — 20 req/day free, best for handwriting/math
+                # Gemini
                 if can_call_gemini():
-                    charge_gemini()
+                    inc_gemini_call_counts()
                     print(f"[OCR]   Page {page_number}: full page -> GEMINI "
-                          f"(call {gemini_state['calls']}/{max_gemini_calls or 'unlimited'})")
+                          f"(call {gemini_call_count['calls']}/{max_gemini_calls or 'unlimited'})")
                     text = GeminiOCR.ocr_image(image)
                     if text:
                         print(f"[OCR]   Page {page_number}: Gemini OK - {len(text)} chars")
@@ -1116,9 +1146,9 @@ Rules:
                 else:
                     print(f"[OCR]   Page {page_number}: Gemini skipped "
                           f"(blocked={GeminiOCR.is_quota_blocked()}, "
-                          f"calls={gemini_state['calls']}/{max_gemini_calls}) -> trying Groq")
+                          f"calls={gemini_call_count['calls']}/{max_gemini_calls}) -> trying Groq")
 
-                # 2. Groq — ~1000 req/day free, Llama 4 vision
+                #  Groq (7abeeb el malayeen) 
                 if not text and GroqOCR._is_available() and not GroqOCR.is_quota_blocked():
                     print(f"[OCR]   Page {page_number}: full page -> GROQ")
                     text = GroqOCR.ocr_image(image)
@@ -1131,12 +1161,12 @@ Rules:
                           f"(available={GroqOCR._is_available()}, "
                           f"blocked={GroqOCR.is_quota_blocked()})")
 
-                # 3. PaddleOCR — local, unlimited, last resort
-                # Re-render at higher zoom: PaddleOCR needs more pixels for handwriting
+                #  PaddleOCR 
                 if not text:
                     print(f"[OCR]   Page {page_number}: full page -> PADDLEOCR (last resort)")
-                    paddle_image = self.render_page(page, zoom=3.0)
-                    text = PaddleOCREngine.ocr_image(paddle_image, preprocess=True)
+                    # Re-render at higher resolution (PaddleOCR needs more pixels for handwriting)
+                    paddle_image = self.render_page_as_image(page, zoom=3.0)
+                    text = PaddleOCR.ocr_image(paddle_image, preprocess=True)
                     if text:
                         print(f"[OCR]   Page {page_number}: PaddleOCR OK - {len(text)} chars")
                     else:
@@ -1151,7 +1181,9 @@ Rules:
                         "embedding_ready_text": text,
                         "bbox": None,
                     })
-            # ── DIGITAL PAGE → PyMuPDF direct text ───────────────
+
+
+            # DIGITAL PAGE -> PyMuPDF
             else:
                 for block in page.get_text("dict")["blocks"]:
                     if block["type"] != 0:
@@ -1170,14 +1202,13 @@ Rules:
                             "bbox": block["bbox"],
                         })
 
-            # ── EMBEDDED IMAGES → collect → stitch → PaddleOCR ──
-            # Step 1: collect all raw images from the page (no OCR yet)
-            # Step 2: stitch tiled images back into whole images
-            # Step 3: save + queue OCR jobs
-            img_counter = 0
-            raw_collected: list = []  # {"pil", "bbox", "xref"}
+            #  EMBEDDED IMAGES -> collect -> stitch -> PaddleOCR 
 
-            # Pass 1: resource images
+            # Step1:collect all raw images from the page (no OCR yet)
+            img_counter = 0
+            raw_collected_imges_with_info: list = []
+
+            # Pass1 to catch resource images 
             for img in page.get_images(full=True):
                 xref = img[0]
                 if xref in extracted_xrefs:
@@ -1187,20 +1218,21 @@ Rules:
                     pix = self._extract_pixmap(doc, img)
                     if self.is_garbage_image(pix):
                         continue
-                    raw_collected.append({
+                    raw_collected_imges_with_info.append({
                         "pil": self._pixmap_to_pil(pix),
-                        "bbox": None,  # filled by stitch_page_tiles via image_info
+                        "bbox": None, 
                         "xref": xref,
                     })
                 except Exception:
                     continue
 
-            # Pass 2: inline images (catches anything missed by pass 1)
+            # Pass2  to catch inline images 
             for info in page.get_image_info(xrefs=True):
                 xref = info.get("xref", 0)
                 if xref == 0 or xref in extracted_xrefs:
                     continue
                 extracted_xrefs.add(xref)
+
                 try:
                     pix = fitz.Pixmap(doc, xref)
                     if pix.colorspace and pix.colorspace.n == 4:
@@ -1209,7 +1241,7 @@ Rules:
                         pix = fitz.Pixmap(fitz.csRGB, pix, 0)
                     if self.is_garbage_image(pix):
                         continue
-                    raw_collected.append({
+                    raw_collected_imges_with_info.append({
                         "pil": self._pixmap_to_pil(pix),
                         "bbox": info.get("bbox"),
                         "xref": xref,
@@ -1217,31 +1249,30 @@ Rules:
                 except Exception:
                     continue
 
-            # Step 2: stitch tiles — replaces clusters of small adjacent images
-            # with a single re-rendered image of their combined region
-            stitched_collected = self.stitch_page_tiles(page, raw_collected)
-            print(f"[IMG]   Page {page_number}: {len(raw_collected)} raw images -> "
-                  f"{len(stitched_collected)} after stitch (OCR queued: {ocr_embedded_images})")
+            # Step2: stitch tiles 
+            stitched_collected_imges_with_info = self.stitch_page_tiles(page, raw_collected_imges_with_info)
+            print(f"[IMG]   Page {page_number}: {len(raw_collected_imges_with_info)} raw images -> "
+                  f"{len(stitched_collected_imges_with_info)} after stitch (OCR queued: {ocr_embedded_images})")
 
-            # Step 3: dedup, save, queue OCR
+            # Step3: dedup -> save -> add to OCR job
             page_area = page.rect.width * page.rect.height
-            for item in stitched_collected:
+
+            # chcek for dups and only save once
+            for item in stitched_collected_imges_with_info:
                 pil_img = item["pil"]
                 bbox = item.get("bbox")
                 image_bytes = pil_img.tobytes()  # raw bytes for dedup
                 if self.is_duplicate_image(image_bytes, seen_hashes):
                     continue
 
-                # Skip saving the image block if this is a scanned page AND
-                # the image covers most of the page — it IS the scanned page,
-                # already fully OCR'd by Gemini as a text chunk above.
-                # Saving it would produce a duplicate image chunk with no extra value.
+                # skip saving the image block if this is a scanned page and the image covers most of the page (it is not a image it is a scanned page)
                 if is_scanned and bbox is not None:
                     bw = bbox[2] - bbox[0]
                     bh = bbox[3] - bbox[1]
+
                     if page_area > 0 and (bw * bh) / page_area > 0.4:
                         print(f"[IMG]   Skipping full-page scan image on page {page_number} "
-                              f"({pil_img.width}x{pil_img.height}px) — already in text chunk")
+                              f"({pil_img.width}x{pil_img.height}px) - already in text chunk")
                         continue
 
                 image_path = f"extracted_images/page{page_number}_{img_counter}.png"
@@ -1259,35 +1290,43 @@ Rules:
                     "image_path": image_path,
                     "bbox": list(bbox) if bbox else None,
                 }
+
                 blocks.append(block)
+
+                # add embeded images to paddle ocr jobs
                 if ocr_embedded_images and not is_scanned:
-                    # SCANNED pages: skip — the full-page Gemini call already
-                    # extracted all text. The embedded image IS the page itself,
-                    # so OCR-ing it again is a duplicate that burns quota.
-                    # DIGITAL pages: queue PaddleOCR for embedded images.
                     ocr_jobs.append((block, pil_img, is_scanned, fallback))
                 elif is_scanned:
                     print(f"[OCR]   Skipping embedded image OCR on scanned page "
                           f"(already covered by full-page Gemini call)")
 
-            # ── VECTOR DIAGRAMS → PaddleOCR ──────────────────────
-            # Only on digital pages — scanned pages are already handled as
-            # a full-page image by Gemini above.
+            # VECTOR DIAGRAMS (in digital pages) -> PaddleOCR 
             if not is_scanned:
-                for region in self.detect_diagram_regions(page):
+                for region in self.detect_diagram_regons(page):
+
+                    # re-render the diagram region at higher res for better OCR results
                     clip_pix = page.get_pixmap(
                         matrix=fitz.Matrix(2, 2), clip=region, alpha=False
                     )
+                    
+                    # convert to pil for dedup and OCR
                     image_bytes = clip_pix.tobytes("png")
+
+                    # chcek if dup
                     if self.is_duplicate_image(image_bytes, seen_hashes):
                         continue
+
+                    # reshape to an image array for quality check
                     arr = np.frombuffer(clip_pix.samples, dtype=np.uint8).reshape(
                         clip_pix.height, clip_pix.width, -1
                     )
+
+                    # skip if low contrast or mostly white/black 
                     gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
                     if gray.mean() > 248 or gray.std() < 5:
                         continue
 
+                    # add to extracted images and OCR jobs
                     image_path = f"extracted_images/page{page_number}_{img_counter}.png"
                     with open(image_path, "wb") as f:
                         f.write(image_bytes)
@@ -1297,6 +1336,7 @@ Rules:
                     pil_img = Image.frombytes(
                         "RGB", [clip_pix.width, clip_pix.height], clip_pix.samples
                     )
+
                     block = {
                         "id": str(uuid.uuid4()),
                         "type": "image",
@@ -1305,40 +1345,54 @@ Rules:
                         "image_path": image_path,
                         "bbox": list(region),
                     }
+
                     blocks.append(block)
                     if ocr_embedded_images:
-                        # Diagrams in digital PDFs → always PaddleOCR (is_scanned=False)
-                        ocr_jobs.append((block, pil_img, False, fallback))
+                        # diagrams in digital PDFs -> always PaddleOCR (is_scanned=False)
+                        ocr_jobs.append((block,   pil_img,   False, fallback))
 
-            # ── FLUSH OCR JOBS (parallel) ─────────────────────────
+            # START OCR JOBS (parallel) 
             if ocr_jobs:
                 with ThreadPoolExecutor(max_workers=max_ocr_workers) as executor:
                     future_map = {
                         executor.submit(
-                            self.ocr_embedded_content, pil_img, page_is_scanned
+                            self.ocr_embeded_content, pil_img, page_is_scanned
                         ): (block, fallback)
-                        for block, pil_img, page_is_scanned, fallback in ocr_jobs
+                        for block, pil_img,   page_is_scanned,   fallback in ocr_jobs
                     }
+
                     for future in as_completed(future_map):
-                        block, fallback = future_map[future]
+                        block,   fallback = future_map[future]
                         try:
+
                             text = future.result() or fallback
                         except Exception:
+
                             text = fallback
                         block["content"] = text
                         block["embedding_ready_text"] = text
 
-            # ── TABLES ────────────────────────────────────────────
-            for idx, table in enumerate(extracted_tables.get(page_number, [])):
-                df = getattr(table, "df", None)
+            #  TABLES 
+            for idx, table in enumerate(extracted_tables.get(page_number,   [])):
+                df = getattr(table,  "df",  None)
                 if df is None:
                     continue
-                table_data = self.normalize_table(df.values.tolist())
-                if not any(cell.strip() for row in table_data for cell in row):
+                table_data =  self.normalize_table(df.values.tolist())
+                has_content  =   False
+                for row in table_data:
+                    for cell in row:
+                        if cell.strip():
+                            has_content  =  True
+                            break
+
+                    if has_content:
+                        break
+                if not has_content:
                     continue
                 csv_path = f"extracted_tables/page{page_number}_table{idx}.csv"
                 with open(csv_path, "w", newline="", encoding="utf-8") as f:
                     csv.writer(f).writerows(table_data)
+
                 blocks.append({
                     "id": str(uuid.uuid4()),
                     "type": "table",
@@ -1349,6 +1403,7 @@ Rules:
                 })
 
             heading = self._detect_section_heading(blocks, page_number)
+
             sections.append({
                 "id": str(uuid.uuid4()),
                 "heading": heading,
@@ -1357,19 +1412,17 @@ Rules:
             })
 
         logger.info(
-            f"PDF extraction complete — {len(sections)} pages | "
-            f"Gemini calls: {gemini_state['calls']}/{max_gemini_calls or '∞'} | "
+
+            f"PDF extraction complete - {len(sections)} pages | "
+            f"Gemini calls: {gemini_call_count['calls']}/{max_gemini_calls or '∞'} | "
             f"Embedded OCR (PaddleOCR): {'on' if ocr_embedded_images else 'off'}"
         )
         return {"sections": sections, "metadata": doc.metadata}
 
-    # ─────────────────────────────────────────────────────────────
+  
     # SECTION HEADING DETECTION
-    # ─────────────────────────────────────────────────────────────
-
-    # Patterns that strongly indicate a section heading, in priority order.
-    # Each is (compiled_regex, format_string).
-    # format_string uses match.group(0) if None, or named groups otherwise.
+  
+    # Pattern that strongly indicate a section heading
     _HEADING_PATTERNS = [
         # "Chapter 3", "Chapter 3:", "Chapter 3 - Title"
         re.compile(
@@ -1393,12 +1446,11 @@ Rules:
             r'references|appendix|notation|definition|theorem|proof)[\s:]*$',
             re.IGNORECASE
         ),
-        # ALL CAPS short heading: "MODEL BASED RL", "MCTS"
+        # catches all CAPS short heading(ex: "MODEL BASED RL", "MCTS")
         re.compile(
             r'^([A-Z][A-Z\s\-]{2,50})$'
         ),
-        # Title-case short line (3-10 words, starts with capital, no sentence punctuation)
-        # Catches slide titles like "Model-Based Design in Industry"
+        #  catches Title-Case short line (3-10 words & starts with capital & no sentence punctuation ex: Model-Based-RL)
         re.compile(
             r'^([A-Z][a-zA-Z\-]+(?:\s+[a-zA-Z\-]+){2,9})$'
         ),
@@ -1406,15 +1458,10 @@ Rules:
 
     def _detect_section_heading(self, blocks: list, page_number: int) -> str:
         """
-        Detect a meaningful section heading from the page's text blocks.
-
-        Strategy:
-          1. Look at the first 1-3 text blocks for heading-pattern matches
-          2. Use font-size heuristic if bbox info is available (larger = heading)
-          3. Fall back to "Page N" if nothing matches
-
-        Returns a heading string like "Question 1", "Chapter 2: Model-Based RL",
-        or "Page 3" as fallback.
+        dettect section heading
+          look at the first 1-3 text blocks for heading-pattern matches
+          use font-size  if bbox info is available (larger font = heading)
+          fall back to "Page N" if nothing matches
         """
         text_blocks = [b for b in blocks if b.get("type") == "text"]
         if not text_blocks:
@@ -1437,7 +1484,7 @@ Rules:
                 if m:
                     # Clean up the matched heading
                     heading = first_line.rstrip('.:')
-                    # Collapse multiple spaces
+                    # Handle multiple spaces
                     heading = re.sub(r'\s+', ' ', heading).strip()
                     candidates.append((heading, block))
                     break
@@ -1445,8 +1492,7 @@ Rules:
         if not candidates:
             return f"Page {page_number}"
 
-        # If multiple candidates, prefer the one with the largest font
-        # (bbox top coord is smaller = higher on page = likely a title)
+        # if multiple candidates -> prefer the one with the largest font
         if len(candidates) == 1:
             return candidates[0][0]
 
@@ -1462,23 +1508,22 @@ Rules:
         print(f"[HEADING] Page {page_number}: detected '{heading}'")
         return heading
 
-    # ─────────────────────────────────────────────────────────────
-    # RAG POST-PROCESSING
-    # ─────────────────────────────────────────────────────────────
-    # Regex to strip [TYPE: ...] prefix from vision descriptions
+  
+    # POST-PROCESSING for RAG CHUNKS
+  
+    # Regex to remove[TYPE: ] prefix from vision descriptions res
     _TYPE_PREFIX_RE = re.compile(r'^\[TYPE:\s*\w+\]\s*\n?', re.IGNORECASE)
 
-    def _clean_image_content(self, text: str) -> str:
-        """Strip [TYPE: ...] prefix — keep only the semantic content for RAG."""
+    def _image_content_cleaner(self, text: str) -> str:
+        """Strip [TYPE: ...] prefix and keep only the semantic content for RAG."""
         return self._TYPE_PREFIX_RE.sub('', text).strip()
 
     def _is_noise_chunk(self, text: str) -> bool:
         """
-        Returns True for chunks that add no value to a RAG pipeline:
-          - Empty or whitespace only
-          - Single characters or digits (page numbers, bullet markers)
-          - Very short fragments under MIN_CHUNK_CHARS
-          - Fallback placeholder text
+        Returns true for chunks that are noise and adds no values
+          -Empty or whitespace only
+          -Single characters or digits (page numbers and bullet markers)
+          -Very short fragments under MIN_CHUNK_CHARS
         """
         MIN_CHARS = int(os.environ.get("MIN_CHUNK_CHARS", "8"))
         stripped = text.strip()
@@ -1501,29 +1546,17 @@ Rules:
     def _image_duplicates_page_text(
         self, image_text: str, page_text_pool: set, threshold: float = 0.7
     ) -> bool:
-        """
-        Returns True if the image's OCR text is largely covered by text already
-        extracted from the same page via PyMuPDF.
 
-        This catches the common digital PDF pattern where an image is just a
-        screenshot of content that PyMuPDF already extracted perfectly as text
-        (e.g. a table screenshot, a formula screenshot, a text block rendered
-        as an image by the PDF authoring tool).
-
-        Uses token-level Jaccard-style overlap:
-          overlap = |image_tokens ∩ page_tokens| / |image_tokens|
-        If >= threshold of the image's tokens already exist in the page text → duplicate.
-        """
-        # Vision descriptions are not duplicates — they add semantic info
+        # Vision model descriptions are not duplicates they add semantic info
         # that PyMuPDF text extraction never produces
-        if re.search(r'\[TYPE:\s*(diagram|chart|graph|photo|mixed)\]',
+        if  re.search(r'\[TYPE:\s*(diagram|chart|graph|photo|mixed)\]',
                      image_text, re.IGNORECASE):
-            return False
+            return  False
 
         img_tokens = self._tokenize(image_text)
         if len(img_tokens) < 5:
-            # Too short to make a meaningful comparison — let noise filter handle it
-            return False
+            # Too short to make a meaningful comparison let noise filter handle it
+            return  False
 
         overlap = len(img_tokens & page_text_pool) / len(img_tokens)
         is_dup = overlap >= threshold
@@ -1533,15 +1566,8 @@ Rules:
         return is_dup
 
     def _merge_text_blocks(self, blocks: list) -> list:
-        """
-        Merge consecutive short text blocks on the same page into one chunk.
-        This prevents scattered diagram labels (each on their own line from
-        PyMuPDF) from becoming dozens of useless single-word chunks.
 
-        A block is a merge candidate if it's a text block under MERGE_THRESHOLD chars.
-        Image and table blocks are never merged.
-        """
-        MERGE_THRESHOLD = int(os.environ.get("TEXT_MERGE_THRESHOLD", "60"))
+        MERGE_THRESHOLD =  int(os.environ.get("TEXT_MERGE_THRESHOLD", "60"))
 
         merged = []
         pending_texts = []
@@ -1570,20 +1596,20 @@ Rules:
             text = block.get("embedding_ready_text", "").strip()
 
             if len(text) >= MERGE_THRESHOLD:
-                # Long enough to stand alone — flush pending first
+                # Long enough to stand alone - flush pending first
                 flush_pending()
                 merged.append(block)
             else:
-                # Short — accumulate for merging
+                # Short - accumulate for merging
                 pending_texts.append(text)
                 pending_texts_meta.append(block)
 
         flush_pending()
         return merged
 
-    # ─────────────────────────────────────────────────────────────
+  
     # STRUCTURE
-    # ─────────────────────────────────────────────────────────────
+  
     def structure(self, raw_data):
         from app.models.unified_content_schema import Section, Chunk
 
@@ -1598,8 +1624,8 @@ Rules:
         for section in raw_data["sections"]:
             blocks = self._merge_text_blocks(section["blocks"])
 
-            # Build a token pool from all text and table blocks on this page.
-            # Used to detect image chunks that duplicate already-extracted content.
+            #  Build a token pool from all text and table blocks on this page.
+            #  Used to detect image chunks that duplicate already-extracted content.
             page_text_pool: set = set()
             for block in blocks:
                 if block["type"] in ("text", "table"):
@@ -1612,7 +1638,7 @@ Rules:
                 raw_text = block["embedding_ready_text"]
 
                 if block["type"] == "image":
-                    content = self._clean_image_content(raw_text)
+                    content = self._image_content_cleaner(raw_text)
                     # Skip if noise
                     if self._is_noise_chunk(content):
                         print(f"[RAG]   Dropped noise image chunk: "
@@ -1661,7 +1687,7 @@ Rules:
                 )
                 total_chunks += len(chunks)
 
-        return ParsedContent(
+        return  ParsedContent(
             source_type="pdf",
             title=raw_data["metadata"].get("title", "PDF Document"),
             sections=sections,
