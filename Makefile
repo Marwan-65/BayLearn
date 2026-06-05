@@ -34,7 +34,7 @@ BTREE_UI       ?= 8083
 
 #  Equation module paths (launch commands per your spec). Edit if the folder
 #  layout differs (this repo currently ships src/baylearn + src/baylearn-frontend).
-EQUATION_DIR   ?= equation-module
+EQUATION_DIR   ?= Equation_Solving_Module
 EQUATION_UI    ?= $(EQUATION_DIR)/src/ui
 
 ROOT  := $(shell pwd)
