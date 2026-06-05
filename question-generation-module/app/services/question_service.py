@@ -197,7 +197,7 @@ class QuestionGenerationService:
                 user_prompt=user_prompt,
                 # Slightly lower temperature on retry to converge on correct level
                 temperature=0.85 if attempts == 1 else 0.6,
-                max_tokens=min(900, 220 + (num_questions * 140)),
+                max_tokens=2048,
             )
             questions = self._parse_llm_response(raw_response, question_type)
             last_questions = self._classify_predicted_levels(questions)

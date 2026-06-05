@@ -57,3 +57,6 @@ output/
 *changes/
 vector_db/
 bm25_db/
+contextual_cashe.json
+chunk_storage.json
+chunk_staging_buffer.json

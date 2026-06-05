@@ -8,3 +8,4 @@ __pycache__
 .venv
 
 *.venv310/
+models/wetransfer_bloom_distilbert_2026-05-31_1853.zip

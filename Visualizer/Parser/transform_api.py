@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -33,6 +34,7 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent
 RUNS_DIR = BASE_DIR / "runs"
 RUNS_DIR.mkdir(parents=True, exist_ok=True)
+load_dotenv(BASE_DIR.parent / ".env")
 
 
 class TransformRequest(BaseModel):
@@ -291,19 +293,10 @@ def file_launch(req: FileLaunchRequest) -> LaunchResponse:
         raise HTTPException(status_code=502, detail=f"Failed fetching file chunks: {exc}") from exc
 
     parsed_content = {
-        "source_type": file_meta.get("source_type", "unknown"),
-        "title": file_meta.get("title") or file_meta.get("file_name") or req.file_id,
-        "sections": [
-            {
-                "heading": None,
-                "page": None,
-                "chunks": [
-                    {"content": c["content"], "chunk_index": c["chunk_index"]}
-                    for c in raw_chunks
-                ],
-            }
-        ],
-        "total_chunks": file_meta.get("total_chunks", len(raw_chunks)),
+        "source_type": raw_chunks.get("source_type") or file_meta.get("source_type", "unknown"),
+        "title": raw_chunks.get("title") or file_meta.get("title") or file_meta.get("file_name") or req.file_id,
+        "sections": raw_chunks.get("sections", []),
+        "total_chunks": raw_chunks.get("total_chunks") or file_meta.get("total_chunks", 0),
     }
 
     transformed = transform(
