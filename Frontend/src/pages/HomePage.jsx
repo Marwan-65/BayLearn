@@ -9,7 +9,7 @@ const ADAPTIVE_API_BASE = import.meta.env.VITE_ADAPTIVE_API_BASE || "http://127.
 const VISUALIZER_BASE   = import.meta.env.VITE_VISUALIZER_BASE   || "http://localhost:8010";
 
 const RAG_URL = import.meta.env.VITE_RAG_URL      || "http://localhost:5173";
-const EQ_URL  = import.meta.env.VITE_EQUATION_URL || "http://localhost:8501";
+const EQ_URL  = import.meta.env.VITE_EQUATION_URL || "http://localhost:3000";
 
 const MODULES = [
   {
@@ -21,7 +21,7 @@ const MODULES = [
     color: "#6c63ff",
     fileMode: "many",
     hint: "Select any files you want to chat about",
-    url: RAG_URL,
+    url: "/rag-chat",   // integrated internal route (was external RAG_URL)
   },
   {
     id: "quiz",

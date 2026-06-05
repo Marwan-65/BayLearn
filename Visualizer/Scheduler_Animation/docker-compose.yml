@@ -1,0 +1,15 @@
+services:
+  scheduler:
+    build: #build the docker image usin the dockerfile that exists int his exact directory
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    environment:
+      SCH: ${SCH:-1}
+      Q: ${Q:-3}
+    volumes:
+      - .:/workspace #mount this directory to the root directory inside docker so it can see/save files
+    stdin_open: true #
+    tty: true # keep the container running even if no command i currenlty being executed
+    command: ["bash", "-lc", "sleep infinity"] # override the CMD in the dockerfile to sleep to infifity
+    # so the container just idel after starting as the actual simulation is triggered separately by run simulation.sh

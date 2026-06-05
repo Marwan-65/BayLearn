@@ -62,15 +62,31 @@ export default function QuestionStudioPage() {
   const [adaptiveItem, setAdaptiveItem] = useState(null);
 
   // ── Session status polling state ─────────────────────────────────────────
-  const [sessionFinished, setSessionFinished] = useState(false);
-  const [sessionResults,  setSessionResults]  = useState(null);
-  const [showResults,     setShowResults]     = useState(false);
-  const [stepsCount,      setStepsCount]      = useState(0);
+  const [sessionFinished,  setSessionFinished]  = useState(false);
+  const [sessionResults,   setSessionResults]   = useState(null);
+  const [showResults,      setShowResults]      = useState(false);
+  const [stepsCount,       setStepsCount]       = useState(0);
+  const [terminating,      setTerminating]      = useState(false);
   const statusPollRef = useRef(null);
 
   function showToast(msg, type = "info") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  async function terminateSession() {
+    if (!sessionId || terminating || sessionFinished) return;
+    setTerminating(true);
+    try {
+      await apiFetch("/session/terminate", {
+        method: "POST",
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      showToast("Session ending — saving your progress…", "info");
+    } catch (e) {
+      showToast(e.message || "Could not terminate session.", "error");
+      setTerminating(false);
+    }
   }
 
   // ── Poll /session/status every 5 s ──────────────────────────────────────
@@ -185,6 +201,23 @@ export default function QuestionStudioPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* End Session button — only while session is running */}
+            {sessionId && !sessionFinished && (
+              <button
+                onClick={terminateSession}
+                disabled={terminating}
+                style={{
+                  ...S.generateBtn,
+                  background: terminating ? "#f3f4f6" : "linear-gradient(135deg,#dc2626,#f87171)",
+                  color:      terminating ? "#9ca3af" : "white",
+                  cursor:     terminating ? "default" : "pointer",
+                  opacity:    1,
+                }}
+              >
+                {terminating ? "Ending session…" : "End Session"}
+              </button>
             )}
 
             {/* Status pill */}

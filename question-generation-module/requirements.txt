@@ -27,6 +27,8 @@ sentence-transformers==3.3.1
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.5.2
+textstat
+rank-bm25
 
 # Optional — only used by scripts that download datasets from Kaggle
 kagglehub==0.3.4

@@ -1,0 +1,38 @@
+SRM Question Bank parse report
+==============================
+PDFs scanned:        265
+PDFs failed:         0
+Rows extracted:      31303
+Rows after dedup:    30589
+
+Level distribution (3-bucket):
+  easy     18193   ( 59.5%)
+  medium    9623   ( 31.5%)
+  hard      2773   (  9.1%)
+
+Bloom level (6-class):
+  BTL-1    9370   ( 30.6%)
+  BTL-2    8823   ( 28.8%)
+  BTL-3    4851   ( 15.9%)
+  BTL-4    4772   ( 15.6%)
+  BTL-5    1702   (  5.6%)
+  BTL-6    1071   (  3.5%)
+
+Top 15 subjects by row count:
+    218  computer control of processes
+    218  information storage and management
+    218  renewable energy systems 5
+    217  mobile and wireless security
+    217  robotics
+    216  fundamentals of nutrition
+    216  hospital waste management
+    216  neural networks and its applications
+    215  heat and mass transfer
+    214  cyber laws and ethics
+    213  green computing
+    212  statistical approaches for data science
+    212  transducers engineering 1
+    211  data quality and transformation
+    211  fundamentals of nanoscience
+
+Output: /Users/manarfarghaly/Desktop/Data/senior2firstterm/GP/BayLearn/question-generation-module/data/processed/srm_questions.csv

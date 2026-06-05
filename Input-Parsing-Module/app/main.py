@@ -8,10 +8,9 @@ from .config import load_environment
 from app.models.database import create_tables, seed_default_user
 from .controllers.user_controller import router as user_router
 
-
 load_environment()
 
-app = FastAPI(title="Input Parsing Module")
+app =   FastAPI(title="Input Parsing Module")
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,9 +23,10 @@ app.add_middleware(
 def startup():
     create_tables()
     seed_default_user()
-# Serve extracted images so the RAG frontend can render them
-_IMG_DIR = "extracted_images"
-os.makedirs(_IMG_DIR, exist_ok=True)
+
+_IMG_DIR =   "extracted_images"
+os.makedirs(_IMG_DIR, exist_ok= True)
+
 app.mount("/images", StaticFiles(directory=_IMG_DIR), name="images")
 
 
@@ -35,5 +35,6 @@ async def health():
     return {"status": "healthy", "module": "input-parsing"}
 
 app.include_router(user_router)
+
 app.include_router(router)
 app.include_router(course_router)

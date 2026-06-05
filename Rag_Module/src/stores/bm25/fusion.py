@@ -3,29 +3,7 @@ from typing import List, Dict, Optional
 
 def reciprocal_rank_fusion(
     ranked_lists: List[List[Dict]],
-    k: int = 60,
-    top_k: int = 10,
-    id_key: str = "id",
-    source_names: Optional[List[str]] = None,
-) -> List[Dict]:
-    """
-    Reciprocal Rank Fusion (Cormack et al. 2009).
-        RRF_score(d) = Σ_i  1 / (k + rank_i(d))
-
-    Args:
-        ranked_lists: Each inner list is already score-sorted descending.
-                      Each doc must be a dict containing id_key.
-        k: RRF constant (60 is canonical — damps top-rank dominance).
-        top_k: Number of fused docs to return.
-        id_key: Field used to match the same doc across lists.
-        source_names: Optional labels for each list (e.g. ["query_0", "query_1", "bm25"]).
-                      Falls back to "src0", "src1", etc.
-
-    Returns:
-        Fused list sorted by rrf_score desc. Each doc preserves original
-        keys (id, score, payload) from the first list that surfaced it,
-        plus: rrf_score, rrf_sources.
-    """
+    k: int = 60, top_k: int = 10, id_key: str = "id", source_names: Optional[List[str]] = None,) -> List[Dict]:
     if source_names is None:
         source_names = []
     fused: Dict = {}

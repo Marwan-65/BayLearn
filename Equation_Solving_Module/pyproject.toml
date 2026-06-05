@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=67.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "baylearn-solver"
+version = "1.0.0"
+description = "Math equation solver API for RAG pipeline integration"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "SalmaNasser", email = "salma.naser1020@gmail.com"}]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "sympy>=1.12",
+    "groq>=0.4.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "streamlit>=1.28.0",
+    "plotly>=5.17.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/Marwan-65/BayLearn"
+Documentation = "https://github.com/Marwan-65/BayLearn#readme"
+Issues = "https://github.com/Marwan-65/BayLearn/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages]
+find = {where = ["src"]}
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=src --cov-report=html"

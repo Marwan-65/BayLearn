@@ -1,25 +1,10 @@
-"""
-Orchestrator routes — proxy endpoints for other modules.
-
-Rate-limited, validated proxy with health checks.
-
-Each module exposes POST /init and POST /run.
-These routes forward requests to the correct module and return the response.
-
-The module URLs are configured via environment variables:
-  EQUATION_MODULE_URL=http://localhost:8001
-  ANIMATION_MODULE_URL=http://localhost:8002
-"""
-
 import httpx
 import logging
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 from routes.schemes.orchestrator import (
     ModuleInitRequest,
-    ModuleRunRequest,
-    EquationRunRequest,
-    AnimationRunRequest,
+    EquationRunRequest
 )
 from helpers.config import get_settings
 from core.limiter import limiter
@@ -158,7 +143,7 @@ async def equation_init(request: Request, init_request: ModuleInitRequest):
 
 @orchestrator_router.post("/equation/run")
 @limiter.limit("30/minute")
-async def equation_run(request: Request, run_request: EquationRunRequest):
+async def equation_run(request: Request,run_request: EquationRunRequest):
     """
     Forward a solve request to the equation module.
     Uses typed EquationRunRequest for validation.
@@ -178,48 +163,3 @@ async def equation_run(request: Request, run_request: EquationRunRequest):
         return JSONResponse(status_code=status.HTTP_200_OK, content=result)
     except Exception as e:
         return _handle_proxy_error("Equation", base_url, e)
-
-
-# ---------------------------------------------------------
-# ANIMATION MODULE
-# Rate limited + validated input
-# ---------------------------------------------------------
-
-@orchestrator_router.post("/animation/init")
-@limiter.limit("10/minute")
-async def animation_init(request: Request, init_request: ModuleInitRequest):
-    """Initialize the animation module."""
-    settings = get_settings()
-    base_url = getattr(settings, "ANIMATION_MODULE_URL", None)
-
-    url_error = _check_module_url("Animation", base_url)
-    if url_error:
-        return url_error
-
-    try:
-        result = await _proxy_post(base_url, "/init", init_request.config)
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result)
-    except Exception as e:
-        return _handle_proxy_error("Animation", base_url, e)
-
-
-@orchestrator_router.post("/animation/run")
-@limiter.limit("30/minute")
-async def animation_run(request: Request, run_request: AnimationRunRequest):
-    """
-    Forward an animation request to the animation module.
-    Phase 4: Uses typed AnimationRunRequest for validation.
-    """
-    settings = get_settings()
-    base_url = getattr(settings, "ANIMATION_MODULE_URL", None)
-
-    url_error = _check_module_url("Animation", base_url)
-    if url_error:
-        return url_error
-
-    try:
-        payload = run_request.model_dump(exclude_none=True)
-        result = await _proxy_post(base_url, "/run", payload)
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result)
-    except Exception as e:
-        return _handle_proxy_error("Animation", base_url, e)

@@ -3,22 +3,13 @@ import pickle
 import string
 import logging
 from typing import List, Dict
-
 import numpy as np
 from rank_bm25 import BM25Okapi
 from stores.bm25.BM25Interface import BM25Interface
 
-
-# Module-level punctuation translator — built once, O(1) per apply.
 _PUNCT_TABLE = str.maketrans(string.punctuation, " " * len(string.punctuation))
 
-
 def _tokenize(text: str) -> List[str]:
-    """
-    Minimal tokenizer optimized for CPU latency.
-    lowercase → replace punctuation with spaces → whitespace split → drop short tokens.
-    No stemming, no stopwords — keeps per-query tokenization < 0.3ms.
-    """
     if not text:
         return []
     lowered = text.lower().translate(_PUNCT_TABLE)
@@ -26,13 +17,6 @@ def _tokenize(text: str) -> List[str]:
 
 
 class InMemoryBM25(BM25Interface):
-    """
-    rank_bm25-backed provider with per-project pickled indexes.
-
-    On-disk format (one .pkl per project):
-        {"bm25": BM25Okapi, "ids": [...], "payloads": [...], "version": 1}
-    """
-
     PICKLE_VERSION = 1
 
     def __init__(self, index_dir: str, k1: float = 1.5, b: float = 0.75):
@@ -62,7 +46,6 @@ class InMemoryBM25(BM25Interface):
                 "payloads": list(payloads),
                 "version": self.PICKLE_VERSION,
             }
-            # Atomic write: tmp then rename
             tmp = self._path(project_id) + ".tmp"
             with open(tmp, "wb") as f:
                 pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)

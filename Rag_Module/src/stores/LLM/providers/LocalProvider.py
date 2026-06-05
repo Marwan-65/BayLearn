@@ -1,17 +1,16 @@
-from llama_cpp import Llama
 from sentence_transformers import SentenceTransformer
 from ..LLMInterface import LLMInterface
 import logging
-
+from llama_cpp import Llama  
 
 class LocalProvider(LLMInterface):
 
     def __init__(self,
-                 model_path: str = None,
-                 embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-                 default_input_max_characters: int = 1000,
-                 default_generation_max_output_tokens: int = 512,
-                 default_generation_temperature: float = 0.1):
+        model_path: str = None,
+        embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        default_input_max_characters: int = 1000,
+        default_generation_max_output_tokens: int = 512,
+        default_generation_temperature: float = 0.1):
 
         self.model_path = model_path
         self.embedding_model_name = embedding_model_name
@@ -29,23 +28,20 @@ class LocalProvider(LLMInterface):
 
         self.logger = logging.getLogger(__name__)
 
-    # ================= GENERATION =================
 
     def set_generation_model(self, model_id: str):
+
         self.generation_model_id = model_id
 
-        self.llm = Llama(
-            model_path=model_id,
+        self.llm = Llama(model_path=model_id,
             n_ctx=2048,
             n_threads=6,
-            n_gpu_layers=20  # uses Metal on M1
-        )
+            n_gpu_layers=20 )
 
     def generate_text(self, prompt: str,
-                      chat_history: list = [],
-                      max_output_tokens: int = None,
-                      temperature: float = None,
-                      response_format: dict = None):
+            chat_history: list = [],
+            max_output_tokens: int = None,
+            temperature: float = None,):
 
         if not self.llm:
             self.logger.error("Local LLM not initialized")
@@ -54,19 +50,14 @@ class LocalProvider(LLMInterface):
         max_output_tokens = max_output_tokens or self.default_generation_max_output_tokens
         temperature = temperature or self.default_generation_temperature
 
-        messages = chat_history + [
-            {"role": "user", "content": prompt}
-        ]
+        messages = chat_history + [{"role": "user", "content": prompt}]
 
         response = self.llm.create_chat_completion(
             messages=messages,
             max_tokens=max_output_tokens,
             temperature=temperature
         )
-
         return response["choices"][0]["message"]["content"]
-
-    # ================= EMBEDDINGS =================
 
     def set_embedding_model(self, model_id: str, embedding_size: int):
         self.embedding_model_id = model_id
@@ -87,8 +78,6 @@ class LocalProvider(LLMInterface):
             self.logger.error("Embedding model not initialized")
             return []
         return self.embedding_model.encode(texts).tolist()
-
-    # ================= HELPERS =================
 
     def process_text(self, text: str):
         return text[:self.default_input_max_characters].strip()

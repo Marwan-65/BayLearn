@@ -2,10 +2,8 @@ import uuid
 from app.parsers.base_parser import BaseParser
 from app.models.unified_content_schema import ParsedContent, Section, Chunk
 
-# Whisper model is loaded lazily to avoid slow startup and allow
-# the model size to be configured at runtime.
 _whisper_model = None
-WHISPER_MODEL_SIZE = "base"  # Options: tiny, base, small, medium, large
+WHISPER_MODEL_SIZE = "base"  
 
 
 def _get_whisper_model():
@@ -17,8 +15,7 @@ def _get_whisper_model():
     return _whisper_model
 
 
-# Number of Whisper segments to group into a single RAG chunk.
-# Whisper segments are roughly sentence-length, so 5 ≈ a short paragraph.
+# Number of Whisper segments to put into a single chunk for rag module chuncking
 SEGMENTS_PER_CHUNK = 5
 
 
@@ -27,40 +24,36 @@ class AudioParser(BaseParser):
     Parses audio files into structured ParsedContent ready for RAG / LLM pipelines.
 
     Pipeline:
-        preprocess  → validates and returns the file path
-        extract     → transcribes with OpenAI Whisper (free, local)
+        preprocess  ->validates and returns the file path
+        extract     ->transcribes with OpenAI Whisper (free, local)
                       returns the full result dict (text + segments with timestamps)
-        structure   → groups Whisper segments into Chunks with timestamp metadata,
+        structure   ->groups Whisper segments into Chunks with timestamp metadata,
                       wrapped in Sections that mirror the rest of the parser family
     """
-
-    # ------------------------------------------------------------------ #
-    # BaseParser interface                                                 #
-    # ------------------------------------------------------------------ #
 
     def preprocess(self, file_path: str) -> str:
         """Validate the file exists, stash the filename, and return the path."""
         import os
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"Audio file not found: {file_path}")
-        # Strip extension and underscores/dashes for a clean title
-        # e.g. "einstein_theory_of_relativity.mp3" → "Einstein Theory Of Relativity"
+        # remove extension and underscores/dashes for a clean title
+        # tested example "einstein_theory_of_relativity.mp3" ->"Einstein Theory Of Relativity"
         raw_name = os.path.splitext(os.path.basename(file_path))[0]
         self._title = raw_name.replace("_", " ").replace("-", " ").title()
         return file_path
 
-    def extract(self, file_path: str) -> dict:
+    def extract(self , file_path: str) -> dict:
         """
         Transcribe the audio with Whisper.
 
         Returns the full Whisper result dict so that `structure` can access
         both the plain text and the time-stamped segments.
         """
-        model = _get_whisper_model()
-        result = model.transcribe(file_path)
-        return result
+        model =   _get_whisper_model()
+        res = model.transcribe(file_path)
+        return res
 
-    def structure(self, whisper_result: dict) -> ParsedContent:
+    def structure(self ,  whisper_result: dict) -> ParsedContent:
         """
         Convert a Whisper result dict into a ParsedContent with Sections and Chunks.
 
@@ -73,7 +66,7 @@ class AudioParser(BaseParser):
         full_text = whisper_result.get("text", "").strip()
         detected_language = whisper_result.get("language", "unknown")
 
-        # ---- Build chunks by grouping consecutive segments ---- #
+        # Build chunks by grouping consecutive segments tgthr
         chunks: list[Chunk] = []
         chunk_index = 0
 
@@ -85,8 +78,7 @@ class AudioParser(BaseParser):
                 start_time = group[0].get("start", 0.0)
                 end_time = group[-1].get("end", 0.0)
             else:
-                # No segments returned (e.g. very short / silent audio) —
-                # fall back to the plain text so we still produce a chunk.
+                # No segments returned try using the full text as a single chunk
                 group_text = full_text
                 start_time = 0.0
                 end_time = 0.0
@@ -107,7 +99,7 @@ class AudioParser(BaseParser):
             ))
             chunk_index += 1
 
-        # Edge-case: Whisper returned text but no segments list
+        # Edge case whisper returned text but no segments list just one chunck with full txt
         if not chunks and full_text:
             chunks.append(Chunk(
                 id=str(uuid.uuid4()),
@@ -119,12 +111,12 @@ class AudioParser(BaseParser):
                 },
             ))
 
-        # ---- Wrap chunks in a single Section ---- #
+        # pu chuncks in one sec
         title = getattr(self, "_title", "Audio Transcript")
         section = Section(
             id=str(uuid.uuid4()),
             heading=title,
-            page=None,          # Audio has no pages; kept None for schema compatibility
+            page=None,          # 7atenha for compatability 
             chunks=chunks,
         )
 

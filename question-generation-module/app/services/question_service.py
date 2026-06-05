@@ -18,11 +18,10 @@ from app.services.example_bank import ExampleBank
 logger = logging.getLogger(__name__)
 
 # Max characters of chunk text to include in a single prompt.
-# Keep this conservative to avoid Groq on-demand TPM 413 errors.
-MAX_CONTEXT_CHARS = 2200
+MAX_CONTEXT_CHARS = 6000
 
-# Prevent one large chunk from consuming the whole prompt budget.
-MAX_SINGLE_CHUNK_CHARS = 700
+# Max characters per individual chunk (raised to support rich ablation chunks).
+MAX_SINGLE_CHUNK_CHARS = 2000
 
 # Single-question generation retries when semantic validation rejects output.
 MAX_REJECTION_RETRIES = 5
@@ -202,11 +201,12 @@ class QuestionGenerationService:
 
     def _build_prompt(self, question_type, chunks_text, num_questions,
                       difficulty, few_shot, include_guidance=True):
-        if question_type == "mcq":
+        qt = (question_type or "").lower().strip()   # accept MCQ/Mcq/true_false/etc.
+        if qt == "mcq":
             return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
-        if question_type == "short_answer":
+        if qt == "short_answer":
             return build_short_answer_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
-        if question_type == "true_false":
+        if qt == "true_false":
             return build_true_false_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         raise ValueError(f"Unknown question_type: {question_type}. Use mcq, short_answer, or true_false.")
 
@@ -304,11 +304,12 @@ class QuestionGenerationService:
             logger.error(f"LLM returned invalid JSON: {e}\nRaw response: {raw_response[:500]}")
             raise ValueError("The LLM returned malformed JSON. Try again.")
 
+        qtype = (question_type or "").lower().strip()
         questions = []
         for item in data:
             # Build options list only for MCQ
             options = None
-            if question_type == "mcq" and "options" in item:
+            if qtype == "mcq" and "options" in item:
                 options = [
                     QuestionOption(
                         label=opt["label"],
