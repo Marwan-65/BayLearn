@@ -51,10 +51,13 @@ STAMP := $(ROOT)/.run-stamps
 $(STAMP):
 	@mkdir -p $(STAMP)
 
-# ensure-env,<env>,<python-version>  -> create the conda env iff it does not exist
 define ensure_env
 	@conda env list | awk '{print $$1}' | grep -qx "$(1)" \
 	  || { echo "creating conda env $(1) (python $(2))"; conda create -n $(1) python=$(2) -y; }
+
+	@echo "ensuring ffmpeg exists in $(1)"
+	@conda run -n $(1) ffmpeg -version >/dev/null 2>&1 || \
+	  conda run -n $(1) conda install -c conda-forge ffmpeg -y
 endef
 
 $(STAMP)/rag: Rag_Module/src/requirements.txt | $(STAMP)
@@ -90,11 +93,21 @@ $(STAMP)/frontend: Frontend/package.json | $(STAMP)
 	cd Frontend && npm install
 	@touch $@
 
+
+.PHONY: ensure-ffmpeg
+ensure-ffmpeg:
+	@echo "Ensuring ffmpeg in all envs..."
+	@conda run -n $(PARSER_ENV) conda install -c conda-forge ffmpeg -y
+	@conda run -n $(RAG_ENV) conda install -c conda-forge ffmpeg -y
+	@conda run -n $(ADAPTIVE_ENV) conda install -c conda-forge ffmpeg -y
+	@conda run -n $(QUESTION_ENV) conda install -c conda-forge ffmpeg -y
+
+
 .PHONY: setup setup-minimal
-setup-minimal: $(STAMP)/parser $(STAMP)/rag $(STAMP)/frontend ## Install the 3 RAG-demo modules
+setup-minimal: $(STAMP)/parser $(STAMP)/rag $(STAMP)/frontend 
 	@echo "RAG-demo environments ready."
-setup: $(STAMP)/rag $(STAMP)/parser $(STAMP)/equation-frontend $(STAMP)/adaptive $(STAMP)/questions $(STAMP)/frontend 
-	@echo "All environments ready." 
+setup: ensure-ffmpeg $(STAMP)/rag $(STAMP)/parser $(STAMP)/equation-frontend $(STAMP)/adaptive $(STAMP)/questions $(STAMP)/frontend
+	@echo "All environments ready."
 
 
 # run one service in the current terminal tab
