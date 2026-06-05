@@ -1,32 +1,3 @@
-"""
-eppo_inference.py
-=================
-Launched by backend.py with CLI args:
-
-    python eppo_inference.py \
-        --user-id 3 \
-        --session-id 47 \
-        --scope-ids   file-uuid-1,file-uuid-2 \
-        --scope-ids   "course-uuid-1,course-uuid-2"
-
-    python eppo_inference.py \
-        --user-id 3 \
-        --session-id 48 \
-
-        --scope-ids   "file-uuid-1,file-uuid-2"
-
-scope-ids is always comma-separated — chunk DB UUIDs (course or file).
-
-Static config in .env:
-    CONCEPT_DB_URL
-    QUESTION_GEN_BASE_URL (default: http://localhost:8001)
-
-Dependencies:
-    pip install torch sentence-transformers==2.7.0 transformers==4.40.2
-                huggingface-hub==0.23.4 numpy requests sqlalchemy
-                psycopg2-binary python-dotenv
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -50,14 +21,9 @@ import requests
 load_dotenv(Path(__file__).parent / ".env")
 warnings.filterwarnings("ignore")
 
-# ---------------------------------------------------------------------------
-# Static config
-# ---------------------------------------------------------------------------
-CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
-QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL",
-                                       "http://localhost:8001").strip()
-MODEL_PATH       = os.path.join(os.path.dirname(__file__),
-                                "models", "eppo_ep2500.pt")
+CONCEPT_DB_URL  = os.environ.get("CONCEPT_DB_URL",        "").strip()
+QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL",  "http://localhost:8001").strip()
+MODEL_PATH   = os.path.join(os.path.dirname(__file__), "models", "eppo_prod.pt")
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr)
@@ -66,46 +32,26 @@ if not CONCEPT_DB_URL:
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {DEVICE}")
 
-# ---------------------------------------------------------------------------
-# CLI args
-# ---------------------------------------------------------------------------
 _parser = argparse.ArgumentParser()
-_parser.add_argument("--user-id",       type=str, required=True)
-_parser.add_argument("--session-id",    type=str, required=True)
-_parser.add_argument("--scope-ids",     type=str, default="")
+_parser.add_argument("--user-id",  type=str, required=True)
+_parser.add_argument("--session-id", type=str, required=True)
+_parser.add_argument("--scope-ids",  type=str, default="")
 _args = _parser.parse_args()
 
 EPPO_USER_ID  = _args.user_id
 SESSION_ID    = _args.session_id
-SCOPE_IDS     = _args.scope_ids
+SCOPE_IDS   = _args.scope_ids
 
-# Parsed lists for multi-value scopes
+# list of uuids in the session scope
 SCOPE_IDS_LIST = [v.strip() for v in SCOPE_IDS.split(",") if v.strip()]
 
-# ---------------------------------------------------------------------------
-# DB bootstrap (imports from the canonical source)
-# ---------------------------------------------------------------------------
+
 _Base = declarative_base()
 from db_models import ensure_tables
 
-# ---------------------------------------------------------------------------
-# DB bootstrap
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Concept pool — supports multiple courses or multiple files
-# ---------------------------------------------------------------------------
-
-def _load_concept_pool(db_url: str, user_id: str, scope_ids: list[str]):
+def _load_concepts(db_url: str, user_id: str, scope_ids: list[str]):
     """
-    Load concepts from the concept DB for the given file UUIDs.
-    scope_ids = chunk DB file UUIDs → concepts linked via concept_files.
-
-    Returns:
-        global_concepts        list[str]
-        global_llm_diff        list[int]
-        global_concept_ids     list[str]   (UUIDs)
-        course_concept_indices dict[str, list[int]]
+    load concepts from db
     """
     if not scope_ids:
         print("[eppo] WARNING: no file IDs provided.", file=sys.stderr)
@@ -126,9 +72,9 @@ def _load_concept_pool(db_url: str, user_id: str, scope_ids: list[str]):
             print(f"[eppo] concept_files lookup failed: {e}", file=sys.stderr)
             return [], [], [], {}
 
-    global_concepts:        list[str]              = []
-    global_llm_diff:        list[int]              = []
-    global_concept_ids:     list[str]              = []
+    global_concepts:  list[str]    = []
+    global_llm_diff:   list[int]   = []
+    global_concept_ids:   list[str]   = []
     course_concept_indices: dict[str, list[int]]   = {}
 
     for concept_id, name, diff, course_name in rows:
@@ -138,15 +84,13 @@ def _load_concept_pool(db_url: str, user_id: str, scope_ids: list[str]):
         global_concept_ids.append(concept_id)
         key = course_name.lower().replace(" ", "_")
         course_concept_indices.setdefault(key, []).append(idx)
-
-    return (global_concepts, global_llm_diff,
-            global_concept_ids, course_concept_indices)
+    return (global_concepts, global_llm_diff,   global_concept_ids, course_concept_indices)
 
 
 print(f"[eppo] Loading concept pool  user={EPPO_USER_ID} "
       f"files=[{SCOPE_IDS}] ...")
 (GLOBAL_CONCEPTS, GLOBAL_LLM_DIFF,
- GLOBAL_CONCEPT_IDS, COURSE_CONCEPT_INDICES) = _load_concept_pool(
+ GLOBAL_CONCEPT_IDS, COURSE_CONCEPT_INDICES) = _load_concepts(
     CONCEPT_DB_URL, EPPO_USER_ID, SCOPE_IDS_LIST)
 
 N_GLOBAL = len(GLOBAL_CONCEPTS)
@@ -155,13 +99,8 @@ print(f"[eppo] Pool: {N_GLOBAL} concepts across "
       f"{list(COURSE_CONCEPT_INDICES.keys())}")
 
 if N_GLOBAL == 0:
-    print("ERROR: No concepts found. Run concept_extractor first.",
-          file=sys.stderr)
+    print("ERROR: No concepts found. Run concept_extractor first.",   file=sys.stderr)
     sys.exit(1)
-
-# ---------------------------------------------------------------------------
-# PFA persistence
-# ---------------------------------------------------------------------------
 
 def load_pfa_history(db_url: str, user_id: str) -> dict | None:
     engine = create_engine(db_url)
@@ -181,7 +120,7 @@ def load_pfa_history(db_url: str, user_id: str) -> dict | None:
     id_to_idx = {cid: i for i, cid in enumerate(GLOBAL_CONCEPT_IDS)}
     successes = np.zeros((N_GLOBAL, 3), dtype=np.float32)
     failures  = np.zeros((N_GLOBAL, 3), dtype=np.float32)
-    bonuses   = np.zeros((N_GLOBAL, 3), dtype=np.float32)
+    bonuses  = np.zeros((N_GLOBAL, 3), dtype=np.float32)
 
     loaded = 0
     for (cid, se, sm, sh, fe, fm, fh, be, bm, bh) in rows:
@@ -190,12 +129,11 @@ def load_pfa_history(db_url: str, user_id: str) -> dict | None:
             continue
         successes[idx] = [se, sm, sh]
         failures[idx]  = [fe, fm, fh]
-        bonuses[idx]   = [be, bm, bh]
+        bonuses[idx]  = [be, bm, bh]
         loaded += 1
 
     print(f"[pfa] Loaded history for {loaded} concepts.")
     return {"successes": successes, "failures": failures, "bonuses": bonuses}
-
 
 def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
     engine = create_engine(db_url)
@@ -234,35 +172,10 @@ def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
     print(f"[pfa] Saved state for {len(GLOBAL_CONCEPT_IDS)} concepts.")
 
 
-def log_interaction(db_url: str, session_id: str, user_id: str,
-                    concept_id: str, difficulty: str, correct: bool,
-                    p_before: float, p_after: float,
-                    p_hard_after: float) -> None:
-    if not session_id:
-        return
-    import uuid as _uuid
-    # NOTE: All IDs (session, user, concept) are UUID strings.
-    # The DB schema uses VARCHAR for all of them.
-    engine = create_engine(db_url)
-    with Session(engine) as session:
-        session.execute(text("""
-            INSERT INTO session_interactions
-                (id, session_id, user_id, concept_id, difficulty,
-                 correct, p_before, p_after, p_hard_after, created_at)
-            VALUES (:id, :sid, :uid, :cid, :diff, :correct, :pb, :pa, :ph, :now)
-        """), dict(id=str(_uuid.uuid4()),
-                   sid=session_id, uid=user_id, cid=concept_id,
-                   diff=difficulty, correct=correct,
-                   pb=p_before, pa=p_after, ph=p_hard_after,
-                   now=datetime.utcnow()))
-        session.commit()
-
-
 def mark_session_ended(db_url: str, session_id: str,
                        result: dict | None = None) -> None:
     """
-    Mark the session as ended and persist the full result so
-    the backend can surface it via GET /session/results.
+    end this session and send the result to be to save in db
     """
     if not session_id:
         return
@@ -280,16 +193,32 @@ def mark_session_ended(db_url: str, session_id: str,
         })
         session.commit()
 
+def log_interaction(db_url: str, session_id: str, user_id: str,
+                    concept_id: str, difficulty: str, correct: bool,
+                    p_before: float, p_after: float,
+                    p_hard_after: float) -> None:
+    if not session_id:
+        return
+    import uuid as _uuid
+    engine = create_engine(db_url)
+    with Session(engine) as session:
+        session.execute(text("""
+            INSERT INTO session_interactions
+                (id, session_id, user_id, concept_id, difficulty,
+                 correct, p_before, p_after, p_hard_after, created_at)
+            VALUES (:id, :sid, :uid, :cid, :diff, :correct, :pb, :pa, :ph, :now)
+        """), dict(id=str(_uuid.uuid4()),
+                   sid=session_id, uid=user_id, cid=concept_id,
+                   diff=difficulty, correct=correct,
+                   pb=p_before, pa=p_after, ph=p_hard_after,
+                   now=datetime.utcnow()))
+        session.commit()
 
-# ---------------------------------------------------------------------------
-# Early-termination signal
-# ---------------------------------------------------------------------------
-
+# for early termination 3ashan manotesh fel ses 
 class SessionTerminatedError(Exception):
-    """Raised when the user requests early session termination."""
+    """raised when user end session early"""
 
-
-def _is_termination_requested(db_url: str, session_id: str) -> bool:
+def _is_terminated(db_url: str, session_id: str) -> bool:
     """Return True if terminate_requested has been set for this session."""
     try:
         engine = create_engine(db_url)
@@ -303,44 +232,38 @@ def _is_termination_requested(db_url: str, session_id: str) -> bool:
         return False
 
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
 class Config:
     N_LEVELS   = 3
     LEVEL_NAMES = ["Easy", "Medium", "Hard"]
     GAMMA_LEVEL = np.array([0.0330, 0.1494, 0.8884])
     RHO_LEVEL   = np.array([0.1444, 0.3433, 0.2331])
-    BETA_LEVEL  = np.array([1.4333, 1.0389, 0.4271])
+    BETA_LEVEL  = np.array([1.4333, 1.0389, -0.12])
     LLM_BETA_SCALE = -0.4
     LLM_BETA_MID   = 3.0
     PFA_TOP_K  = 5
-    PFA_ALPHA  = 0.04
+    PFA_ALPHA  = 0.02
     SIM_THRESHOLD  = 0.45
-    MAX_STEPS      = 60
+    MAX_STEPS  = 60
     CONCEPT_CAP    = 10
     IMPROVEMENT_PCT    = 0.07
     SESSION_DONE_BONUS = 10.0
     MASTERY_THRESHOLD  = 0.65
     EMBED_MODEL = "BAAI/bge-base-en-v1.5"
-    EMBED_DIM   = 768
+    EMBED_DIM = 768
     STATE_DIM   = 19
-    SCORER_IN   = 22
+    SCORER_IN  = 22
     HIDDEN_DIM  = 64
     ITEM_DIFFICULTY = np.array([0.0, 1.0, 2.2])
     HARD_FLOOR  = 0.40
     P_ONE_COURSE = 0.50
     DEVICE = DEVICE
-    # Dependency graph — additive sort_key reduction per unmastered dependent.
-    # Small by design: a false graph edge shifts the score by at most this
-    # value, which is negligible relative to the [0, 1] mastery range.
     PREREQ_BOOST = 0.05
+
+    WARMUP_THRESHOLD = 1.0
 
 cfg = Config()
 
-# ---------------------------------------------------------------------------
-# Embeddings + similarity graph
-# ---------------------------------------------------------------------------
+# emded and sim gragh 3ashan n propagate w keda 
 print(f"Loading {cfg.EMBED_MODEL} ...")
 embed_model = SentenceTransformer(cfg.EMBED_MODEL)
 print(f"Embedding {N_GLOBAL} concepts...")
@@ -365,23 +288,11 @@ for i in range(N_GLOBAL):
 print(f"Embedding shape: {global_embeddings.shape}")
 
 
-# ---------------------------------------------------------------------------
-# Dependency graph — prerequisite pairs for the current concept pool
-# ---------------------------------------------------------------------------
-
-def _load_prerequisite_pairs(db_url: str,
+# loading prereqs
+def _load_preqs(db_url: str,
                               concept_ids: list[str]) -> dict[int, list[int]]:
     """
-    Two-hop query: concept → concept_node_mappings → knowledge_edges
-                            → concept_node_mappings → concept
-
-    Returns prereq_of[pool_idx_A] = [pool_idx_B, pool_idx_C, ...]
-    meaning concept A must be mastered before concepts B and C.
-
-    DISTINCT eliminates duplicate paths (multiple graph routes A→B through
-    different intermediate nodes produce only one entry per pair).
-    Fails silently — if the dependency tables don't exist or the query
-    errors, the preselection runs as normal with no boost applied.
+    laod prerequistes
     """
     if not concept_ids:
         return {}
@@ -423,16 +334,13 @@ def _load_prerequisite_pairs(db_url: str,
     return prereq_of
 
 
-PREREQ_OF: dict[int, list[int]] = _load_prerequisite_pairs(
+PREREQ_OF: dict[int, list[int]] = _load_preqs(
     CONCEPT_DB_URL, GLOBAL_CONCEPT_IDS)
 
 
-# ---------------------------------------------------------------------------
-# PFA Tracker
-# ---------------------------------------------------------------------------
+# PFA
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-np.clip(x, -15, 15)))
-
 
 class PFATracker:
     def __init__(self, cfg):
@@ -457,12 +365,12 @@ class PFATracker:
     def reset_global(self, prior_history=None):
         N, L = N_GLOBAL, self.cfg.N_LEVELS
         if prior_history is None:
-            self.successes         = np.zeros((N, L), dtype=np.float32)
-            self.failures          = np.zeros((N, L), dtype=np.float32)
+            self.successes  = np.zeros((N, L), dtype=np.float32)
+            self.failures = np.zeros((N, L), dtype=np.float32)
             self.propagation_bonus = np.zeros((N, L), dtype=np.float32)
         else:
-            self.successes         = prior_history["successes"].copy()
-            self.failures          = prior_history["failures"].copy()
+            self.successes  = prior_history["successes"].copy()
+            self.failures  = prior_history["failures"].copy()
             self.propagation_bonus = prior_history["bonuses"].copy()
 
     def start_session(self, session_indices):
@@ -470,14 +378,14 @@ class PFATracker:
         self.action_history   = {}
         self.session_mastered_now = set()
 
-        all_p        = self.predict_all_global()
+        all_p     = self.predict_all_global()
         p_hard_start = all_p[self.session_indices, 2]
         raw_weights  = 1.0 - p_hard_start
         self.session_weights = raw_weights / raw_weights.sum()
 
-        mean_p_hard       = float(p_hard_start.mean())
+        mean_p_hard    = float(p_hard_start.mean())
         difficulty_factor = float(np.clip(mean_p_hard / 0.65, 0.50, 1.0))
-        effective_pct     = self.cfg.IMPROVEMENT_PCT * difficulty_factor
+        effective_pct   = self.cfg.IMPROVEMENT_PCT * difficulty_factor
 
         self.wapr_start  = self.compute_session_wapr()
         self.wapr_target = min(0.97, self.wapr_start * (1.0 + effective_pct))
@@ -492,10 +400,10 @@ class PFATracker:
         return {
             "n_session_concepts": len(self.session_indices),
             "already_mastered":   len(self.session_mastered_before),
-            "apr_start":          self.apr_start,
-            "apr_target":         self.apr_target,
-            "wapr_start":         self.wapr_start,
-            "wapr_target":        self.wapr_target,
+            "apr_start":   self.apr_start,
+            "apr_target": self.apr_target,
+            "wapr_start":   self.wapr_start,
+            "wapr_target":  self.wapr_target,
         }
 
     def predict(self, ci, level):
@@ -565,10 +473,10 @@ class PFATracker:
         return p_before, p_after
 
     def get_state_features(self, ci):
-        all_p    = self.predict_all_global()
-        sess_p   = all_p[self.session_indices]
-        sess_s   = self.successes[self.session_indices]
-        sess_f   = self.failures[self.session_indices]
+        all_p = self.predict_all_global()
+        sess_p = all_p[self.session_indices]
+        sess_s = self.successes[self.session_indices]
+        sess_f = self.failures[self.session_indices]
         sess_int = sess_s.sum(axis=1) + sess_f.sum(axis=1)
 
         mean_p_all  = float(sess_p.mean())
@@ -626,16 +534,12 @@ class PFATracker:
             "bonuses":   self.propagation_bonus.copy(),
         }
 
-
-# ---------------------------------------------------------------------------
-# Pre-selection
-# ---------------------------------------------------------------------------
-
+# preselection
 def preselect_session_concepts(tracker, candidate_indices, cap, rng,
                                 priority_indices=None, verbose=True):
-    candidates     = list(candidate_indices)
+    candidates   = list(candidate_indices)
     candidates_set = set(candidates)
-    priority       = list(priority_indices) if priority_indices else []
+    priority   = list(priority_indices) if priority_indices else []
 
     if len(candidates) <= cap:
         return candidates
@@ -644,15 +548,6 @@ def preselect_session_concepts(tracker, candidate_indices, cap, rng,
     diff_sc = np.array([GLOBAL_LLM_DIFF[ci]    for ci in candidates])
     jitter  = rng.uniform(0, 1e-4, size=len(candidates))
 
-    # ── Dependency boost ──────────────────────────────────────────────────
-    # For each concept A that is a graph prerequisite of one or more
-    # unmastered concepts in the same pool, reduce its sort_key by
-    # PREREQ_BOOST per such dependent.  Lower sort_key = selected earlier.
-    #
-    # Effect is intentionally small: a false mapping shifts A's rank
-    # by at most PREREQ_BOOST, which is negligible if the mastery gap
-    # between candidates is large.  The RL actor still drives the session
-    # once the pool is selected.
     dep_boost = np.zeros(len(candidates), dtype=np.float32)
 
     for i, ci in enumerate(candidates):
@@ -668,7 +563,6 @@ def preselect_session_concepts(tracker, candidate_indices, cap, rng,
     sort_key = scores - diff_sc * 1e-3 + jitter - dep_boost
     ranked   = [candidates[i] for i in np.argsort(sort_key)]
 
-    # ── Diagnostic print ──────────────────────────────────────────────────
     if verbose:
         boosted = [(i, ci) for i, ci in enumerate(candidates)
                    if dep_boost[i] > 0]
@@ -687,11 +581,11 @@ def preselect_session_concepts(tracker, candidate_indices, cap, rng,
                 ]
                 print(f"  {GLOBAL_CONCEPTS[ci]:<35} {scores[i]:>7.3f}"
                       f"  {dep_boost[i]:>6.3f}  "
-                      f"→ {', '.join(unmastered_deps)}")
+                      f"-> {', '.join(unmastered_deps)}")
         else:
             print("[presel] No active dependency relationships in this pool.")
 
-    # ── Selection ─────────────────────────────────────────────────────────
+    # priority selsction
     selected     = [ci for ci in priority if ci in candidates_set][:cap]
     selected_set = set(selected)
     rem = cap - len(selected)
@@ -704,11 +598,7 @@ def preselect_session_concepts(tracker, candidate_indices, cap, rng,
             rem -= 1
     return selected
 
-
-# ---------------------------------------------------------------------------
-# Actor
-# ---------------------------------------------------------------------------
-
+# actor
 class EPPOActor(nn.Module):
     def __init__(self, cfg):
         super().__init__()
@@ -747,64 +637,39 @@ def load_actor(model_path: str) -> EPPOActor:
     actor.eval()
     return actor
 
-
-# ---------------------------------------------------------------------------
-# API helpers
-# ---------------------------------------------------------------------------
-
+# apis
 def api_send_question(topic: str, difficulty: str,
                       file_ids: list[str] | None = None) -> bool:
     """
-    Integrates with the question generation module via two endpoints:
-
-      1. POST /api/v1/questions/adaptive/{session_id}/generate
-             body: { topic, difficulty }
-             Non-blocking — publishes the question for the frontend to render.
-
-      2. GET  /api/v1/questions/adaptive/{session_id}/answer?timeout=55
-             Long-polls until the student answers.
-             Returns { answered: bool, correct: bool }
-             Retries automatically if the timeout window expires before
-             the student answers.
-
-    The frontend renders the question via GET /current and submits
-    the answer via POST /check — handled by the question generation
-    module, transparent to eppo_inference.
+    send a question and poll for the answer
     """
     base    = QUESTION_GEN_BASE_URL.rstrip("/")
     gen_url = f"{base}/api/v1/questions/adaptive/{SESSION_ID}/generate"
     ans_url = f"{base}/api/v1/questions/adaptive/{SESSION_ID}/answer"
 
-    # Step 1 — generate and publish the question to the frontend
-    # question_type is already registered via POST /config at session start
+    # geberate quest
     gen_resp = requests.post(gen_url, json={
         "topic":      topic,
         "difficulty": difficulty.lower(),
     }, timeout=60)
     gen_resp.raise_for_status()
 
-    # Step 2 — long-poll for the student answer, retry until answered
+    # poll or asnwer and retry 
     while True:
         ans_resp = requests.get(
             ans_url,
             params={"timeout": 55},
-            timeout=65,    # slightly over server timeout so we don't race
+            timeout=65,    # over server timeout so we don't race
         )
         ans_resp.raise_for_status()
         data = ans_resp.json()
         if data.get("answered"):
             return bool(data["correct"])
-        # answered=False → server timed out before student answered
-        # Check if the user requested early termination before retrying
-        if _is_termination_requested(CONCEPT_DB_URL, SESSION_ID):
+        if _is_terminated(CONCEPT_DB_URL, SESSION_ID):
             raise SessionTerminatedError()
 
 
-
-# ---------------------------------------------------------------------------
-# Session loop
-# ---------------------------------------------------------------------------
-
+# run ses
 def run_session(
     actor: EPPOActor,
     tracker: PFATracker,
@@ -836,7 +701,7 @@ def run_session(
               f"{'Diff':>6} {'Correct':>7} {'P(Hard)':>8}")
         print("-" * 85)
 
-    # Build reverse index: global_concept_idx → course name for logging
+    # get course names from ids
     idx_to_course = {}
     for course, indices in COURSE_CONCEPT_INDICES.items():
         for idx in indices:
@@ -844,26 +709,69 @@ def run_session(
 
     buf_ref_levels = []
 
+
+    concepts_with_any_history = sum(
+        1 for ci in sess_idx
+        if tracker.successes[ci].sum() + tracker.failures[ci].sum() > 0
+    )
+    total_concepts = len(sess_idx)
+    coverage       = concepts_with_any_history / max(1, total_concepts)
+    run_warmup     = coverage < cfg.WARMUP_THRESHOLD
+
+
+    concepts_sorted = sorted(sess_idx, key=lambda ci: GLOBAL_LLM_DIFF[ci])
+    n_total  = len(concepts_sorted)
+    n_easy   = max(1, round(n_total * 0.50))
+    n_hard   = max(1, round(n_total * 0.15))
+    n_medium = n_total - n_easy - n_hard
+
+    # Build level pool and shuffle so concepts get random level assignments
+    level_pool = [0] * n_easy + [1] * n_medium + [2] * n_hard
+    rng.shuffle(level_pool)
+
+    warmup_sequence: list[tuple[int, int]] = list(
+        zip(concepts_sorted, level_pool)
+    )
+    warmup_steps = len(warmup_sequence)
+
+    if run_warmup and verbose:
+        print(f"\n[warmup] {concepts_with_any_history}/{total_concepts} concepts "
+              f"have prior history (need {cfg.WARMUP_THRESHOLD*100:.0f}% coverage) "
+              f"— running {warmup_steps}-step warmup "
+              f"({n_easy}× Easy / {n_medium}× Medium / {n_hard}× Hard).")
+        print(f"  {'#':>3}  {'concept':<35} {'diff':>4}  level")
+        print(f"  {'─'*52}")
+        for i, (ci, lvl) in enumerate(warmup_sequence):
+            print(f"  {i+1:>3}  {GLOBAL_CONCEPTS[ci]:<35} "
+                  f"{GLOBAL_LLM_DIFF[ci]:>4}  {cfg.LEVEL_NAMES[lvl]}")
+
     for step in range(cfg.MAX_STEPS):
-        with torch.no_grad():
-            dist, logits = actor.get_policy(tracker, sess_idx, cfg)
 
-        n_hard_so_far = buf_ref_levels.count(2)
-        hard_fraction = n_hard_so_far / max(1, step)
-        if step > 3 and hard_fraction < cfg.HARD_FLOOR:
-            best_local = logits[2::3].argmax().item()
-            flat = best_local * cfg.N_LEVELS + 2
+        # Warmup
+        if run_warmup and step < warmup_steps:
+            global_ci, level = warmup_sequence[step]
+
+       # Acror
         else:
-            flat = dist.sample().item()
+            with torch.no_grad():
+                dist, logits = actor.get_policy(tracker, sess_idx, cfg)
 
-        local_ci        = flat // cfg.N_LEVELS
-        level           = flat % cfg.N_LEVELS
+            n_hard_so_far = buf_ref_levels.count(2)
+            hard_fraction = n_hard_so_far / max(1, step)
+            if step > 3 and hard_fraction < cfg.HARD_FLOOR:
+                best_local = logits[2::3].argmax().item()
+                flat = best_local * cfg.N_LEVELS + 2
+            else:
+                flat = dist.sample().item()
+
+            global_ci = sess_idx[flat // cfg.N_LEVELS]
+            level     = flat % cfg.N_LEVELS
+
         buf_ref_levels.append(level)
-        global_ci       = sess_idx[local_ci]
         db_concept_id   = GLOBAL_CONCEPT_IDS[global_ci]
-        concept_name    = GLOBAL_CONCEPTS[global_ci]
+        concept_name   = GLOBAL_CONCEPTS[global_ci]
         difficulty_name = cfg.LEVEL_NAMES[level]
-        course_label    = idx_to_course.get(global_ci, "?")
+        course_label   = idx_to_course.get(global_ci, "?")
 
         try:
             correct = api_send_question(concept_name, difficulty_name)
@@ -878,7 +786,6 @@ def run_session(
             )
             if hasattr(e, "response") and e.response is not None:
                 print(f"  [API-ERROR] Response: {e.response.text[:200]}", file=sys.stderr)
-            # Skip this step and try another concept
             continue
 
         p_before, p_after = tracker.update(global_ci, level, int(correct))
@@ -895,12 +802,37 @@ def run_session(
                   f"{difficulty_name:>6} {'✓' if correct else '✗':>7} "
                   f"{p_hard_now:>8.3f}")
 
+        if run_warmup and step == warmup_steps - 1 and verbose:
+            all_p       = tracker.predict_all_global()
+            sess_p_hard = all_p[sess_idx, 2]
+            warmup_apr  = float(sess_p_hard.mean())
+            warmup_wapr = tracker.compute_session_wapr()
+            n_correct   = sum(
+                1 for i, (ci, lvl) in enumerate(warmup_sequence)
+                if tracker.successes[ci, lvl] > 0
+            )
+            print(f"\n{'─'*85}")
+            print(f"  Warmup complete ({warmup_steps} steps: {n_easy}× Easy / {n_medium}× Medium / {n_hard}× Hard)")
+            print(f"  Correct: {n_correct}/{warmup_steps}  "
+                  f"({'%.0f' % (n_correct/warmup_steps*100)}%)")
+            print(f"  Session APR after warmup : {warmup_apr:.4f}")
+            print(f"  Session WAPR after warmup: {warmup_wapr:.4f}")
+            print(f"  Per-concept P(Hard) after warmup:")
+            for ci in sorted(sess_idx,
+                             key=lambda c: all_p[c, 2], reverse=True):
+                bar = "█" * int(all_p[ci, 2] * 10) + "░" * (10 - int(all_p[ci, 2] * 10))
+                print(f"    {GLOBAL_CONCEPTS[ci]:<35} [{bar}] {all_p[ci, 2]:.3f}")
+            print(f"{'─'*85}")
+            print(f"  Actor taking over for remaining "
+                  f"{cfg.MAX_STEPS - warmup_steps} steps...")
+            print(f"{'─'*85}")
+
         if tracker.goal_met():
             if verbose:
                 print(f"\n  Goal met at step {step + 1}!")
             break
 
-    early_termination = _is_termination_requested(CONCEPT_DB_URL, SESSION_ID)
+    early_termination = _is_terminated(CONCEPT_DB_URL, SESSION_ID)
     apr_final  = tracker.compute_session_apr()
     wapr_final = tracker.compute_session_wapr()
     global_apr = tracker.compute_global_apr()
@@ -920,22 +852,19 @@ def run_session(
         print(f"  Newly mastered     : {n_mastered}")
 
     return {
-        "apr_start":         info["apr_start"],
+        "apr_start":   info["apr_start"],
         "apr_final":         apr_final,
         "wapr_final":        wapr_final,
-        "global_apr":        global_apr,
+        "global_apr":  global_apr,
         "apr_per_course":    apr_per,
-        "goal_met":          tracker.goal_met(),
-        "steps":             step + 1,
+        "goal_met":  tracker.goal_met(),
+        "steps":      step + 1,
         "newly_mastered":    n_mastered,
         "early_termination": early_termination,
     }
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
+# main
 if __name__ == "__main__":
     ensure_tables(CONCEPT_DB_URL)
     actor = load_actor(MODEL_PATH)
