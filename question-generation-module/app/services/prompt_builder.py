@@ -4,12 +4,18 @@ def format_few_shot_examples(examples: list) -> str:
     if not examples:
         return ""
     lines = [
-        "Reference questions written by expert instructors at the requested level. "
-        "Learn from HOW they probe understanding — the cognitive depth and the angle of "
-        "questioning — to guide your own questions. Do NOT copy their wording or topics, "
-        "and do NOT reuse facts/numbers from them. Every question you write must be "
-        "answerable strictly from the SOURCE MATERIAL provided, introducing no detail "
-        "that isn't in that source:"
+        "REFERENCE EXAMPLES — study these carefully:\n"
+        "These questions were written by expert instructors at the TARGET difficulty level.\n"
+        "YOUR TASK: mirror their COGNITIVE TYPE and QUESTION STYLE:\n"
+        "  • If examples ask to COMPUTE, CALCULATE, or TRACE an algorithm step-by-step\n"
+        "    → your questions must also require computation or tracing (not just recall).\n"
+        "  • If examples ask to COMPARE or EXPLAIN a relationship\n"
+        "    → your questions should also require analysis, not mere definition.\n"
+        "Rules:\n"
+        "  - Do NOT copy their exact wording or their specific numbers.\n"
+        "  - DO use numbers and scenarios from the SOURCE MATERIAL below to build\n"
+        "    similar computation or tracing questions.\n"
+        "  - Every question must be answerable strictly from the SOURCE MATERIAL."
     ]
     for i, ex in enumerate(examples, 1):
         lines.append(f"\nExample {i} [level={ex.level}]:")
@@ -36,6 +42,23 @@ DIFFICULTY_GUIDANCE = {
     }
 }
 
+# Normalize any difficulty vocabulary (Bloom-6 OR easy/medium/hard) to the
+# 3-level keys DIFFICULTY_GUIDANCE uses. Without this, passing "remember" etc.
+# silently falls back to "medium" guidance for every level.
+_BLOOM6_TO_LEVEL = {
+    "remember": "easy", "understand": "easy",
+    "apply": "medium", "analyze": "medium",
+    "evaluate": "hard", "create": "hard",
+}
+
+
+def _norm_level(difficulty: str) -> str:
+    s = (difficulty or "").lower().strip()
+    if s in ("easy", "medium", "hard"):
+        return s
+    return _BLOOM6_TO_LEVEL.get(s, "medium")
+
+
 def _difficulty_header(kind: str, num_questions: int, difficulty: str,
                        include_guidance: bool) -> str:
     """
@@ -47,18 +70,19 @@ def _difficulty_header(kind: str, num_questions: int, difficulty: str,
                              isolate whether the examples alone carry the difficulty.
     """
     if include_guidance:
-        g = DIFFICULTY_GUIDANCE.get(difficulty.lower(), DIFFICULTY_GUIDANCE["medium"])
+        level = _norm_level(difficulty)
+        g = DIFFICULTY_GUIDANCE[level]
         return (
             f"Generate exactly {num_questions} {kind} at the difficulty level: "
-            f"{difficulty.upper()} ({g['description']}).\n\n"
+            f"{level.upper()} ({g['description']}).\n\n"
             f"LEVEL GUIDANCE: {g['instruction']}\n"
             f"QUESTION PATTERNS TO USE: {g['examples']}"
         )
-    return (
-        f"Generate exactly {num_questions} {kind}. Infer the target cognitive depth and "
-        f"difficulty from the REFERENCE QUESTIONS provided below and match their level — "
-        f"do not rely on any explicit difficulty rule."
-    )
+    # No-guidance mode: state ONLY the target level (easy/medium/hard) with no
+    # rules or verb patterns. Works with or without exemplars — the baseline gets
+    # just the level word; the ICL arm additionally sees the example questions.
+    level = _norm_level(difficulty)
+    return f"Generate exactly {num_questions} {kind} at the {level.upper()} difficulty level."
 
 
 def build_mcq_prompt(chunks_text: str, num_questions: int, difficulty: str,
@@ -136,9 +160,9 @@ def build_short_answer_prompt(chunks_text: str, num_questions: int, difficulty: 
 IMPORTANT: Each question must cover a DIFFERENT concept, topic, or aspect from the material.
 Do NOT generate near-duplicate or redundant questions. Vary question focus and structure.
 
-The EXAMPLES above are reference questions at the target level. Ignore their
-format — generate your questions strictly in the short answer question format defined
-in the OUTPUT FORMAT section below.
+OUTPUT STRUCTURE NOTE: The examples above may not be in JSON — that is fine.
+Use the OUTPUT FORMAT defined below for your JSON structure.
+But you MUST mirror the examples' COGNITIVE STYLE (compute, trace, analyze, etc.).
 
 STUDY MATERIAL:
 {chunks_text}

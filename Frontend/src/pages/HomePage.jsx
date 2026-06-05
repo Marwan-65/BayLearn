@@ -21,7 +21,7 @@ const MODULES = [
     color: "#6c63ff",
     fileMode: "many",
     hint: "Select any files you want to chat about",
-    url: RAG_URL,
+    url: "/rag-chat",   // integrated internal route (was external RAG_URL)
   },
   {
     id: "quiz",
@@ -517,7 +517,6 @@ async function uploadFile(e) {
                 {[
                   { value: "mcq",          label: "Multiple Choice" },
                   { value: "true_false",   label: "True / False"    },
-                  { value: "short_answer", label: "Short Answer"    },
                 ].map(opt => (
                   <button
                     key={opt.value}

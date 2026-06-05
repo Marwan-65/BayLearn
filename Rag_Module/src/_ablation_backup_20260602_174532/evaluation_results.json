@@ -1,0 +1,4465 @@
+[
+  {
+    "scores": {
+      "faithfulness": 0.866,
+      "answer_relevancy": 0.935,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "overall": 0.95
+    },
+    "metadata": {
+      "timestamp": "2026-03-21T20:40:25.454440",
+      "evaluator": "RAGAS (fixed - native Groq)",
+      "llm": "llama3-70b-8192 via langchain-groq",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    }
+  },
+  {
+    "label": "eval_cv_compression=off",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-04-04T10:15:27.566857",
+      "evaluator": "RAGAS (fixed - native Groq)",
+      "llm": "llama3-70b-8192 via langchain-groq",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What programming languages does Manar know?",
+        "level": 1,
+        "answer": "According to the uploaded study materials, Manar knows the following programming languages:\n\n1. C++\n2. C\n3. HTML5\n4. CSS\n5. Node.js\n6. MSSQL\n7. Python\n8. MATLAB\n9. C#\n10. x86 assembly\n11. ARM Cortex-M",
+        "num_contexts": 1,
+        "timings": {
+          "hyde_generation_ms": 947,
+          "query_embedding_ms": 862,
+          "vector_search_ms": 35,
+          "compression_ms": 0,
+          "answer_generation_ms": 336,
+          "total_ms": 2180
+        },
+        "compression_ratios": [
+          1.0
+        ]
+      },
+      {
+        "question": "What is Manar's GPA?",
+        "level": 1,
+        "answer": "According to Source 1, Manar's GPA is 3.3/4.00. This information can be found on Page 1, Section: Education and Academic Records.",
+        "num_contexts": 1,
+        "timings": {
+          "hyde_generation_ms": 375,
+          "query_embedding_ms": 86,
+          "vector_search_ms": 1,
+          "compression_ms": 0,
+          "answer_generation_ms": 443,
+          "total_ms": 905
+        },
+        "compression_ratios": [
+          1.0
+        ]
+      },
+      {
+        "question": "Where does Manar study?",
+        "level": 1,
+        "answer": "According to Source 1, Manar Farghaly Abdelrahman Abdelshafi Haram studies at Cairo University, Faculty of Engineering, Giza, Egypt, in the Department of Computer Engineering.",
+        "num_contexts": 1,
+        "timings": {
+          "hyde_generation_ms": 262,
+          "query_embedding_ms": 60,
+          "vector_search_ms": 1,
+          "compression_ms": 0,
+          "answer_generation_ms": 378,
+          "total_ms": 701
+        },
+        "compression_ratios": [
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "eval_cv_compression=off",
+    "scores": {
+      "Faithfulness": 0.833,
+      "AnswerRelevancy": 0.918,
+      "ContextPrecision": 1.0,
+      "ContextRecall": 1.0,
+      "overall": 0.938
+    },
+    "metadata": {
+      "timestamp": "2026-04-04T10:35:35.558069",
+      "evaluator": "RAGAS (fixed - native Groq)",
+      "llm": "llama3-70b-8192 via langchain-groq",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What programming languages does Manar know?",
+        "level": 1,
+        "answer": "According to Source 1, Manar knows the following programming languages:\n\n1. C++\n2. C\n3. HTML5\n4. CSS\n5. Node.js\n6. MSSQL\n7. Python\n8. MATLAB\n9. C#\n10. x86 assembly\n11. ARM Cortex-M3 assembly\n\nThese pr",
+        "num_contexts": 1,
+        "timings": {
+          "hyde_generation_ms": 752,
+          "query_embedding_ms": 748,
+          "vector_search_ms": 8,
+          "compression_ms": 0,
+          "answer_generation_ms": 358,
+          "total_ms": 1866
+        },
+        "compression_ratios": [
+          1.0
+        ]
+      },
+      {
+        "question": "What is Manar's GPA?",
+        "level": 1,
+        "answer": "According to Source 1, Manar's GPA is 3.3/4.00. This information can be found in the \"EDUCATION AND ACADEMIC RECORDS\" section of the document.",
+        "num_contexts": 1,
+        "timings": {
+          "hyde_generation_ms": 404,
+          "query_embedding_ms": 87,
+          "vector_search_ms": 1,
+          "compression_ms": 0,
+          "answer_generation_ms": 202,
+          "total_ms": 694
+        },
+        "compression_ratios": [
+          1.0
+        ]
+      },
+      {
+        "question": "Where does Manar study?",
+        "level": 1,
+        "answer": "According to Source 1, Manar Farghaly Abdelrahman Abdelshafi Haram studies at Cairo University, Faculty of Engineering, Giza, Egypt, in the Department of Computer Engineering.",
+        "num_contexts": 1,
+        "timings": {
+          "hyde_generation_ms": 252,
+          "query_embedding_ms": 74,
+          "vector_search_ms": 1,
+          "compression_ms": 0,
+          "answer_generation_ms": 236,
+          "total_ms": 563
+        },
+        "compression_ratios": [
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-08T22:32:27.278575",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by:\n\n$$T(n) = 2T(n-1) + 1$$\n\nThis relation states that the minimum number of moves required to solve the Tower of Hanoi problem with n d",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 1384,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1142,
+          "total_ms": 2526
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "To determine the time complexity of MergeSort, we need to analyze the recurrence relation given in the study materials. The recurrence is:\n\n$$T(n) = 2T\\left(\\frac{n}{2}\\right) + O(n)$$\n\nThis is a clas",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 136,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 692,
+          "total_ms": 828
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence as defined in the book is not explicitly stated in the provided context. However, we can infer it from the information given.\n\nFrom [Source 2], we see that the recurrence for ",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 109,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 7772,
+          "total_ms": 7881
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "Based on the provided context from the uploaded study materials, it appears that the development of MergeSort is attributed to John von Neumann. However, the materials also mention that Goldstine and ",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 347,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 11633,
+          "total_ms": 11980
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations in edit distance are:\n\n* **Insertion**: This occurs when a character is added to the first string to match the second string. It is represented by the term `Edit(i-1",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 305,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 17853,
+          "total_ms": 18158
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is memoization and who coined the term?",
+        "level": 1,
+        "answer": "Memoization is an optimization technique used in dynamic programming to store the results of expensive function calls and reuse them when the same inputs occur again. This technique is also known as \"",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 220,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 11733,
+          "total_ms": 11953
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three steps of the MergeSort algorithm?",
+        "level": 2,
+        "answer": "The MergeSort algorithm follows the divide and conquer pattern, which consists of three steps:\n\n1. **Divide**: Divide the input array into two halves, typically referred to as the left and right subar",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 92,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 4709,
+          "total_ms": 4801
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the book define 'good' and 'bad' states in the Game Tree algorithm?",
+        "level": 2,
+        "answer": "A game state is defined as good if the current player has already won or can move to a bad state for the opposing player. Conversely, a game state is bad if the current player has already lost or ever",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 112,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 20777,
+          "total_ms": 20889
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the six-step pattern for designing dynamic programming algorithms as described in the book?",
+        "level": 2,
+        "answer": "The materials retrieved don't cover this. From general knowledge:\n\nThe six-step pattern for designing dynamic programming algorithms is:\n\n1. **Define the problem**: Identify the problem and the constr",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 325,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13904,
+          "total_ms": 14229
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the backtracking SubsetSum algorithm work and what is its time complexity?",
+        "level": 2,
+        "answer": "The backtracking SubsetSum algorithm is described in Section 2.3 of the Algorithms.pdf document. As shown in Figure 2.6 [Source 2], the algorithm constructs a subset of X that sums to T, if one exists",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 132,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 14798,
+          "total_ms": 14930
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Why is the naive recursive Fibonacci algorithm exponentially slow?",
+        "level": 3,
+        "answer": "The naive recursive Fibonacci algorithm is exponentially slow because it recomputes the same Fibonacci numbers over and over. As shown in the figure [Source 1], a single call to `RecFibo(n)` results i",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 207,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 12820,
+          "total_ms": 13027
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Why does the book say 'Greed is Stupid' as a warning in the dynamic programming chapter?",
+        "level": 3,
+        "answer": "The warning \"Greed is Stupid\" is likely referring to the common mistake of using greedy algorithms to solve problems that require dynamic programming. A greedy algorithm makes the locally optimal choi",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 404,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 8733,
+          "total_ms": 9137
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does memoization transform the exponential Fibonacci algorithm into a linear one?",
+        "level": 3,
+        "answer": "To understand how memoization transforms the exponential Fibonacci algorithm into a linear one, let's analyze the given context.\n\nFrom [Source 1], we see that the array `F[]` is filled from the bottom",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 188,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 10525,
+          "total_ms": 10713
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the exact number of solutions to the 8 queens problem according to the book?",
+        "level": 4,
+        "answer": "According to the text in [Source 1], Carl Friedrich Gauss wrote that one could easily confirm Franz Nauck's claim that the Eight Queens problem has 92 solutions by trial and error in a few hours.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 121,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 17825,
+          "total_ms": 17946
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Does the book provide an O(n log n) algorithm for Longest Increasing Subsequence?",
+        "level": 4,
+        "answer": "Based on the provided context, the book does not explicitly mention an O(n log n) algorithm for Longest Increasing Subsequence in the given sections. However, we can infer that the book discusses the ",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 413,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13088,
+          "total_ms": 13501
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What programming language does the book use for its pseudocode?",
+        "level": 4,
+        "answer": "Based on the provided context, the book does not explicitly mention the programming language used for its pseudocode. However, it does mention that the text is typeset in LaTeX, which is a markup lang",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 292,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 18018,
+          "total_ms": 18310
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What recurrence describes the number of disk moves needed in Towers of Hanoi?",
+        "level": 5,
+        "answer": "The recurrence that describes the number of disk moves needed in Towers of Hanoi is:\n\n$$T(n) = 2T(n-1) + 1$$\n\nThis recurrence is derived from the fact that to move a stack of n disks from one peg to a",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 303,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 12819,
+          "total_ms": 13122
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the iterative Fibonacci algorithm IterFibo work?",
+        "level": 5,
+        "answer": "The iterative Fibonacci algorithm IterFibo works by storing the results of previous Fibonacci numbers in an array, allowing it to look up and reuse these values instead of recomputing them. This appro",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 396,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 16881,
+          "total_ms": 17277
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does divide and conquer apply to sorting?",
+        "level": 5,
+        "answer": "**Divide and Conquer** is a problem-solving strategy that applies to sorting algorithms like MergeSort and Quicksort. The general three-step pattern of divide and conquer is:\n\n1. **Divide**: Break dow",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 219,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 6759,
+          "total_ms": 6978
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Is dynamic programming always better than backtracking?",
+        "level": 6,
+        "answer": "No, dynamic programming isn't always better than backtracking. As shown in [Source 4], there are cases where the iterative dynamic programming algorithm is slower than the recursive backtracking algor",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 77,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13652,
+          "total_ms": 13729
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-08T23:25:20.615181",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by:\n\n$$T(n) = 2T(n-1) + 1$$\n\nThis relation states that the minimum number of moves required to solve the Tower of Hanoi problem with n d",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 904,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 16516,
+          "total_ms": 17420
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "To determine the time complexity of MergeSort, we need to analyze the recurrence relation given in the study materials. The recurrence is:\n\n$$T(n) = 2T\\left(\\frac{n}{2}\\right) + O(n)$$\n\nThis is a clas",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 514,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 766,
+          "total_ms": 1280
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence as defined in the book is:\n\n$$T(n) = 2F_{n+1} - 1$$\n\nThis is mentioned in [Source 2] on page 117, section 3.1. M\u00afatr\u00afavr.tta.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 58,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 426,
+          "total_ms": 484
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "Based on the provided context from the study materials, it appears that there is some discrepancy in the information regarding the development of MergeSort.\n\nAccording to **Source 1**, MergeSort was d",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 123,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 928,
+          "total_ms": 1051
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations in edit distance are:\n\n1. **Insertion**: This occurs when a character is added to the first string to match the second string. It is represented by `Edit(i, j - 1) +",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 131,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 830,
+          "total_ms": 961
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is memoization and who coined the term?",
+        "level": 1,
+        "answer": "Memoization is an optimization technique used in dynamic programming to store the results of expensive function calls and reuse them when the same inputs occur again. This technique is also known as \"",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 57,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 908,
+          "total_ms": 965
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three steps of the MergeSort algorithm?",
+        "level": 2,
+        "answer": "The MergeSort algorithm follows a divide and conquer approach, which consists of three main steps:\n\n1. **Divide**: Divide the input array into two halves, typically around the middle index. This is sh",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 45,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15135,
+          "total_ms": 15180
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the book define 'good' and 'bad' states in the Game Tree algorithm?",
+        "level": 2,
+        "answer": "A game state is defined as good if either the current player has already won, or if the current player can move to a bad state for the opposing player. Conversely, a game state is bad if either the cu",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 1015,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15081,
+          "total_ms": 16096
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the six-step pattern for designing dynamic programming algorithms as described in the book?",
+        "level": 2,
+        "answer": "Unfortunately, the materials retrieved don't cover this. From general knowledge:\n\nThe general steps for designing dynamic programming algorithms are:\n\n1. **Define the problem**: Identify the problem a",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 333,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 6957,
+          "total_ms": 7290
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the backtracking SubsetSum algorithm work and what is its time complexity?",
+        "level": 2,
+        "answer": "The backtracking SubsetSum algorithm is described in Section 2.3 of the Algorithms.pdf document. The algorithm is designed to find a subset of the input array `X` that sums to a target value `T`. It u",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 468,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 14032,
+          "total_ms": 14500
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Why is the naive recursive Fibonacci algorithm exponentially slow?",
+        "level": 3,
+        "answer": "The naive recursive Fibonacci algorithm is exponentially slow because it recomputes the same Fibonacci numbers over and over. As shown in the figure [Source 1], a single call to `RecFibo(n)` results i",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 380,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 19087,
+          "total_ms": 19467
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Why does the book say 'Greed is Stupid' as a warning in the dynamic programming chapter?",
+        "level": 3,
+        "answer": "The warning \"Greed is Stupid\" is likely referring to the common mistake of making locally optimal choices in a problem, which can lead to a suboptimal solution overall. This is a common pitfall in dyn",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 294,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15203,
+          "total_ms": 15497
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does memoization transform the exponential Fibonacci algorithm into a linear one?",
+        "level": 3,
+        "answer": "Memoization transforms the exponential Fibonacci algorithm into a linear one by storing the results of expensive function calls and reusing them when the same inputs occur again. In the case of the Fi",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 902,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 14939,
+          "total_ms": 15841
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the exact number of solutions to the 8 queens problem according to the book?",
+        "level": 4,
+        "answer": "According to the text in Section 2. BACKTRACKING of the Algorithms.pdf document, Carl Friedrich Gauss wrote in a letter that one could easily confirm Franz Nauck's claim that the Eight Queens problem ",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 1015,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15798,
+          "total_ms": 16813
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Does the book provide an O(n log n) algorithm for Longest Increasing Subsequence?",
+        "level": 4,
+        "answer": "Based on the provided context, the book does not explicitly mention an O(n log n) algorithm for Longest Increasing Subsequence. However, it does discuss the problem in Section 2.7, which is titled \"Lo",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 415,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15907,
+          "total_ms": 16322
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What programming language does the book use for its pseudocode?",
+        "level": 4,
+        "answer": "Based on the context from the uploaded study materials, the book does not explicitly mention the programming language used for its pseudocode. However, it does mention that the text is typeset in LaTe",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 390,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 17012,
+          "total_ms": 17402
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What recurrence describes the number of disk moves needed in Towers of Hanoi?",
+        "level": 5,
+        "answer": "The recurrence that describes the number of disk moves needed in Towers of Hanoi is:\n\n$$T(n) = 2T(n-1) + 1$$\n\nThis recurrence is derived from the fact that to move a stack of n disks from one peg to a",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 241,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13856,
+          "total_ms": 14097
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the iterative Fibonacci algorithm IterFibo work?",
+        "level": 5,
+        "answer": "The iterative Fibonacci algorithm IterFibo works by storing the results of previous Fibonacci numbers in an array, allowing it to look up and reuse these values instead of recomputing them. This appro",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 302,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 18046,
+          "total_ms": 18348
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does divide and conquer apply to sorting?",
+        "level": 5,
+        "answer": "**Divide and Conquer** is a problem-solving strategy that applies to sorting algorithms like MergeSort and Quicksort. The general three-step pattern involves:\n\n1. **Divide**: Breaking down the problem",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 474,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 11043,
+          "total_ms": 11517
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Is dynamic programming always better than backtracking?",
+        "level": 6,
+        "answer": "No, dynamic programming is not always better than backtracking. As shown in [Source 4], dynamic programming can be slower than backtracking if the target sum T is significantly larger than 2^n. This i",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 337,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13924,
+          "total_ms": 14261
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+multi_query",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-08T23:42:52.143152",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 10988,
+          "dense_search_ms": 669,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 89210,
+          "total_ms": 100867
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "To determine the time complexity of MergeSort, we need to analyze the recurrence relation given in the study materials. The recurrence relation is:\n\n$$T(n) = 2T\\left(\\frac{n}{2}\\right) + O(n)$$\n\nHowev",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 23122,
+          "dense_search_ms": 955,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 8139,
+          "total_ms": 32216
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence as defined in the book is:\n\n$$F_n = F_{m}F_{n-m-1} + F_{m+1}F_{n-m}$$\n\nThis identity was first proposed by \u00c9douard Lucas in 1898, as shown in the dependency graph of the Pinga",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 2591,
+          "dense_search_ms": 210,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 29975,
+          "total_ms": 32776
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 825,
+          "dense_search_ms": 517,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 39408,
+          "total_ms": 40750
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations in edit distance are:\n\n* **Letter insertions**: adding a character to the first string to match the second string.\n* **Letter deletions**: removing a character from ",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 6546,
+          "dense_search_ms": 563,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1156,
+          "total_ms": 8265
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is memoization and who coined the term?",
+        "level": 1,
+        "answer": "Memoization is an optimization technique used in dynamic programming to store the results of expensive function calls and reuse them when the same inputs occur again. This technique is also known as \"",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 1612,
+          "dense_search_ms": 279,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 16677,
+          "total_ms": 18568
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three steps of the MergeSort algorithm?",
+        "level": 2,
+        "answer": "Based on the provided context from the study materials, the MergeSort algorithm is described as follows:\n\n1. Divide the input array `A` into two halves: `A[1..m]` and `A[m+1..n]`.\n2. Recursively apply",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 221,
+          "dense_search_ms": 718,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 6756,
+          "total_ms": 7695
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the book define 'good' and 'bad' states in the Game Tree algorithm?",
+        "level": 2,
+        "answer": "Based on the provided context from the study materials, the book defines 'good' and 'bad' states in the Game Tree algorithm as follows:\n\n* A game state is **good** if either the current player has alr",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 225,
+          "dense_search_ms": 433,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 14633,
+          "total_ms": 15291
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the six-step pattern for designing dynamic programming algorithms as described in the book?",
+        "level": 2,
+        "answer": "Unfortunately, the materials retrieved don't cover this. From general knowledge, the six-step pattern for designing dynamic programming algorithms is:\n\n1. **Define the problem**: Identify the problem ",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 238,
+          "dense_search_ms": 304,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 7704,
+          "total_ms": 8246
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the backtracking SubsetSum algorithm work and what is its time complexity?",
+        "level": 2,
+        "answer": "The backtracking SubsetSum algorithm is described in Section 2.3 of the Algorithms.pdf document. It is a recursive algorithm that attempts to find a subset of the input array `X` that sums to a target",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 213,
+          "dense_search_ms": 217,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15993,
+          "total_ms": 16423
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Why is the naive recursive Fibonacci algorithm exponentially slow?",
+        "level": 3,
+        "answer": "The naive recursive Fibonacci algorithm is exponentially slow because it recomputes the same Fibonacci numbers over and over. As shown in the figure [Source 1, Page 117], a single call to `RecFibo(n)`",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 241,
+          "dense_search_ms": 242,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 20886,
+          "total_ms": 21369
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Why does the book say 'Greed is Stupid' as a warning in the dynamic programming chapter?",
+        "level": 3,
+        "answer": "The warning \"Greed is Stupid\" in the dynamic programming chapter is likely referring to the common mistake of trying to solve a problem by making locally optimal choices, without considering the overa",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 287,
+          "dense_search_ms": 690,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 14734,
+          "total_ms": 15711
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does memoization transform the exponential Fibonacci algorithm into a linear one?",
+        "level": 3,
+        "answer": "Memoization transforms the exponential Fibonacci algorithm into a linear one by storing the results of previously computed Fibonacci numbers in an array `F[]`. This way, when the algorithm needs to co",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 228,
+          "dense_search_ms": 690,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 16869,
+          "total_ms": 17787
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the exact number of solutions to the 8 queens problem according to the book?",
+        "level": 4,
+        "answer": "According to the text in [Source 1], Carl Friedrich Gauss wrote that one could easily confirm Franz Nauck's claim that the Eight Queens problem has 92 solutions by trial and error in a few hours.",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 287,
+          "dense_search_ms": 482,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 19604,
+          "total_ms": 20373
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Does the book provide an O(n log n) algorithm for Longest Increasing Subsequence?",
+        "level": 4,
+        "answer": "Based on the provided context, the book does not explicitly mention an O(n log n) algorithm for Longest Increasing Subsequence. However, it does mention two variants of the problem: 2.6 Longest Increa",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 190,
+          "dense_search_ms": 504,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15836,
+          "total_ms": 16530
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What programming language does the book use for its pseudocode?",
+        "level": 4,
+        "answer": "Based on the provided context, the book uses a combination of pseudocode and structured English to present algorithms. However, the specific programming language used for the pseudocode is not explici",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 160,
+          "dense_search_ms": 689,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 15792,
+          "total_ms": 16641
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What recurrence describes the number of disk moves needed in Towers of Hanoi?",
+        "level": 5,
+        "answer": "The recurrence that describes the number of disk moves needed in Towers of Hanoi is:\n\n$$T(n) = 2T(n-1) + 1$$\n\nThis recurrence is derived from the fact that to move $n$ disks from peg 0 to peg 2, we fi",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 442,
+          "dense_search_ms": 352,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 10715,
+          "total_ms": 11509
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does the iterative Fibonacci algorithm IterFibo work?",
+        "level": 5,
+        "answer": "The iterative Fibonacci algorithm IterFibo works as follows:\n\n1. Initialize two variables `F` and `G` to 0 and 1, respectively.\n2. Iterate from `n = 2` to `n` (inclusive):\n * Compute `F` as `G + F` (i",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 221,
+          "dense_search_ms": 293,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 20765,
+          "total_ms": 21279
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "How does divide and conquer apply to sorting?",
+        "level": 5,
+        "answer": "As shown in the figure [Source 2], the recursion tree for na\u00efve divide-and-conquer multiplication illustrates the divide-and-conquer pattern. This pattern is also applicable to sorting algorithms, suc",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 196,
+          "dense_search_ms": 518,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13785,
+          "total_ms": 14499
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Is dynamic programming always better than backtracking?",
+        "level": 6,
+        "answer": "No, dynamic programming isn't always better than backtracking. As shown in [Source 4], when the target sum T is significantly larger than 2^n, the iterative dynamic programming algorithm can be slower",
+        "num_contexts": 5,
+        "timings": {
+          "multi_query_generation_ms": 213,
+          "dense_search_ms": 791,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 13695,
+          "total_ms": 14699
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T04:48:52.879413",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The Tower of Hanoi problem's recurrence relation describes the number of moves required to transfer $n$ disks from a source peg to a destination peg using an auxiliary peg.\n\nThe recurrence relation is",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 153,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 82,
+          "compression_ms": 0,
+          "answer_generation_ms": 3904,
+          "total_ms": 4139
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is expressed as a recurrence relation due to its recursive nature [Source 1].\n\nThe recurrence for MergeSort is:\n$$T(n) = 2T(n/2) + O(n)$$\n[Source 1, 3]\n\nHere's a break",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 65,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 266,
+          "compression_ms": 0,
+          "answer_generation_ms": 5340,
+          "total_ms": 5671
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The book defines the modern Fibonacci numbers using **Virahanka's recurrence** `[Source 1]`. While the exact recurrence relation is not explicitly written out in the provided text, it",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 154,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 179,
+          "compression_ms": 0,
+          "answer_generation_ms": 4940,
+          "total_ms": 5273
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "MergeSort was developed by **John von Neumann in 1945** [Source 1]. He described it in detail in a 1947 publication with Herman Goldstine [Source 1]. The variant they described was a non-recursive, bo",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 90,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1507,
+          "total_ms": 1597
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations used to calculate edit distance are:\n\n* **Letter insertions** `[Source 3]`\n* **Letter deletions** `[Source 3]`\n* **Letter substitutions** `[Source 3]`\n\nThe recursive",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 118,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 2316,
+          "total_ms": 2434
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_hybrid",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T05:10:14.670149",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem, which calculates the minimum number of moves $T(n)$ required to transfer $n$ disks, is:\n\n$$T(n) = 2T(n-1) + 1$$\n\nwith the base case:\n\n$$T(0) = 0",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 366,
+          "bm25_search_ms": 45,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 77,
+          "compression_ms": 0,
+          "answer_generation_ms": 5329,
+          "total_ms": 5817
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is expressed by a recurrence relation due to its recursive nature [Source 1].\n\nThe recurrence for MergeSort is:\n`$T(n) = 2",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 52,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 74,
+          "compression_ms": 0,
+          "answer_generation_ms": 5288,
+          "total_ms": 5419
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The book defines the modern Fibonacci numbers using **Virah\u0101nka\u2019s recurrence**, which is the standard Fibonacci recurrence relation, though it notes that the base cases may differ from other applicati",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 50,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 69,
+          "compression_ms": 0,
+          "answer_generation_ms": 5086,
+          "total_ms": 5211
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "MergeSort was developed by **John von Neumann** in **1945** [Source 1]. He described it in detail in a 1947 publication with Herman Goldstine [Source 1]. The variant they described was a non-recursive",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 46,
+          "bm25_search_ms": 3,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1591,
+          "total_ms": 1640
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations used to calculate edit distance are:\n\n* **Insertion**: Adding a character to a string. The provided materials do not detail the cost calculation for insertion, but g",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 71,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 3131,
+          "total_ms": 3210
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T11:55:01.251019",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The materials retrieved don't cover the specific recurrence relation for the Tower of Hanoi problem. From general knowledge:\n\nThe recurrence relation for the Tower of Hanoi problem, which calculates t",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 229,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 201,
+          "compression_ms": 0,
+          "answer_generation_ms": 4902,
+          "total_ms": 5332
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is **O(n log n)**.\n\nThis complexity arises from its recursive nature, which can be expressed by the recurrence relation:\n$$T(n) =",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 245,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 108,
+          "compression_ms": 0,
+          "answer_generation_ms": 5584,
+          "total_ms": 5937
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The book defines the modern Fibonacci numbers using **Virahanka's recurrence**, which is the standard recurrence relation `[Source 1]`. While the exact formula is not explicitly written out",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 128,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 150,
+          "compression_ms": 0,
+          "answer_generation_ms": 5565,
+          "total_ms": 5843
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "MergeSort was developed by **John von Neumann in 1945** [Source 1]. He described it in detail in a 1947 publication with Herman Goldstine [Source 1]. It's worth noting that Goldstine and von Neumann a",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 125,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1504,
+          "total_ms": 1629
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 126,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 232,
+          "total_ms": 358
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+hybrid",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T11:55:48.301929",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 454,
+          "bm25_search_ms": 15,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 87,
+          "compression_ms": 0,
+          "answer_generation_ms": 805,
+          "total_ms": 1361
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 31,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 86,
+          "compression_ms": 0,
+          "answer_generation_ms": 189,
+          "total_ms": 311
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 20,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 99,
+          "compression_ms": 0,
+          "answer_generation_ms": 199,
+          "total_ms": 324
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 31,
+          "bm25_search_ms": 9,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 190,
+          "total_ms": 230
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 48,
+          "bm25_search_ms": 7,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 221,
+          "total_ms": 276
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T11:56:35.931618",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 301,
+          "bm25_search_ms": 12,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 98,
+          "compression_ms": 0,
+          "answer_generation_ms": 539,
+          "total_ms": 950
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 25,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 89,
+          "compression_ms": 0,
+          "answer_generation_ms": 195,
+          "total_ms": 314
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 26,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 59,
+          "compression_ms": 0,
+          "answer_generation_ms": 226,
+          "total_ms": 316
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 26,
+          "bm25_search_ms": 3,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 230,
+          "total_ms": 259
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 35,
+          "bm25_search_ms": 7,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 202,
+          "total_ms": 244
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+compression",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T11:57:30.098955",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 365,
+          "bm25_search_ms": 19,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 93,
+          "compression_ms": 268,
+          "answer_generation_ms": 354,
+          "total_ms": 1099
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          0.9988344988344988,
+          0.9975247524752475,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 35,
+          "bm25_search_ms": 17,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 88,
+          "compression_ms": 77,
+          "answer_generation_ms": 196,
+          "total_ms": 413
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9969135802469136,
+          0.9971751412429378,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 136,
+          "bm25_search_ms": 52,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 131,
+          "compression_ms": 342,
+          "answer_generation_ms": 238,
+          "total_ms": 899
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9978947368421053,
+          1.0,
+          0.9982517482517482,
+          0.9966329966329966,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 34,
+          "bm25_search_ms": 4,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 208,
+          "answer_generation_ms": 246,
+          "total_ms": 492
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9971264367816092,
+          1.0,
+          1.0,
+          0.9970414201183432,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 32,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 285,
+          "answer_generation_ms": 206,
+          "total_ms": 531
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9970414201183432,
+          0.9968152866242038,
+          1.0,
+          0.9968051118210862,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "eval_scientific_mq=None_hy=None_rr=None_cp=None",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T12:00:34.453634",
+      "evaluator": "RAGAS via Gemini gemini-2.5-flash",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 568,
+          "bm25_search_ms": 54,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 281,
+          "compression_ms": 207,
+          "answer_generation_ms": 367,
+          "total_ms": 1477
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          0.9988344988344988,
+          0.9975247524752475,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 1.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.25
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T12:11:40.006320",
+      "evaluator": "RAGAS via Gemini gemini-2.5-flash",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The materials retrieved don't directly provide the recurrence relation for the Tower of Hanoi problem. From general knowledge:\n\nThe Tower of Hanoi problem can be solved using a recursive approach. To ",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 221,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 151,
+          "compression_ms": 0,
+          "answer_generation_ms": 4677,
+          "total_ms": 5049
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 99,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 266,
+          "compression_ms": 0,
+          "answer_generation_ms": 151,
+          "total_ms": 516
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 85,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 335,
+          "compression_ms": 0,
+          "answer_generation_ms": 160,
+          "total_ms": 580
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 71,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 172,
+          "total_ms": 243
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 57,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 197,
+          "total_ms": 254
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+hybrid",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T12:15:44.869910",
+      "evaluator": "RAGAS via Gemini gemini-2.5-flash",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 447,
+          "bm25_search_ms": 17,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 120,
+          "compression_ms": 0,
+          "answer_generation_ms": 421,
+          "total_ms": 1005
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 27,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 94,
+          "compression_ms": 0,
+          "answer_generation_ms": 146,
+          "total_ms": 273
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 24,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 69,
+          "compression_ms": 0,
+          "answer_generation_ms": 175,
+          "total_ms": 274
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 21,
+          "bm25_search_ms": 3,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 158,
+          "total_ms": 182
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 51,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 174,
+          "total_ms": 233
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T12:21:37.030799",
+      "evaluator": "RAGAS via Gemini gemini-2.5-flash",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 334,
+          "bm25_search_ms": 16,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 95,
+          "compression_ms": 0,
+          "answer_generation_ms": 1031,
+          "total_ms": 1476
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 73,
+          "bm25_search_ms": 38,
+          "rrf_fusion_ms": 9,
+          "reranking_ms": 0,
+          "image_promotion_ms": 243,
+          "compression_ms": 0,
+          "answer_generation_ms": 304,
+          "total_ms": 667
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 32,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 69,
+          "compression_ms": 0,
+          "answer_generation_ms": 266,
+          "total_ms": 373
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 24,
+          "bm25_search_ms": 4,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 483,
+          "total_ms": 511
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 57,
+          "bm25_search_ms": 13,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1345,
+          "total_ms": 1415
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T12:36:07.951235",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: $$T(n) = 2T(n-1) + 1$$\n\nThis formula can be understood by considering the recursive process of moving the top n-1 disks ",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 308,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 168,
+          "compression_ms": 0,
+          "answer_generation_ms": 993,
+          "total_ms": 1469
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort can be expressed as a recurrence relation, which is given by:\n\n$$T(n) = 2T\\left(\\frac{n}{2}\\right) + O(n)$$\n\nThis recurrence relation represents the time complexity of",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 90,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 185,
+          "compression_ms": 0,
+          "answer_generation_ms": 979,
+          "total_ms": 1254
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as:\n\n$$T(n) = T(n-1) + T(n-2)$$\n\nThis recurrence is mentioned in [Source 2] (page 117) as looking an awful lot like the recurrence for Fibonacci numbers themselves.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 105,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 177,
+          "compression_ms": 0,
+          "answer_generation_ms": 34711,
+          "total_ms": 34993
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "According to the provided context, MergeSort was developed by John von Neumann, along with Herman Goldstine, in 1947. They described the algorithm in a publication, which included a non-recursive vari",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 314,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 14471,
+          "total_ms": 14785
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations in edit distance are:\n\n* Insertion: This occurs when a character is added to the first string to match the second string.\n* Deletion: This occurs when a character is",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 162,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 16622,
+          "total_ms": 16784
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+hybrid",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T12:57:08.045566",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 352,
+          "bm25_search_ms": 12,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 82,
+          "compression_ms": 0,
+          "answer_generation_ms": 21642,
+          "total_ms": 22088
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort can be expressed as a recurrence relation. The recurrence relation for MergeSort is given by:\n\n$$T(n) = 2T\\left(\\frac{n}{2}\\right) + O(n)$$\n\nThis recurrence relation r",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 83,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 74,
+          "compression_ms": 0,
+          "answer_generation_ms": 1294,
+          "total_ms": 1456
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 43,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 89,
+          "compression_ms": 0,
+          "answer_generation_ms": 35716,
+          "total_ms": 35853
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "**MergeSort Development**\n\nMergeSort was developed by John von Neumann in 1945, and described in detail in a publication with Herman Goldstine in 1947. \n\nThe figure in [Source 1] shows John von Neuman",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 51,
+          "bm25_search_ms": 3,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 599596,
+          "total_ms": 599650
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations in edit distance are:\n\n* **Substitution**: Replacing a character in the first string with a different character in the second string. This is free if the characters ",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 409,
+          "bm25_search_ms": 18,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 426,
+          "total_ms": 853
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+reranker",
+    "scores": {
+      "Faithfulness": 0.571,
+      "AnswerRelevancy": 0.649,
+      "ContextPrecision": 0.692,
+      "ContextRecall": 0.25,
+      "overall": 0.54
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T13:05:30.062458",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: `T(n) = 2T(n-1) + 1`, where `T(n)` represents the minimum number of moves required to solve the Tower of Hanoi problem w",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 480,
+          "bm25_search_ms": 35,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 171,
+          "compression_ms": 0,
+          "answer_generation_ms": 19152,
+          "total_ms": 19838
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 134,
+          "bm25_search_ms": 17,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 115,
+          "compression_ms": 0,
+          "answer_generation_ms": 37687,
+          "total_ms": 37953
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as follows:\n\n$$\n\\begin{pmatrix}\nF_{n+1} \\\\\nF_n\n\\end{pmatrix}\n=\n\\begin{pmatrix}\n1 & 1 \\\\\n1 & 0\n\\end{pmatrix}\n\\begin{pmatrix}\nF_n \\\\\nF_{n-1}\n\\end{pmatrix}\n$$\n\nThis ma",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 251,
+          "bm25_search_ms": 9,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 89,
+          "compression_ms": 0,
+          "answer_generation_ms": 6930,
+          "total_ms": 7279
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 68,
+          "bm25_search_ms": 12,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 10347,
+          "total_ms": 10427
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "The three types of edit operations in edit distance are:\n\n* **Substitution**: This occurs when two characters in the last column are different. The edit distance is then equal to the edit distance of ",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 98,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 431,
+          "total_ms": 535
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+compression",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.479,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.12
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T13:09:11.959599",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 378,
+          "bm25_search_ms": 51,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 82,
+          "compression_ms": 354,
+          "answer_generation_ms": 553,
+          "total_ms": 1418
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          0.9988344988344988,
+          0.9975247524752475,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 38,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 70,
+          "compression_ms": 188,
+          "answer_generation_ms": 164,
+          "total_ms": 466
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9969135802469136,
+          0.9971751412429378,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 24,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 82,
+          "compression_ms": 265,
+          "answer_generation_ms": 160,
+          "total_ms": 539
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9978947368421053,
+          1.0,
+          0.9982517482517482,
+          0.9966329966329966,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "Who developed MergeSort and when?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 29,
+          "bm25_search_ms": 10,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 196,
+          "answer_generation_ms": 152,
+          "total_ms": 387
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9971264367816092,
+          1.0,
+          1.0,
+          0.9970414201183432,
+          1.0
+        ]
+      },
+      {
+        "question": "What are the three types of edit operations in edit distance?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 32,
+          "bm25_search_ms": 25,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 281,
+          "answer_generation_ms": 144,
+          "total_ms": 482
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9970414201183432,
+          0.9968152866242038,
+          1.0,
+          0.9968051118210862,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.571,
+      "AnswerRelevancy": 0.976,
+      "ContextPrecision": 0.753,
+      "ContextRecall": 0.333,
+      "overall": 0.658
+    },
+    "metadata": {
+      "timestamp": "2026-05-09T22:29:57.604513",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: $$T(n) = 2T(n-1) + 1$$\n\nThis formula represents the time complexity of the Tower of Hanoi problem, where $T(n)$ is the n",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 426,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 433,
+          "compression_ms": 0,
+          "answer_generation_ms": 988,
+          "total_ms": 1847
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is O(n log n). This is because the MergeSort algorithm recursively divides the input array into two halves until each subarray has a size of 1, and then merges the sub",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 80,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 185,
+          "compression_ms": 0,
+          "answer_generation_ms": 28229,
+          "total_ms": 28494
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as:\n\n$$T(n) = T(n-1) + T(n-2)$$\n\nThis recurrence is mentioned in [Source 2] (page 117, Section 3.1. M\u00afatr\u00afavr.tta) as looking an awful lot like the recurrence for F",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 411,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 237,
+          "compression_ms": 0,
+          "answer_generation_ms": 34650,
+          "total_ms": 35298
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.375,
+      "AnswerRelevancy": 1.0,
+      "ContextPrecision": 0.267,
+      "ContextRecall": 0.0,
+      "overall": 0.41
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:03:06.743263",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: $$T(n) = 2T(n-1) + 1$$\n\nThis formula represents the time complexity of the Tower of Hanoi problem, where $T(n)$ is the n",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 805,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 179,
+          "compression_ms": 0,
+          "answer_generation_ms": 1387,
+          "total_ms": 2371
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+hybrid",
+    "scores": {
+      "Faithfulness": 1.0,
+      "AnswerRelevancy": 1.0,
+      "ContextPrecision": 0.806,
+      "ContextRecall": 0.0,
+      "overall": 0.702
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:07:18.035348",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: `T(n) = 2T(n-1) + 1`, where `T(n)` is the number of moves required to solve the Tower of Hanoi problem with `n` disks.\n\n",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 398,
+          "bm25_search_ms": 81,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 61,
+          "compression_ms": 0,
+          "answer_generation_ms": 873,
+          "total_ms": 1413
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+reranker",
+    "scores": {
+      "Faithfulness": 0.5,
+      "AnswerRelevancy": 1.0,
+      "ContextPrecision": 0.806,
+      "ContextRecall": 0.0,
+      "overall": 0.577
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:11:08.649396",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: `T(n) = 2T(n-1) + 1`, where `n` is the number of disks to be moved.\n\nThis formula can be understood by analyzing the rec",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 316,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 71,
+          "compression_ms": 0,
+          "answer_generation_ms": 1417,
+          "total_ms": 1812
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+compression",
+    "scores": {
+      "Faithfulness": 1.0,
+      "AnswerRelevancy": 1.0,
+      "ContextPrecision": 0.25,
+      "ContextRecall": 0.0,
+      "overall": 0.562
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:14:52.798717",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The figure in [Source 6] shows a recursive process related to the Towers of Hanoi puzzle. It illustrates the concept of recursion by breaking down a problem into smaller sub-problems. The top part of ",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 322,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 7,
+          "reranking_ms": 0,
+          "image_promotion_ms": 78,
+          "compression_ms": 277,
+          "answer_generation_ms": 1117,
+          "total_ms": 1809
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          0.9988344988344988,
+          0.9975247524752475,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_baseline",
+    "scores": {
+      "Faithfulness": 0.597,
+      "AnswerRelevancy": 0.971,
+      "ContextPrecision": 0.689,
+      "ContextRecall": 0.333,
+      "overall": 0.648
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:25:35.500713",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by $T(n) = 2T(n-1) + 1$, where $T(n)$ represents the minimum number of moves required to solve the Tower of Hanoi problem for $n$ disks.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 317,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 104,
+          "compression_ms": 0,
+          "answer_generation_ms": 1332,
+          "total_ms": 1753
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is O(n log n). This is because the MergeSort algorithm recursively divides the input array into two halves until each subarray has a size of 1, and then merges the sub",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 103,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 149,
+          "compression_ms": 0,
+          "answer_generation_ms": 921,
+          "total_ms": 1173
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as:\n\n$$T(n) = T(n-1) + T(n-2)$$\n\nThis recurrence is also mentioned in [Source 2] (page 117), which states that it looks an awful lot like the recurrence for Fibonac",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 57,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 140,
+          "compression_ms": 0,
+          "answer_generation_ms": 20679,
+          "total_ms": 20876
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+hybrid",
+    "scores": {
+      "Faithfulness": 0.375,
+      "AnswerRelevancy": 0.979,
+      "ContextPrecision": 0.844,
+      "ContextRecall": 0.5,
+      "overall": 0.674
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:35:08.492196",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by $T(n) = 2T(n-1) + 1$, where $T(n)$ is the number of moves required to solve the Tower of Hanoi problem with $n$ disks.\n\nThis relation",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 411,
+          "bm25_search_ms": 31,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 74,
+          "compression_ms": 0,
+          "answer_generation_ms": 1125,
+          "total_ms": 1641
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is O(n log n). This can be derived from the recurrence relation T(n) = 2T(n/2) + O(n), where T(n) represents the time complexity of MergeSort on an input of size n.\n\nT",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 32,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 75,
+          "compression_ms": 0,
+          "answer_generation_ms": 904,
+          "total_ms": 1016
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as follows:\n\n$$\n\\begin{pmatrix}\nF_{n+1} \\\\\nF_n\n\\end{pmatrix}\n=\n\\begin{pmatrix}\n1 & 1 \\\\\n1 & 0\n\\end{pmatrix}\n\\begin{pmatrix}\nF_n \\\\\nF_{n-1}\n\\end{pmatrix}\n$$\n\nThis ma",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 25,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 56,
+          "compression_ms": 0,
+          "answer_generation_ms": 22798,
+          "total_ms": 22885
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+reranker",
+    "scores": {
+      "Faithfulness": 0.532,
+      "AnswerRelevancy": 0.979,
+      "ContextPrecision": 0.714,
+      "ContextRecall": 0.556,
+      "overall": 0.695
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T21:44:57.726083",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: `T(n) = 2T(n-1) + 1`, where `T(n)` represents the minimum number of moves required to solve the Tower of Hanoi problem w",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 422,
+          "bm25_search_ms": 16,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 112,
+          "compression_ms": 0,
+          "answer_generation_ms": 1175,
+          "total_ms": 1725
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is O(n log n). \n\nThe figure in [Source 6] shows a tree-like structure representing a recursive decomposition of the MergeSort algorithm. The squares represent decreasi",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 51,
+          "bm25_search_ms": 5,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 72,
+          "compression_ms": 0,
+          "answer_generation_ms": 943,
+          "total_ms": 1071
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as:\n\n$$\n\\begin{pmatrix}\nF_{n+1} \\\\\nF_n\n\\end{pmatrix}\n=\n\\begin{pmatrix}\n1 & 1 \\\\\n1 & 0\n\\end{pmatrix}\n\\begin{pmatrix}\nF_n \\\\\nF_{n-1}\n\\end{pmatrix}\n$$\n\nThis matrix ref",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 24,
+          "bm25_search_ms": 8,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 77,
+          "compression_ms": 0,
+          "answer_generation_ms": 22799,
+          "total_ms": 22908
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+compression",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0,
+      "error": "timeout"
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T22:05:42.559739",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The figure in [Source 6] shows a recursive process related to the Towers of Hanoi puzzle. It illustrates the concept of recursion by breaking down a problem into smaller sub-problems. The top part of ",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 383,
+          "bm25_search_ms": 22,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 97,
+          "compression_ms": 116,
+          "answer_generation_ms": 1091,
+          "total_ms": 1709
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          0.9988344988344988,
+          0.9975247524752475,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "The time complexity of MergeSort is O(n log n). \n\nThe MergeSort algorithm is recursive, and its running time can be expressed as a recurrence relation. The recurrence relation for MergeSort is T(n) = ",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 33,
+          "bm25_search_ms": 18,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 101,
+          "compression_ms": 257,
+          "answer_generation_ms": 1074,
+          "total_ms": 1483
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9969135802469136,
+          0.9971751412429378,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "The Fibonacci recurrence is defined as:\n\n$$M(n) = M(n-1) + M(n-2)$$\n\nThis recurrence is also mentioned in [Source 1] (page 117) as a similarity to the Fibonacci numbers themselves. The closed-form sol",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 72,
+          "bm25_search_ms": 14,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 62,
+          "compression_ms": 242,
+          "answer_generation_ms": 13073,
+          "total_ms": 13463
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9978947368421053,
+          1.0,
+          0.9982517482517482,
+          0.9966329966329966,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_+compression",
+    "scores": {
+      "Faithfulness": 0.214,
+      "AnswerRelevancy": 0.66,
+      "ContextPrecision": 0.62,
+      "ContextRecall": 0.5,
+      "overall": 0.498
+    },
+    "metadata": {
+      "timestamp": "2026-05-10T23:57:24.297788",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The figure in [Source 6] shows a recursive process related to the Towers of Hanoi puzzle. It illustrates the concept of recursion by breaking down a larger problem into smaller sub-problems. The top p",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 565,
+          "bm25_search_ms": 116,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 132,
+          "compression_ms": 103,
+          "answer_generation_ms": 47018,
+          "total_ms": 47934
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          0.9988344988344988,
+          0.9975247524752475,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the time complexity of MergeSort?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 295,
+          "bm25_search_ms": 21,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 107,
+          "compression_ms": 75,
+          "answer_generation_ms": 34749,
+          "total_ms": 35247
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9969135802469136,
+          0.9971751412429378,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      {
+        "question": "What is the Fibonacci recurrence as defined in the book?",
+        "level": 1,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 293,
+          "bm25_search_ms": 27,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 87,
+          "compression_ms": 55,
+          "answer_generation_ms": 10563,
+          "total_ms": 11025
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          0.9978947368421053,
+          1.0,
+          0.9982517482517482,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L2_reranker",
+    "scores": {
+      "Faithfulness": 0.5,
+      "AnswerRelevancy": 1.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.375
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T01:58:21.533818",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What are the three steps of the MergeSort algorithm?",
+        "level": 2,
+        "answer": "The three steps of the MergeSort algorithm are:\n\n1. **Divide**: Split the input array into two halves, A and B.\n2. **Conquer**: Recursively apply the MergeSort algorithm to each half, A and B.\n3. **Me",
+        "num_contexts": 6,
+        "timings": {
+          "dense_search_ms": 165,
+          "bm25_search_ms": 16,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 80,
+          "compression_ms": 0,
+          "answer_generation_ms": 458,
+          "total_ms": 719
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L3_reranker",
+    "scores": {
+      "Faithfulness": 0.5,
+      "AnswerRelevancy": 0.569,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.267
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T01:59:39.245887",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "Why is the naive recursive Fibonacci algorithm exponentially slow?",
+        "level": 3,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 133,
+          "bm25_search_ms": 9,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 12375,
+          "total_ms": 12517
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L1_reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.0,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.0
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T02:01:11.413910",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the recurrence relation for the Tower of Hanoi problem?",
+        "level": 1,
+        "answer": "The recurrence relation for the Tower of Hanoi problem is given by the formula: `T(n) = 2T(n-1) + 1`, where `T(n)` represents the minimum number of moves required to solve the Tower of Hanoi problem w",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 445,
+          "bm25_search_ms": 40,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 205,
+          "compression_ms": 0,
+          "answer_generation_ms": 950,
+          "total_ms": 1640
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L4_reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.552,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.138
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T02:01:21.694881",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What is the exact number of solutions to the 8 queens problem according to the book?",
+        "level": 4,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 328,
+          "bm25_search_ms": 14,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 119,
+          "compression_ms": 0,
+          "answer_generation_ms": 37660,
+          "total_ms": 38121
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L6_reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.518,
+      "ContextPrecision": 1.0,
+      "ContextRecall": 0.636,
+      "overall": 0.538
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T02:01:26.065691",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "Is dynamic programming always better than backtracking?",
+        "level": 6,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 6,
+        "timings": {
+          "dense_search_ms": 287,
+          "bm25_search_ms": 6,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 107,
+          "compression_ms": 0,
+          "answer_generation_ms": 1323,
+          "total_ms": 1723
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L5_reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.465,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.75,
+      "overall": 0.304
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T02:01:53.631169",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "What recurrence describes the number of disk moves needed in Towers of Hanoi?",
+        "level": 5,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 7,
+        "timings": {
+          "dense_search_ms": 228,
+          "bm25_search_ms": 18,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 214,
+          "compression_ms": 0,
+          "answer_generation_ms": 33403,
+          "total_ms": 33863
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  },
+  {
+    "label": "ablation_scientific_L7_reranker",
+    "scores": {
+      "Faithfulness": 0.0,
+      "AnswerRelevancy": 0.559,
+      "ContextPrecision": 0.0,
+      "ContextRecall": 0.0,
+      "overall": 0.14
+    },
+    "metadata": {
+      "timestamp": "2026-05-11T02:02:20.110614",
+      "evaluator": "RAGAS via Groq llama-3.1-8b-instant",
+      "embeddings": "BAAI/bge-small-en-v1.5"
+    },
+    "test_details": [
+      {
+        "question": "How does solving Fibonacci with DP relate to solving SubsetSum with DP, and why does one remain exponential?",
+        "level": 7,
+        "answer": "I wasn't able to generate an answer right now \u2014 the language model returned an empty response. This is usually a temporary rate-limit or API issue. Please try again in a few seconds.",
+        "num_contexts": 5,
+        "timings": {
+          "dense_search_ms": 260,
+          "bm25_search_ms": 20,
+          "rrf_fusion_ms": 0,
+          "reranking_ms": 0,
+          "image_promotion_ms": 0,
+          "compression_ms": 0,
+          "answer_generation_ms": 1448,
+          "total_ms": 1728
+        },
+        "rerank_scores": [],
+        "compression_ratios": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    ]
+  }
+]

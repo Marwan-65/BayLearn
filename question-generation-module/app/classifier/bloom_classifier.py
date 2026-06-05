@@ -1,20 +1,3 @@
-"""
-Runtime wrapper around the fine-tuned BloomBERT classifier.
-
-Usage:
-    classifier = BloomClassifier.load("models/bloom_distilbert")
-    pred = classifier.predict("Define a semaphore.")
-    # pred.level == "easy", pred.confidence ~ 0.95
-
-Design choices:
-  * Single instance loaded at FastAPI startup, reused for all requests.
-  * Graceful fallback: if weights aren't on disk yet (model still training on
-    Kaggle), `BloomClassifier.load()` returns a stub whose `predict()` returns
-    `BloomPrediction(level=None, confidence=0.0)`. The rest of the pipeline
-    treats `None` as "no validation available" and proceeds without retry.
-  * Batched prediction for efficiency when classifying multiple generated
-    questions per request.
-"""
 from __future__ import annotations
 
 import json
@@ -25,8 +8,6 @@ from typing import Iterable, Optional
 
 logger = logging.getLogger(__name__)
 
-# Bloom 6-level → 3-level mapping used everywhere in this module.
-# Matches the mapping used during training in scripts/build_training_set.py.
 BLOOM6_TO_LEVEL = {
     "remember":   "easy",
     "understand": "easy",
@@ -39,14 +20,12 @@ BLOOM6_TO_LEVEL = {
 
 @dataclass(frozen=True)
 class BloomPrediction:
-    """Result of classifying a single question."""
-    level: Optional[str]            # "easy" | "medium" | "hard" | None (stub)
-    confidence: float               # softmax probability of the predicted class
-    probs: Optional[dict[str, float]] = None  # full distribution if available
+    level: Optional[str]
+    confidence: float
+    probs: Optional[dict[str, float]] = None
 
 
 class BloomClassifier:
-    """Wraps a fine-tuned DistilBertForSequenceClassification."""
 
     LEVELS = ("easy", "medium", "hard")
 
@@ -58,15 +37,8 @@ class BloomClassifier:
         self.id_to_label = {v: k for k, v in label_map.items()}
         self.max_len = 128
 
-    # ---------------------------------------------------------------- loading
     @classmethod
     def load(cls, model_dir: str | Path) -> "BloomClassifier":
-        """Load from a directory produced by Cell 8 of the training notebook.
-
-        If the directory or weights are missing, returns a stub classifier
-        whose predict() returns level=None (graceful degradation — the API
-        can still serve generation requests, just without level validation).
-        """
         model_dir = Path(model_dir)
         if not model_dir.exists():
             logger.warning(
@@ -88,15 +60,13 @@ class BloomClassifier:
             if label_map_path.exists():
                 label_map = json.loads(label_map_path.read_text())
             else:
-                # default mapping if label_map.json is missing
                 label_map = {"easy": 0, "medium": 1, "hard": 2}
             logger.info("BloomBERT loaded from %s on %s", model_dir, device)
             return cls(model, tokenizer, device, label_map)
-        except Exception as e:  # noqa: BLE001 — wrapper must not crash startup
+        except Exception as e:
             logger.error("Failed to load BloomBERT from %s: %s", model_dir, e)
             return _StubBloomClassifier()
 
-    # ------------------------------------------------------------- prediction
     def predict(self, text: str) -> BloomPrediction:
         return self.predict_batch([text])[0]
 
@@ -125,9 +95,8 @@ class BloomClassifier:
 
 
 class _StubBloomClassifier(BloomClassifier):
-    """No-op classifier used when weights aren't on disk yet."""
 
-    def __init__(self):  # noqa: D401 — bypass parent __init__ deliberately
+    def __init__(self):
         self.model = None
         self.tokenizer = None
         self.device = None
@@ -142,14 +111,7 @@ class _StubBloomClassifier(BloomClassifier):
         return [BloomPrediction(level=None, confidence=0.0) for _ in texts]
 
 
-# ---------------------------------------------------------------------- utils
 def bloom6_to_level(bloom6: str) -> str:
-    """
-    Map a 6-level Bloom name (case-insensitive) to easy/medium/hard.
-    Passes through values that are already easy/medium/hard, so the function
-    works whether callers use Bloom-6 names or the 3-level vocabulary used by
-    the prompt guidance, example bank, and frontend.
-    """
     s = bloom6.lower().strip()
     if s in ("easy", "medium", "hard"):
         return s

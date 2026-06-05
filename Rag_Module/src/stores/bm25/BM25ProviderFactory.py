@@ -5,11 +5,9 @@ from controllers.base import BaseController
 
 
 class BM25ProviderFactory:
-
     def __init__(self, config):
         self.config = config
         self.base_controller = BaseController()
-
     def create(self, provider: str):
         if provider == BM25BackendEnum.IN_MEMORY.value:
             index_dir = os.path.join(

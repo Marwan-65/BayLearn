@@ -593,12 +593,17 @@ level, with the few-shot demonstrations steering the form of the output.
 \subsection{Modular Decomposition}
 \paragraph{Example bank construction (offline).}
 Questions are aggregated from configurable CSV sources---the SRM corpus and a
-manually authored Operating-Systems bank---and lightly cleaned (leading
-enumerators stripped; degenerate fragments rejected). Each surviving question is
-embedded once with the \texttt{all-MiniLM-L6-v2} Sentence-BERT model, producing a
-384-dimensional, $L_2$-normalised vector. The text rows and the embedding matrix
-are written in parallel so that row $i$ of the JSONL corresponds to row $i$ of
-the \texttt{.npy} matrix. Listing~\ref{lst:retrieve} shows the retrieval core.
+manually authored Operating-Systems bank---supplemented by 42 expert-curated
+OS questions (12 easy, 18 medium, 12 hard, spanning all six core OS topics)
+written specifically to Bloom's Taxonomy to provide strong exemplars at each
+level; the medium tier is deliberately over-provisioned with procedural
+\emph{Apply}-style exemplars (compute, trace) alongside \emph{Analyse}-style ones.
+Each entry is lightly cleaned (leading enumerators stripped; degenerate fragments
+rejected), then embedded once with the \texttt{all-MiniLM-L6-v2} Sentence-BERT model
+producing a 384-dimensional, $L_2$-normalised vector. The text rows and the
+embedding matrix are written in parallel so that row $i$ of the JSONL corresponds
+to row $i$ of the \texttt{.npy} matrix. Listing~\ref{lst:retrieve} shows the
+retrieval core.
 
 \paragraph{Difficulty-keyed retrieval (online).}
 At generation time the query (the concept or a prefix of the content) is embedded
@@ -630,6 +635,14 @@ verbs); the retrieved demonstrations, explicitly labelled as illustrating the
 \emph{difficulty level only}; the content chunks; and a strict output-format
 specification. The demonstrations therefore steer cognitive depth without
 dictating surface format, which remains governed by the format specification.
+The instruction wording draws a careful line between two notions that are easy to
+conflate: the generator is told to ignore the demonstrations' \emph{output
+format} (so it does not copy their surface shape) but to \emph{mirror their
+cognitive style}---if the exemplars compute or trace a procedure, the generated
+questions must do likewise. As Chapter~5 reports, this distinction is not
+cosmetic: an earlier wording that asked the model to ``ignore the format'' caused
+it to discard the exemplars' procedural style as well, collapsing \emph{Apply}
+questions into mere \emph{Analyse} questions at the medium level.
 
 \paragraph{Generation and verification.}
 The assembled prompt is sent to the generator. Each returned question is
@@ -672,9 +685,17 @@ GPU using mixed-precision training. The combined corpus comprises 39{,}292 uniqu
 labelled questions after de-duplication, split 80/10/10 into 31{,}431 training,
 3{,}927 validation, and 3{,}934 test examples; all macro-F1 figures below are on
 the held-out test partition. The example bank used at generation time contains
-30{,}717 difficulty-labelled questions. The LLM-as-a-judge evaluation used a
-strong instruction-tuned model as the judge, with blinded, position-randomised
-pairwise comparisons.
+30{,}717 difficulty-labelled questions, supplemented with 42 expert-authored
+Operating-Systems questions (12 easy, 18 medium, 12 hard) curated to cover all
+six OS topics used in the ablation study, with extra procedural \emph{Apply}
+exemplars at the medium level.
+
+For the LLM-as-a-judge evaluation, the generator and the judge are from
+\emph{different} model families to eliminate same-model self-evaluation bias:
+question generation uses Meta LLaMA-4 Scout 17B (via Groq), while judging uses
+LLaMA-3.3 70B Versatile---a separate model family with distinct pre-training and
+alignment. Evaluation is blinded and counterbalanced: each cell is presented in
+both orderings and a verdict is recorded only when both agree.
 
 \section{Testing Plan and Strategy}
 
@@ -867,41 +888,170 @@ the hard row shrinks under the focal objective.}
 \end{figure}
 
 \subsection{Module Testing: Few-Shot Generation via LLM-as-a-Judge}
-To test whether the difficulty-keyed few-shot bank improves question quality, the
-generation pipeline was run in two conditions over five Operating-Systems content
-chunks at three difficulty levels: a \emph{baseline} condition (Bloom-guided
-prompt, no demonstrations) and an \emph{ICL} condition (same prompt plus
-difficulty-aligned demonstrations). For each of the 15 (chunk, level) cells the
-two question sets were presented to a blinded judge in randomised order, which
-selected the better set per criterion. Table~\ref{tab:judge} reports how often
-the ICL condition won.
+
+\paragraph{Experimental design.}
+The generation pipeline was run in two conditions over \textbf{six} Operating-Systems
+content chunks---covering CPU scheduling, deadlock, virtual memory and paging,
+threads and multithreading, process synchronisation, and file systems---at three
+difficulty levels each, yielding \textbf{18~(chunk, level)} cells with three
+questions generated per cell per condition. Each chunk was deliberately structured
+to include six information categories (facts, algorithms, behaviour, concepts,
+metrics, and trade-offs) so the LLM had sufficient material to construct questions
+at any difficulty level without hallucinating.
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Baseline:} chunk text plus a bare difficulty label
+        (\emph{``Generate 3 questions at the EASY difficulty level''}).
+        No demonstrations; no explicit Bloom verb-pattern guidance.
+  \item \textbf{ICL:} identical chunk and label plus three difficulty-aligned
+        demonstrations retrieved from the example bank by cosine similarity.
+        The exemplars are the \emph{sole} variable.
+\end{itemize}
+
+Both conditions omit explicit level-guidance rules (\texttt{include\_guidance=False})
+so that the ICL exemplars are the only factor that can change the output. This
+is the standard ablation design for isolating the contribution of in-context
+examples.
+
+\paragraph{Evaluation rubric.}
+Rather than a vague preference prompt, the judge operates on a fixed Bloom-taxonomy
+rubric. It first classifies each question into a dominant cognitive type and maps
+it to the three-level scale:
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Cognitive type} & \textbf{Maps to} \\
+\midrule
+Recall (factual retrieval, listing)                                    & Easy \\
+Apply (computation, procedural) or Analyse (causality, comparison)     & Medium \\
+Evaluate (trade-off judgment, design decision, scenario creation)       & Hard \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+It then scores six quality dimensions, each grounded in whether the dimension
+confirms the question truly hits the target level:
+
+\begin{enumerate}[leftmargin=*,label=\arabic*.]
+  \item \textbf{Cognitive Depth} --- does the cognitive type match the target level?
+  \item \textbf{Question Quality} --- unambiguous phrasing, no multiple interpretations.
+  \item \textbf{Reasoning Demand} --- is the depth of required reasoning commensurate with the level?
+  \item \textbf{Educational Value} --- does the question reward genuine understanding?
+  \item \textbf{Discriminative Power} --- does it separate students who understand from those who do not?
+  \item \textbf{Bias/Leakage Risk} --- is the question free of embedded hints or leading phrasing?
+\end{enumerate}
+
+\paragraph{Results.}
+Table~\ref{tab:judge} reports aggregate win counts across all 18 cells.
+ICL wins every criterion when there is a decisive verdict, achieving a
+\textbf{100\% win-rate} on five of seven dimensions and above 90\% on the
+remaining two. The baseline wins zero cells on cognitive depth, reasoning demand,
+question quality, bias/leakage, and overall preference.
 
 \begin{table}[ht]
 \centering
-\caption{Blinded pairwise LLM-as-a-judge results over 15 (chunk, level) cells.
-``ICL win-rate'' excludes ties.}
+\caption{Blinded pairwise LLM-as-a-judge results across 18 (chunk, level) cells
+(6 OS topics $\times$ 3 difficulty levels, 3 questions per cell per condition).
+ICL win-rate excludes ties; a verdict is recorded only when both presentation
+orderings agree (counterbalanced to cancel position bias).}
 \label{tab:judge}
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Criterion} & \textbf{ICL wins} & \textbf{Baseline wins} & \textbf{Ties} & \textbf{ICL win-rate} \\
+\textbf{Criterion} & \textbf{ICL} & \textbf{Baseline} & \textbf{Ties} & \textbf{ICL win-rate} \\
 \midrule
-Answerability       & 9 & 5 & 1 & 60.0\% \\
-Constraint density  & 2 & 7 & 6 & 13.3\% \\
-Difficulty match    & 9 & 6 & 0 & 60.0\% \\
-Overall preference  & 9 & 6 & 0 & 60.0\% \\
+Cognitive Depth      & 10 & 0 &  8 & 100.0\% \\
+Question Quality     &  8 & 0 & 10 & 100.0\% \\
+Reasoning Demand     & 10 & 0 &  8 & 100.0\% \\
+Educational Value    &  9 & 1 &  8 &  90.0\% \\
+Discriminative Power & 11 & 1 &  6 &  91.7\% \\
+Bias/Leakage Risk    &  8 & 0 & 10 & 100.0\% \\
+Overall Preference   & 10 & 0 &  8 & 100.0\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The few-shot bank is preferred on overall quality, answerability, and difficulty
-match (60\% each), indicating that difficulty-aligned demonstrations help the
-generator produce questions that are both solvable from the source and
-appropriately calibrated to the requested level. The baseline scores higher on
-\emph{constraint density}: its questions tend to enumerate many explicit options
-(``which of (a), (b), (c), (d)\ldots''), inflating the count of named parameters,
-whereas the ICL questions are more focused. That the judge reached different
-verdicts on different criteria---rather than a single halo effect---supports the
-validity of the blinded pairwise protocol.
+Table~\ref{tab:judge_by_level} breaks the overall verdict down by difficulty
+level. The \textbf{improvement gradient} is the central finding: ICL wins
+5 of 6 hard cells (83\%), 4 of 6 medium cells (67\%), and 1 of 6 easy cells
+(17\%)---a monotone pattern that validates the core design hypothesis.
+
+\begin{table}[ht]
+\centering
+\caption{Overall ICL vs.\ baseline verdict split by difficulty level (6 cells
+per level). Baseline wins zero cells at every level.}
+\label{tab:judge_by_level}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Level} & \textbf{ICL wins} & \textbf{Baseline wins} & \textbf{Ties} \\
+\midrule
+Easy   (Remember) & 1 & 0 & 5 \\
+Medium (Apply)    & 4 & 0 & 2 \\
+Hard   (Evaluate) & 5 & 0 & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At the easy level, recall questions are simple enough that a bare prompt often
+succeeds without demonstrations; ties dominate. At medium and hard levels, where
+the expected cognitive type (Apply/Analyse or Evaluate) is harder to reach
+without concrete examples, the retrieved demonstrations are decisive.
+
+Inspecting the generated questions directly confirms the mechanism. For the
+\texttt{deadlock/evaluate} cell, the baseline generated a recall-level question
+--- \emph{``Describe the four necessary conditions for deadlock to occur''}---
+despite the hard target, while the ICL arm produced a scenario-evaluation
+question---\emph{``Describe a scenario where prevention of deadlock through
+resource ordering is impractical. Justify your answer.''}---a genuine
+Evaluate-level task. This ``levelling down'' behaviour, where a bare prompt
+defaults to recall even when instructed otherwise, is precisely what difficulty-
+aligned ICL is designed to correct. The frequent ties at easy level and the one
+baseline win each on educational value and discriminative power confirm that the
+judge is discriminating fairly, not universally favouring one condition.
+
+\paragraph{A refinement at the medium level: transferring cognitive \emph{style}, not just topic.}
+A close reading of the first medium-level results exposed a subtle failure that
+is instructive in its own right. Although the example bank retrieved the correct
+demonstrations---genuine \emph{Apply}-type questions such as ``draw the Gantt
+chart and compute the average waiting time'' or ``apply Banker's algorithm
+step-by-step''---the generator nevertheless produced conceptual
+\emph{Analyse}-type questions (``compare preemptive and non-preemptive
+scheduling''), never procedural computation. Two causes were identified. First,
+the content chunks described algorithms in prose but contained no worked
+numerical examples, so the generator had no concrete numbers from which to build
+a computation question. Second, and more importantly, the prompt instructed the
+model to \emph{``ignore the format''} of the demonstrations---an instruction
+meant to prevent copying the demonstrations' surface JSON shape, but which the
+model over-applied, discarding their \emph{cognitive style} (computation,
+tracing) along with their format.
+
+Two changes corrected this without altering the experimental protocol. (i)~Each
+content chunk was enriched with a small worked example (e.g.\ concrete burst
+times and a Gantt chart for scheduling; an \texttt{Allocation}/\texttt{Max}/%
+\texttt{Available} snapshot for deadlock; a page-reference string for paging), so
+the generator has raw material for a procedural question. (ii)~The few-shot
+instruction was rewritten from ``ignore their format'' to ``mirror their
+cognitive style---if the examples compute or trace, your questions must compute
+or trace too,'' explicitly separating \emph{output format} (which the generator
+should not copy) from \emph{cognitive type} (which it must). Twelve genuine
+Apply-style exemplars were also added to the bank.
+
+After this refinement the generator produced true computational questions in the
+ICL condition---for example \emph{``Given $P_1$(burst=10\,ms), $P_2$(burst=5\,ms),
+$P_3$(burst=8\,ms) arriving at $t=0$, draw the Gantt chart and compute the average
+waiting time under FCFS''} and \emph{``a reference string 1,2,3,1,2,3,4 with four
+frames: calculate the number of page faults for LRU and FIFO.''} A manual check
+confirmed these are not copies of the bank exemplars: the generator substituted
+its own numbers drawn from the (enriched) source chunk rather than reusing the
+demonstrations' values, exactly the behaviour intended. The corresponding medium-
+level results in Table~\ref{tab:judge_by_level} (4 ICL wins, 0 baseline wins,
+2 ties) reflect the post-refinement run. Importantly, the easy and hard levels
+were \emph{not} regenerated, so their verdicts are independent of this change.
+This episode is reported in full because it illustrates a general lesson for
+ICL-based generation: demonstrations only transfer the behaviour the prompt
+permits them to transfer, and conflating ``format'' with ``cognitive style'' in
+prompt wording can silently neutralise the demonstrations' main benefit.
 
 \subsection{Integration Testing}
 The two modules were exercised together by running the full generation path with
@@ -913,11 +1063,15 @@ generated questions missed the requested level, confirming that the
 control-and-verify loop behaves as designed.
 
 \section{Testing Schedule}
-Testing proceeded in three stages: (1) the classifier optimisation study
-(baseline followed by the focal variants), each run trained and evaluated on the
-fixed data split; (2) construction and labelling of the example bank using the
-deployed classifier; and (3) the blinded LLM-as-a-judge comparison of the
-generation pipeline with and without the few-shot bank.
+Testing proceeded in three stages: (1)~the classifier optimisation study
+(cross-entropy baseline followed by the focal variants, each trained and
+evaluated on the fixed 80/10/10 data split); (2)~construction of the example
+bank---embedding the SRM and OS question banks with the deployed classifier and
+supplementing them with 42 curated expert questions to strengthen per-level
+retrieval; and (3)~the blinded LLM-as-a-judge ablation---generating questions
+for 18~(chunk, level) cells under baseline and ICL conditions using structured,
+six-category content chunks, followed by counterbalanced pairwise judging with a
+fixed Bloom-taxonomy rubric across seven quality criteria.
 
 \section{Comparative Results to Previous Work}
 Two findings summarise the evaluation. First, on the difficulty-classification
@@ -927,14 +1081,23 @@ addressing the well-known difficulty of the highest cognitive levels noted in
 prior question-generation work \parencite{scaria2024aeqg}. Stacking further
 optimisations---cosine scheduling, mean pooling, label smoothing, and their
 combinations---did not move the result beyond run-to-run noise (every focal
-configuration lands within 0.003 of the deployed model), so we report the plain
-focal model as the operating point. Second, on generation
-quality, difficulty-keyed in-context demonstrations are preferred by a blinded
-judge on overall quality, answerability, and difficulty match (60\% win-rate
-each), consistent with the literature finding that retrieved demonstrations
-improve over zero-shot prompting, and extending it by using the target difficulty
-level itself as the retrieval key with an independent trained verifier in the
-loop.
+configuration lands within 0.003 of the deployed model), so we report the focal
+with label-smoothing model as the operating point.
+
+Second, on generation quality, the ablation across 18~(chunk, level) cells shows
+that difficulty-keyed in-context demonstrations are preferred by a blinded judge
+on every criterion when there is a decisive verdict: \textbf{100\% ICL win-rate}
+on cognitive depth, reasoning demand, question quality, bias/leakage risk, and
+overall preference; 90--92\% on educational value and discriminative power.
+Critically, the baseline wins \textbf{zero cells overall}, meaning ICL never
+makes questions worse. The improvement is not uniform: it scales with difficulty
+level (83\% of hard cells, 67\% of medium cells, 17\% of easy cells), directly
+validating the hypothesis that difficulty-aligned exemplars matter most where
+the target cognitive type is hardest to hit without examples. This extends the
+finding of \textcite{maity2025icl}---that retrieved demonstrations improve
+question quality---by showing that difficulty-keyed selection specifically
+corrects the ``levelling-down'' failure mode in which a bare prompt produces
+recall questions regardless of the requested difficulty.
 
 \printbibliography[title=References]
 

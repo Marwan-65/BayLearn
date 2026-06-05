@@ -38,7 +38,7 @@ from flasgger import Swagger
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from db_models import ensure_tables
+from app.db_models import ensure_tables
 
 load_dotenv(Path(__file__).parent / ".env")
 

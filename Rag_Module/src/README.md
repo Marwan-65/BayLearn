@@ -74,3 +74,9 @@ mistral-7b-instruct-v0.1.Q4_K_M.gguf \
 
 3- The model file must exist inside:
 project_root/models/
+
+4- for activating ragas evaluation environment
+
+```bash
+   source .venv/bin/activate
+```

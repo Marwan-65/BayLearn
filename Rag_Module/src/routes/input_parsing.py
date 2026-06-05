@@ -1,66 +1,31 @@
-"""
-Input Parsing Routes
+# this file forwards the uploaded material to the parsing module via the adapter, so it has routes 
+# it recieves also chunks and index them 
 
-Provides endpoints for uploading files through the RAG module,
-which proxies them to the Input Parsing Module 
-and stores the resulting chunks in the RAG pipeline.
-
-This gives the frontend a SINGLE upload endpoint that handles:
-  1. Sending the file to the input parsing module for parsing
-  2. Converting the parsed output to RAG chunks
-  3. Storing chunks in the chunk repository
-  4. Optionally indexing them immediately
-
-The input parsing module itself is NOT modified.
-"""
-
-import asyncio
-import uuid
-from fastapi import APIRouter, BackgroundTasks, Request, UploadFile, status
+import httpx
+from fastapi import APIRouter, Request, UploadFile, status
 from fastapi.responses import JSONResponse
 from core.limiter import limiter
 from helpers.config import get_settings
 import logging
 from typing import Optional
-
+from controllers._nlp_retrieval import _NLPRetrievalMixin
 logger = logging.getLogger("uvicorn.error")
+input_parsing_router = APIRouter(prefix="/api/v1/parse",)
 
-# ── In-memory parse-job registry ──────────────────────────────────────────────
-# Keyed by job_id. Values: {status, project_id, filename, chunks, error}
-# status: "pending" | "indexing" | "done" | "error"
-_JOBS: dict = {}
-
-input_parsing_router = APIRouter(
-    prefix="/api/v1/parse",
-)
-
-# Extension → category mapping for per-type size limits.
-# Categories map to the UPLOAD_MAX_MB_* settings in helpers/config.py.
+# to know what to expect about limits and files nature
 _EXT_CATEGORY = {
-    # PDFs
     "pdf": "pdf",
-    # Images
     "png": "image", "jpg": "image", "jpeg": "image",
     "gif": "image", "webp": "image", "bmp": "image", "tiff": "image",
-    # Audio
     "mp3": "audio", "wav": "audio", "m4a": "audio",
     "flac": "audio", "ogg": "audio", "aac": "audio",
-    # Video
     "mp4": "video", "webm": "video", "mov": "video",
     "mkv": "video", "avi": "video",
 }
 
-
 def _resolve_max_bytes(filename: str, settings) -> tuple[int, str]:
-    """
-    Determine the max upload size (in bytes) for the given filename based
-    on its extension. Falls back to UPLOAD_MAX_MB_DEFAULT for unknown types.
-
-    Returns (max_bytes, category_label).
-    """
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     category = _EXT_CATEGORY.get(ext, "default")
-
     mb_by_category = {
         "pdf": settings.UPLOAD_MAX_MB_PDF,
         "image": settings.UPLOAD_MAX_MB_IMAGE,
@@ -71,277 +36,213 @@ def _resolve_max_bytes(filename: str, settings) -> tuple[int, str]:
     max_mb = mb_by_category.get(category) or settings.UPLOAD_MAX_MB_DEFAULT or 25
     return max_mb * 1024 * 1024, category
 
-
-async def _parse_and_index_background(
-    job_id: str,
-    project_id: str,
-    filename: str,
-    file_content: bytes,
-    app,
-):
-    """Background task: parse → store → index. Updates _JOBS[job_id] in-place."""
-    try:
-        adapter = getattr(app, "input_parsing_adapter", None)
-        rag_chunks = await adapter.parse_file(
-            file_content=file_content,
-            filename=filename,
-            project_id=project_id,
-        )
-        _JOBS[job_id]["status"] = "indexing"
-        _JOBS[job_id]["chunks_created"] = len(rag_chunks)
-
-        # Remove any previously-indexed chunks for this file so stale metadata
-        # (e.g. old chunk_type or missing image_path from a pre-fix upload)
-        # doesn't survive alongside the fresh chunks and pollute retrieval.
-        await app.chunk_repository.delete_chunks_by_source(project_id, filename)
-        await app.chunk_repository.add_chunks(project_id, rag_chunks)
-
-        from controllers import NLPController
-        controller = NLPController(
-            vectordb_client=app.vectordb_client,
-            generation_client=app.generation_client,
-            embedding_client=app.embedding_client,
-            chunk_repository=app.chunk_repository,
-            reranker_client=getattr(app, "reranker_client", None),
-            bm25_client=getattr(app, "bm25_client", None),
-            contextual_cache=getattr(app, "contextual_cache", None),
-        )
-        indexed_count = await controller.index_project(project_id=project_id, do_reset=True)
-        _JOBS[job_id].update({"status": "done", "indexed_count": indexed_count})
-        logger.info(f"[job {job_id}] done — {indexed_count} chunks indexed for project {project_id}")
-
-    except Exception as e:
-        _JOBS[job_id].update({"status": "error", "error": str(e)})
-        logger.error(f"[job {job_id}] background parse failed: {e}")
-
-
-@input_parsing_router.get("/status/{project_id}")
-async def parse_status(project_id: str, filename: str):
-    """
-    Poll this endpoint after uploading to see when parsing finished.
-    Returns the most recent job for (project_id, filename).
-    """
-    # Find the latest job for this project+filename
-    matching = [
-        j for j in _JOBS.values()
-        if j["project_id"] == project_id and j["filename"] == filename
-    ]
-    if not matching:
-        return JSONResponse(status_code=404, content={"signal": "No job found"})
-    job = sorted(matching, key=lambda j: j.get("started_at", ""))[-1]
-    return JSONResponse(status_code=200, content=job)
-
-
-@input_parsing_router.post("/upload/{project_id}")
-@limiter.limit("10/minute")
-async def parse_and_store(
-    project_id: str,
-    request: Request,
-    file: UploadFile,
-    auto_index: bool = False,
-    user_id: Optional[str] = None,
-    course_id: Optional[str] = None,
-):
-    """
-    Upload a file and start async parsing in the background.
-
-    Returns immediately with job_id + status="pending".
-    The frontend should poll GET /api/v1/parse/status/{project_id}?filename=X
-    until status becomes "done" or "error".
-    """
-    import datetime
-    settings = get_settings()
-
-    # Validate file
-    if not file.filename:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "No file provided"},
-        )
-
-    # Resolve per-type size limit from extension, then read with that cap.
-    max_bytes, category = _resolve_max_bytes(file.filename, settings)
-    file_content = await file.read()
-    if len(file_content) > max_bytes:
-        return JSONResponse(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            content={
-                "signal": (
-                    f"File too large for type '{category}'. "
-                    f"Max size: {max_bytes // (1024*1024)} MB"
-                )
-            },
-        )
-
-    if len(file_content) == 0:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "Empty file"},
-        )
-
-    # Get the input parsing adapter
-    input_parsing_adapter = getattr(request.app, "input_parsing_adapter", None)
-    if not input_parsing_adapter or not input_parsing_adapter.is_available:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "signal": "Input parsing module not configured. "
-                "Set INPUT_PARSING_MODULE_URL in .env"
-            },
-        )
-
-    # Parse file via the input parsing module. The file is uploaded ONCE (the
-    # parsing module saves it to the shared DB) and the chunks are read back from
-    # the DB via its get-chunks route — the DB is the single source of truth.
-    try:
-        rag_chunks, file_id = await input_parsing_adapter.parse_file(
-            file_content=file_content,
-            filename=file.filename,
-            project_id=project_id,
-            user_id=user_id,
-            course_id=course_id,
-        )
-    except ConnectionError as e:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"signal": str(e)},
-        )
-    except TimeoutError as e:
-        return JSONResponse(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            content={"signal": str(e)},
-        )
-    except Exception as e:
-        logger.error(f"Parsing failed for {file.filename}: {e}")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"signal": f"Parsing failed: {str(e)}"},
-        )
-
-    if not rag_chunks:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "No content could be extracted from this file"},
-        )
-
-    # Index key: each file is indexed independently under its own file_id so the
-    # frontend can scope chat / question-generation to a single selected file.
-    # (Falls back to project_id if the parsing module returned no file_id.)
-    index_key = file_id or project_id
-
-    # Store chunks in the repository under the file's key
-    try:
-        await request.app.chunk_repository.add_chunks(index_key, rag_chunks)
-    except Exception as e:
-        logger.error(f"Failed to store chunks: {e}")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"signal": f"Failed to store chunks: {str(e)}"},
-        )
-
-    result = {
-        "signal": "File parsed and stored successfully",
-        "filename": file.filename,
-        "file_id": file_id,  # DB id — other modules can re-fetch chunks with this
-        "chunks_created": len(rag_chunks),
-        "project_id": project_id,
-        "chunk_types": _count_chunk_types(rag_chunks),
-    }
-
-    # Optionally index immediately
-    if auto_index:
-        try:
-            from controllers import NLPController
-            controller = NLPController(
-                vectordb_client=request.app.vectordb_client,
-                generation_client=request.app.generation_client,
-                embedding_client=request.app.embedding_client,
-                chunk_repository=request.app.chunk_repository,
-                reranker_client=getattr(request.app, "reranker_client", None),
-                bm25_client=getattr(request.app, "bm25_client", None),
-                contextual_cache=getattr(request.app, "contextual_cache", None),
-            )
-            indexed_count = await controller.index_project(
-                project_id=index_key,
-                do_reset=True,
-            )
-            result["indexed"] = True
-            result["indexed_count"] = indexed_count
-        except Exception as e:
-            logger.error(f"Auto-indexing failed: {e}")
-            result["indexed"] = False
-            result["index_error"] = str(e)
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content=result,
-    )
-
-
-@input_parsing_router.delete("/source/{project_id}")
-async def delete_source(project_id: str, filename: str, request: Request):
-    """
-    Remove all chunks that came from `filename` in `project_id`, then
-    re-index the project so Qdrant and BM25 no longer contain those chunks.
-
-    Called by the frontend when the user clicks the × on a file.
-    """
-    from controllers import NLPController
-
-    repo = request.app.chunk_repository
-    all_chunks = await repo.get_chunks(project_id)
-    remaining = [c for c in all_chunks if c.metadata.get("source") != filename]
-
-    if len(remaining) == len(all_chunks):
-        return JSONResponse(
-            status_code=200,
-            content={"signal": "No chunks matched that filename", "removed": 0},
-        )
-
-    removed = len(all_chunks) - len(remaining)
-
-    # Overwrite the project's chunk list with only the remaining chunks
-    await repo.delete_project_chunks(project_id)
-    if remaining:
-        await repo.add_chunks(project_id, remaining)
-
-    # Re-index so Qdrant/BM25 reflect the deletion
-    indexed_count = 0
-    if remaining:
-        controller = NLPController(
-            vectordb_client=request.app.vectordb_client,
-            generation_client=request.app.generation_client,
-            embedding_client=request.app.embedding_client,
-            chunk_repository=repo,
-            reranker_client=getattr(request.app, "reranker_client", None),
-            bm25_client=getattr(request.app, "bm25_client", None),
-            contextual_cache=getattr(request.app, "contextual_cache", None),
-        )
-        indexed_count = await controller.index_project(
-            project_id=project_id, do_reset=True
-        )
-    else:
-        # No chunks left — wipe the Qdrant collection
-        try:
-            request.app.vectordb_client.delete_collection(project_id)
-        except Exception:
-            pass
-
-    return JSONResponse(
-        status_code=200,
-        content={
-            "signal": f"Removed {removed} chunks for '{filename}' and re-indexed",
-            "removed": removed,
-            "remaining_chunks": len(remaining),
-            "indexed_count": indexed_count,
-        },
-    )
-
-
 def _count_chunk_types(chunks: list) -> dict:
-    """Count chunks by type for the response."""
     counts = {}
     for chunk in chunks:
         chunk_type = chunk.metadata.get("chunk_type", "text")
         counts[chunk_type] = counts.get(chunk_type, 0) + 1
     return counts
+
+def _build_nlp_controller(app):
+    from controllers import NLPController
+    return NLPController(
+        vectordb_client=app.vectordb_client,
+        generation_client=app.generation_client,
+        embedding_client=app.embedding_client,
+        reranker_client=getattr(app, "reranker_client", None),
+        bm25_client=getattr(app, "bm25_client", None),
+        contextual_cache=getattr(app, "contextual_cache", None),
+    )
+
+@input_parsing_router.post("/upload/{project_id}")
+@limiter.limit("10/minute")
+async def parse_and_store(project_id: str,request: Request,file: UploadFile,
+    auto_index: bool = True,user_id: Optional[str] = None,
+    course_id: Optional[str] = None,
+):
+    settings = get_settings()
+
+    if not file.filename:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"signal": "No file provided"},)
+    adapter = getattr(request.app, "input_parsing_adapter", None)
+    if not adapter or not adapter.is_available:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"signal": "Input parsing module not configured. Set INPUT_PARSING_MODULE_URL in .env"},)
+    existing_file_id = await adapter.find_existing_file(
+        filename=file.filename,
+        course_id=course_id,
+        user_id=user_id,)
+    if existing_file_id:
+        logger.info(
+            f"file '{file.filename}' already in DB (file_id={existing_file_id}). "
+            "skipping upload, re-indexing for RAG.")
+        try:
+            rag_chunks = await adapter.fetch_chunks_from_db(file_id=existing_file_id,
+                project_id=existing_file_id,
+                source_filename=file.filename,
+                user_id=user_id,
+                course_id=course_id,)
+        except Exception as e:
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={"signal": f"Failed to fetch existing file chunks: {str(e)}"},)
+        if not rag_chunks:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"signal": f"File exists in DB but has no chunks (file_id={existing_file_id})"},)
+        result = {"signal": "File already existed in DB — re-indexed for RAG",
+            "filename": file.filename,"file_id": existing_file_id,
+            "chunks_created": len(rag_chunks),
+            "project_id": project_id,
+            "chunk_types": _count_chunk_types(rag_chunks),
+            "already_existed": True,}
+        if auto_index:
+            try:
+                controller = _build_nlp_controller(request.app)
+                indexed_count = await controller.index_project(
+                    project_id=existing_file_id,
+                    chunks=rag_chunks,
+                    do_reset=True,)
+                result["indexed"] = True
+                result["indexed_count"] = indexed_count
+            except Exception as e:
+                logger.error(f"Re-indexing failed for existing file: {e}")
+                result["indexed"] = False
+                result["index_error"] = str(e)
+        return JSONResponse(status_code=status.HTTP_200_OK, content=result)
+    max_bytes, category = _resolve_max_bytes(file.filename, settings)
+    file_content = await file.read()
+    if len(file_content) > max_bytes:
+        return JSONResponse(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            content={"signal": f"File too large for type '{category}'. Max: {max_bytes // (1024*1024)} MB"},
+        )
+    if len(file_content) == 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"signal": "Empty file"},)
+    try:
+        rag_chunks, file_id = await adapter.parse_file(
+            file_content=file_content,
+            filename=file.filename,
+            project_id=project_id,
+            user_id=user_id,
+            course_id=course_id,)
+    except ConnectionError as e:
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"signal": str(e)})
+    except TimeoutError as e:
+        return JSONResponse(status_code=status.HTTP_504_GATEWAY_TIMEOUT, content={"signal": str(e)})
+    except Exception as e:
+        logger.error(f"Parsing failed for {file.filename}: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"signal": f"Parsing failed: {str(e)}"},)
+    if not rag_chunks:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"signal": "No content could be extracted from this file"},)
+    index_key = file_id or project_id
+    result = {"signal": "File parsed and indexed successfully",
+        "filename": file.filename,
+        "file_id": file_id,
+        "chunks_created": len(rag_chunks),
+        "project_id": project_id,"chunk_types": _count_chunk_types(rag_chunks),"already_existed": False,}
+    if auto_index:
+        try:
+            controller = _build_nlp_controller(request.app)
+            indexed_count = await controller.index_project(
+                project_id=index_key,
+                chunks=rag_chunks,
+                do_reset=True,)
+            result["indexed"] = True
+            result["indexed_count"] = indexed_count
+        except Exception as e:
+            logger.error(f"Indexing failed for {file.filename}: {e}")
+            result["indexed"] = False
+            result["index_error"] = str(e)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=result)
+
+@input_parsing_router.post("/index-from-db")
+async def index_from_db(request: Request,file_id: str,project_id: Optional[str] = None,user_id: Optional[str] = None,course_id: Optional[str] = None,):
+    adapter = getattr(request.app, "input_parsing_adapter", None)
+    if not adapter or not adapter.is_available:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"signal": "Input parsing module not configured"},
+        )
+    index_key = project_id or file_id
+    try:
+        rag_chunks = await adapter.fetch_chunks_from_db(
+            file_id=file_id,
+            project_id=index_key,
+            user_id=user_id,
+            course_id=course_id,)
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"signal": f"Failed to fetch chunks from DB: {str(e)}"},)
+    if not rag_chunks:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"signal": f"No chunks found for file_id={file_id}. Has the file been uploaded?"},)
+    try:
+        controller = _build_nlp_controller(request.app)
+        indexed_count = await controller.index_project(
+            project_id=file_id,
+            chunks=rag_chunks,
+            do_reset=True,)
+    except Exception as e:
+        logger.error(f"indexing failed for file_id={file_id}: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"signal": f"indexing failed: {str(e)}"},)
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "signal": "file indexed from DB successfully",
+            "file_id": file_id,
+            "chunks_indexed": indexed_count,
+            "chunk_types": _count_chunk_types(rag_chunks),},)
+
+@input_parsing_router.delete("/file/{file_id}")
+async def delete_file(file_id: str, request: Request):
+    settings = get_settings()
+    collection_name = f"collection_{file_id}"
+    request.app.vectordb_client.delete_collection(collection_name)
+    bm25 = getattr(request.app, "bm25_client", None)
+    if bm25 is not None:
+        try:
+            bm25.delete_index(file_id)
+        except Exception:
+            pass
+    _NLPRetrievalMixin._image_index_cache.pop(file_id, None)
+    _NLPRetrievalMixin._chunks_by_id_cache.pop(file_id, None)
+    _NLPRetrievalMixin._chunks_sorted_cache.pop(file_id, None)
+
+    ip_url = getattr(settings, "INPUT_PARSING_MODULE_URL", None)
+    db_deleted = False
+    db_error = None
+    if ip_url:
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.delete(f"{ip_url.rstrip('/')}/files/{file_id}")
+                db_deleted = resp.status_code in (200, 204, 404)
+                if not db_deleted:
+                    db_error = f"DB returned {resp.status_code}"
+        except Exception as e:
+            db_error = str(e)
+            logger.warning(f"Could not delete file from DB: {e}")
+    else:
+        db_error = "INPUT_PARSING_MODULE_URL not configured"
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "signal": f"File {file_id} removed from RAG index",
+            "file_id": file_id,
+            "qdrant_deleted": True,
+            "db_deleted": db_deleted,
+            **({"db_error": db_error} if db_error else {}),},)

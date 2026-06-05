@@ -1,26 +1,13 @@
 import json
 import logging
 import re
-
 logger = logging.getLogger(__name__)
 
-
 class IntentRouter:
-    """
-    Classifies user queries in the RAG chat to detect if they also need
-    equation solving.
-
-    Uses a single LLM call with JSON-mode output for fast classification.
-    Falls back to "rag_only" on any failure — safe default.
-
-    Phase 6: Includes input sanitization before classification.
-    """
-
     INTENTS = [
         "rag_only",
         "equation_from_context",
     ]
-
     CLASSIFICATION_PROMPT = """You are an intent classifier for an educational platform.
 Given a student's question, classify it into ONE of these intents:
 
@@ -74,31 +61,16 @@ Respond with ONLY a JSON object:
     "equation_text": "the exact expression to compute if intent is equation_from_context, else null"
   }
 }"""
-
     def __init__(self, generation_client):
         self.generation_client = generation_client
-
     def classify(self, question: str) -> dict:
-        """
-        Classify a user's question into an intent category.
-
-        Phase 6: Sanitizes input before classification.
-
-        Returns:
-            dict with keys: intent, confidence, extracted_params
-            Falls back to rag_only with confidence 0.0 on any error.
-        """
         fallback = {
             "intent": "rag_only",
             "confidence": 0.0,
-            "extracted_params": {},
-        }
-
-        # Phase 6: Sanitize — strip control characters, limit length
+            "extracted_params": {},}
         sanitized = self._sanitize_input(question)
         if not sanitized:
             return fallback
-
         try:
             response = self.generation_client.generate_text(
                 prompt=f"Student question: {sanitized}",
@@ -107,55 +79,35 @@ Respond with ONLY a JSON object:
                 ],
                 max_output_tokens=300,
                 temperature=0.1,
-                response_format={"type": "json_object"},
-            )
-
+                response_format={"type": "json_object"},)
             if not response:
                 logger.warning("Intent classification returned empty response")
                 return fallback
-
             result = json.loads(response)
-
             intent = result.get("intent", "rag_only")
             if intent not in self.INTENTS:
                 logger.warning(
-                    f"Unknown intent '{intent}', falling back to rag_only"
-                )
+                    f"Unknown intent '{intent}', falling back to rag_only")
                 intent = "rag_only"
-
-            # Phase 6: Validate extracted_params types
             extracted_params = result.get("extracted_params", {})
             if not isinstance(extracted_params, dict):
                 extracted_params = {}
-
             return {
                 "intent": intent,
-                "confidence": min(1.0, max(0.0, float(
-                    result.get("confidence", 0.0)
-                ))),
-                "extracted_params": extracted_params,
-            }
-
+                "confidence": min(1.0, max(0.0, float(result.get("confidence", 0.0)))),
+                "extracted_params": extracted_params,}
         except json.JSONDecodeError as e:
             logger.warning(f"Intent classification JSON parse failed: {e}")
             return fallback
         except Exception as e:
             logger.warning(f"Intent classification failed: {e}")
             return fallback
-
     @staticmethod
     def _sanitize_input(text: str, max_length: int = 5000) -> str:
-        """
-        Phase 6: Sanitize user input before sending to LLM.
-        - Strip control characters (except newlines/tabs)
-        - Limit length
-        - Remove null bytes
-        """
         if not text:
             return ""
-        # Remove null bytes
+        #here remove null bytes
         text = text.replace("\x00", "")
-        # Remove control characters except \n \t \r
+        #here remove control characters except \n \t \r
         text = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
-        # Limit length
         return text[:max_length].strip()

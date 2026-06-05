@@ -1,0 +1,109 @@
+chunk_id,bloom_level,condition,question
+scheduling,remember,baseline,What is the primary difference between preemptive and non-preemptive CPU scheduling algorithms?
+scheduling,remember,baseline,"What is the convoy effect in CPU scheduling, and which algorithm is it associated with?"
+scheduling,remember,baseline,What are the five criteria used to evaluate CPU scheduling algorithms?
+scheduling,remember,icl,Define turnaround time and waiting time in CPU scheduling.
+scheduling,remember,icl,What is the convoy effect in CPU scheduling?
+scheduling,remember,icl,What is the main drawback of SJF scheduling?
+scheduling,evaluate,baseline,Describe the convoy effect in FCFS scheduling and its impact on system performance.
+scheduling,evaluate,baseline,Compare and contrast preemptive and non-preemptive CPU scheduling algorithms.
+scheduling,evaluate,baseline,What are the implications of a smaller time quantum in Round Robin (RR) scheduling on system performance?
+scheduling,evaluate,icl,"What is the primary drawback of the SJF scheduling algorithm, and how can it be mitigated?"
+scheduling,evaluate,icl,Compare the average waiting time performance of FCFS and SJF scheduling algorithms.
+scheduling,evaluate,icl,What is the effect of reducing the time quantum in a Round Robin (RR) scheduling algorithm?
+deadlock,remember,baseline,What are the four necessary conditions for deadlock to occur in a system?
+deadlock,remember,baseline,Describe the Banker's algorithm for resource allocation and its purpose.
+deadlock,remember,baseline,What is the difference between a safe state and an unsafe state in the context of resource allocation?
+deadlock,remember,icl,What are the four necessary conditions that must hold simultaneously for a deadlock to occur?
+deadlock,remember,icl,What is a safe state in the context of deadlock avoidance?
+deadlock,remember,icl,What is the purpose of the Banker's algorithm in deadlock avoidance?
+deadlock,evaluate,baseline,Describe the four necessary conditions for deadlock to occur in a system.
+deadlock,evaluate,baseline,Explain the Banker's algorithm for deadlock avoidance and its safety check process.
+deadlock,evaluate,baseline,Compare and contrast deadlock prevention and avoidance in terms of their approach and impact on resource utilization.
+deadlock,evaluate,icl,Describe a scenario where prevention of deadlock through resource ordering is impractical. Justify your answer.
+deadlock,evaluate,icl,Compare and contrast livelock and deadlock in terms of process behavior and system state.
+deadlock,evaluate,icl,Derive the time complexity of the Banker's safety check algorithm and discuss its implications for system performance.
+memory_paging,remember,baseline,What is the primary function of the TLB in virtual memory?
+memory_paging,remember,baseline,What is the consequence of too few frames allocated to a process?
+memory_paging,remember,baseline,What is demand paging in virtual memory?
+memory_paging,remember,icl,What is the purpose of the TLB in virtual memory and what does it cache?
+memory_paging,remember,icl,What happens when a referenced page is absent in physical memory?
+memory_paging,remember,icl,What is the consequence of having too few frames allocated to a process in virtual memory?
+memory_paging,evaluate,baseline,"What is the primary cause of thrashing in a virtual memory system, and how can it be prevented?"
+memory_paging,evaluate,baseline,Compare and contrast the FIFO and LRU page replacement algorithms.
+memory_paging,evaluate,baseline,What is the effect of increasing the page size on the page table size and internal fragmentation?
+memory_paging,evaluate,icl,Explain Belady's anomaly in the context of page replacement policies.
+memory_paging,evaluate,icl,What is the effect of increasing the page size on the page table size and internal fragmentation?
+memory_paging,evaluate,icl,Describe the working set concept and its relationship to thrashing.
+threads,remember,baseline,What are the benefits of using threads instead of processes?
+threads,remember,baseline,How do user-level threads and kernel-level threads differ in terms of blocking calls?
+threads,remember,baseline,What is the primary advantage of the many-to-many thread model?
+threads,remember,icl,What are the benefits of using threads in a process?
+threads,remember,icl,How do user-level threads and kernel-level threads differ in terms of blocking system calls?
+threads,remember,icl,What resources do threads within the same process share?
+threads,evaluate,baseline,Compare the benefits of user-level threads and kernel-level threads in terms of responsiveness and resource utilization.
+threads,evaluate,baseline,Describe the many-to-many thread model and its advantages over one-to-one and many-to-one models.
+threads,evaluate,baseline,What are the implications of a blocking system call on user-level threads versus kernel-level threads?
+threads,evaluate,icl,Compare and contrast the many-to-one and one-to-one threading models in terms of parallelism and kernel overhead.
+threads,evaluate,icl,"Describe a scenario where user-level threads are vulnerable to blocking system calls, and explain how kernel-level threads address this issue."
+threads,evaluate,icl,"What are the benefits of using Lightweight Processes (LWPs) in threading, and how do they relate to responsiveness, resource sharing, and economy?"
+synchronization,remember,baseline,What are the three essential properties that a correct critical section solution must provide?
+synchronization,remember,baseline,What is the primary drawback of using a spinlock in a uniprocessor system?
+synchronization,remember,baseline,What is the purpose of a condition variable in a monitor?
+synchronization,remember,icl,What are the three necessary properties that a correct critical section solution must provide?
+synchronization,remember,icl,What is the primary difference between a spinlock and a blocking semaphore?
+synchronization,remember,icl,What is a race condition in the context of concurrent processes?
+synchronization,evaluate,baseline,What are the three necessary properties that a correct critical section solution must provide?
+synchronization,evaluate,baseline,"What is priority inversion, and how is it addressed?"
+synchronization,evaluate,baseline,What are the trade-offs between using spinlocks and blocking semaphores?
+synchronization,evaluate,icl,"What are the three necessary properties that a correct critical section solution must provide, and why are they important?"
+synchronization,evaluate,icl,Compare and contrast spinlocks and blocking semaphores in terms of CPU usage and context switch overhead.
+synchronization,evaluate,icl,"What is priority inversion, and how is it addressed in synchronization protocols?"
+filesystem,remember,baseline,What is the primary purpose of an inode in a file system?
+filesystem,remember,baseline,What is the main advantage of contiguous allocation in file systems?
+filesystem,remember,baseline,What is the difference between a hard link and a symbolic link in a file system?
+filesystem,remember,icl,What information does an inode store about a file?
+filesystem,remember,icl,Why does lseek() fail on pipes and sockets?
+filesystem,remember,icl,What is a hard link in a file system?
+filesystem,evaluate,baseline,Describe the Unix hybrid inode allocation strategy for file systems.
+filesystem,evaluate,baseline,What are the implications of contiguous allocation on file system behavior over time?
+filesystem,evaluate,baseline,Compare the random access performance of indexed and linked allocation strategies.
+filesystem,evaluate,icl,"Evaluate the trade-offs between contiguous, linked, and indexed file allocation methods for a file system that supports both sequential and random access patterns. Justify which method is most suitable for a workload with frequent sequential reads and occasional random writes."
+filesystem,evaluate,icl,"Describe how the Unix inode design handles large files using direct, single-indirect, double-indirect, and triple-indirect pointers. What are the implications of this design on file system performance and storage efficiency?"
+filesystem,evaluate,icl,Compare the effects of block size on disk throughput and internal fragmentation in a fixed block size file system. How do these trade-offs influence the choice of block size for a file system with a mix of small and large files?
+scheduling,apply,baseline,Compare and contrast preemptive and non-preemptive CPU scheduling algorithms.
+scheduling,apply,baseline,"What is the convoy effect in CPU scheduling, and which algorithm is it associated with?"
+scheduling,apply,baseline,"Define turnaround time and waiting time in the context of CPU scheduling, and provide their formulas."
+scheduling,apply,icl,"Given P1 (burst=10ms), P2 (burst=5ms), P3 (burst=8ms) arrive at t=0, draw the Gantt chart and compute average waiting time under FCFS."
+scheduling,apply,icl,"Compare SJF and FCFS in terms of average waiting time, given that SJF has provably minimal average waiting time among non-preemptive algorithms."
+scheduling,apply,icl,"Using Round Robin with time quantum=4ms, schedule P1(burst=12ms), P2(burst=6ms), P3(burst=9ms) arriving at t=0. Compute the completion time of P2."
+deadlock,apply,baseline,List and describe the four necessary conditions for a deadlock to occur in a system.
+deadlock,apply,baseline,"Explain the Banker's algorithm for deadlock avoidance, including the safety check process."
+deadlock,apply,baseline,Compare and contrast deadlock prevention and avoidance techniques in terms of their approach and impact on system resources.
+deadlock,apply,icl,"Consider a system with 3 processes and 2 resource types. The Allocation matrix is [[2,1],[1,0],[0,2]], the Max matrix is [[7,5],[3,2],[2,2]], and Available is [1,1]. Compute the Need matrix and determine if the system is in a safe state."
+deadlock,apply,icl,"Compare and contrast deadlock prevention and deadlock avoidance. Which of the four necessary conditions for deadlock does each strategy target, and how do they affect resource utilization?"
+deadlock,apply,icl,Suppose a resource-allocation graph has a cycle with a single-instance resource. What can be concluded about the system state?
+memory_paging,apply,baseline,What is the effect of increasing the number of frames on the FIFO page replacement algorithm?
+memory_paging,apply,baseline,"Calculate the Effective Access Time (EAT) given a fault rate p, memory access time, and fault service time."
+memory_paging,apply,baseline,What are the trade-offs between larger and smaller page sizes in virtual memory systems?
+memory_paging,apply,icl,"Consider a demand-paged virtual memory system with a main memory of 4 page frames. The virtual page reference string is 1, 2, 3, 1, 2, 3, 4. Using LRU and FIFO page replacement policies, calculate the number of page faults for each policy."
+memory_paging,apply,icl,A 32-bit virtual address is used with 4KB page size. Calculate the number of bits required for the offset and the virtual page number.
+memory_paging,apply,icl,"Suppose a system uses a page table with 2^20 entries, each entry of size 4 bytes. Calculate the total size of the page table."
+threads,apply,baseline,Compare the blocking behavior of user-level threads and kernel-level threads during a blocking system call.
+threads,apply,baseline,What are the benefits of using Lightweight Processes (LWPs) in thread management?
+threads,apply,baseline,How does the one-to-one thread model differ from the many-to-one model in terms of parallelism and kernel overhead?
+threads,apply,icl,"In a many-to-one threading model, what happens when one user thread makes a blocking I/O call, and how does this affect the other user threads?"
+threads,apply,icl,"On a dual-core system with one-to-one threading, a process has 2 kernel threads: T1 (running) and T2 (running). What happens when T1 makes a blocking I/O call?"
+threads,apply,icl,"Compare the creation cost of a thread versus a process. How much faster is thread creation, and why?"
+synchronization,apply,baseline,What are the three necessary conditions that a correct critical section solution must provide?
+synchronization,apply,baseline,Describe a scenario where priority inversion occurs and how it can be addressed.
+synchronization,apply,baseline,Compare the trade-offs between using a spinlock and a blocking semaphore for synchronizing access to a critical section.
+synchronization,apply,icl,"Given two processes P1 and P2, and two semaphores S1=1 and S2=1, show a sequence of wait and signal operations that leads to a deadlock situation."
+synchronization,apply,icl,"Using a binary semaphore, illustrate how mutual exclusion can be achieved among three processes. Provide a simple example to demonstrate this."
+synchronization,apply,icl,Compare the use of spinlocks and blocking semaphores in terms of CPU utilization and context switch overhead. When would one be preferred over the other?
+filesystem,apply,baseline,Describe the main advantage of contiguous allocation in file systems.
+filesystem,apply,baseline,What is the purpose of an inode in a file system?
+filesystem,apply,baseline,Compare internal fragmentation for contiguous and linked allocation.
+filesystem,apply,icl,"A file system uses a Unix inode with 12 direct pointers, a single indirect pointer, and a double indirect pointer. If each block is 4KB and each pointer is 4B, what is the maximum file size?"
+filesystem,apply,icl,Compare contiguous and linked file allocation for a workload that requires frequent sequential access to large files.
+filesystem,apply,icl,A file system uses 4KB blocks and has a file of size 1KB. What is the internal fragmentation for this file?

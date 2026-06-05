@@ -1,16 +1,3 @@
-"""
-eval_to_latex.py — convert evaluation_results.json into LaTeX tables
-                    ready to paste into rag_experiments.tex.
-
-Usage from src/:
-    python -m evaluation.eval_to_latex
-    python -m evaluation.eval_to_latex --filter ablation_scientific
-    python -m evaluation.eval_to_latex --output ../tables.tex
-
-Skips entries where every metric is 0 (timeouts) so the paper isn't
-polluted with failed runs. Prints to stdout by default.
-"""
-
 import argparse
 import json
 import os
