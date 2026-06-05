@@ -33,4 +33,4 @@ def test_build_final_text_block():
     assert result == r"$\text{Sol 1: } x = 5$"
     
     result2 = build_final_text_block("derive", 2*x, [x])
-    assert "2 x" in result2.replace(" ", "")
+    assert "2x" in result2.replace(" ", "")

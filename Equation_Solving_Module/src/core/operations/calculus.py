@@ -11,6 +11,15 @@ from ..formatting import (
     expr_to_clean_text
 )
 
+
+def _plain_result_text(expr) -> str:
+    if isinstance(expr, tuple) and len(expr) == 1:
+        expr = expr[0]
+    try:
+        return sp.sstr(expr).strip()
+    except Exception:
+        return str(expr).strip()
+
 def handle_derive(ai_data: dict) -> str:
     
     
@@ -20,13 +29,14 @@ def handle_derive(ai_data: dict) -> str:
     
     steps = format_base_steps("derive", [sp.Eq(expr, 0)], [var], derivative)
     final_res = build_final_text_block("derive", derivative, [var])
+    final_text = _plain_result_text(derivative)
     
     graphs = (
         f"\n\nGraphable Functions:\n"
         f"- Original: $y = {safe_latex(expr)}$\n"
         f"- Derivative: $y = {safe_latex(derivative)}$"
     )
-    return f"{steps}\n\nFinal Result:\n{final_res}{graphs}"
+    return f"{steps}\n\nFinal Result:\n${final_text}${graphs}"
 
 
 def handle_integrate(ai_data: dict) -> str:
@@ -36,14 +46,14 @@ def handle_integrate(ai_data: dict) -> str:
     integral = sp.integrate(expr, var)
     
     steps = format_base_steps("integrate", [sp.Eq(expr, 0)], [var], integral)
-    final_res = f"{build_final_text_block('integrate', integral, [var])} + C"
+    final_text = _plain_result_text(integral)
     
     graphs = (
         f"\n\nGraphable Functions:\n"
         f"- Original: $y = {safe_latex(expr)}$\n"
         f"- Integral: $y = {safe_latex(integral)} + C$"
     )
-    return f"{steps}\n\nFinal Result:\n{final_res}{graphs}"
+    return f"{steps}\n\nFinal Result:\n${final_text} + C${graphs}"
 
 
 def handle_limit(ai_data: dict) -> str:
@@ -56,7 +66,7 @@ def handle_limit(ai_data: dict) -> str:
         result = sp.limit(expr, var, approach, direction if direction in ['+', '-'] else '+-')
         
         steps = format_limit_steps(expr, var, approach, direction, result)
-        return f"{steps}\n\nFinal Result: {expr_to_clean_text(result)}"
+        return f"{steps}\n\nFinal Result: {_plain_result_text(result)}"
     except Exception as e:
         return f"Error calculating limit: {e}"
 
@@ -72,7 +82,7 @@ def handle_series(ai_data: dict) -> str:
         
         result = sp.series(expr, var, point, order).removeO()
         steps = format_series_steps(expr, var, point, order, result)
-        return f"{steps}\n\nFinal Result: {expr_to_clean_text(result)}"
+        return f"{steps}\n\nFinal Result: {_plain_result_text(result)}"
     except Exception as e:
         return f"Error computing series: {e}"
 
@@ -87,6 +97,6 @@ def handle_partial_derivative(ai_data: dict) -> str:
             result = sp.diff(result, var)
             
         steps = format_partial_derivative_steps(expr, variables, result)
-        return f"{steps}\n\nFinal Result: {expr_to_clean_text(result)}"
+        return f"{steps}\n\nFinal Result: {_plain_result_text(result)}"
     except Exception as e:
         return f"Error computing partial derivative: {e}"
