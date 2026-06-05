@@ -3,3 +3,4 @@
 *.py[cod]
 *changes/
 .coverage
+htmlcov/

@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT))
 import numpy as np
 import nltk
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
-from app.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
 from app.services.example_bank import ExampleBank
 from scripts.ablation_harness import AblationHarness

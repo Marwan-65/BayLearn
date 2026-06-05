@@ -42,7 +42,7 @@ DIFFICULTY_GUIDANCE = {
     }
 }
 
-# Normalize any difficulty vocabulary (Bloom-6 OR easy/medium/hard) to the
+# Normalize any difficulty vocabulary (Bloom-6) to the
 # 3-level keys DIFFICULTY_GUIDANCE uses. Without this, passing "remember" etc.
 # silently falls back to "medium" guidance for every level.
 _BLOOM6_TO_LEVEL = {

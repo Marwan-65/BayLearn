@@ -62,7 +62,7 @@ logger = logging.getLogger(__name__)
 ANCHOR_PASS      = 0.30   # V1: min SBERT similarity to any source chunk
 ANSWER_PASS      = 0.10   # V2: min normalised BM25 score for correct answer
 DIST_MIN_SEP     = 0.15   # V3: wrong options must differ by at least this much
-REJECT_THRESHOLD = 3      # ≥ N failures → reject
+REJECT_THRESHOLD = 5      # ≥ N failures → reject
 FLAG_THRESHOLD   = 1      # ≥ N failures → flag
 
 # ── Difficulty reading-ease bands (Flesch scale) ─────────────────────────────
@@ -91,11 +91,11 @@ def _get_sbert() -> SentenceTransformer:
 
 @dataclass
 class ValidatorResult:
-    validator: str          # "V1" … "V5"
-    name: str               # human-readable name
-    score: float            # 0.0 – 1.0  (1.0 = perfect)
+    validator: str          # V1 to V5
+    name: str               # redabale name
+    score: float            # from 0 to 1 where 1 is best
     passed: bool
-    detail: str             # one-line explanation
+    detail: str             # explanation for debug
 
 
 @dataclass

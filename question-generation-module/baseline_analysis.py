@@ -19,8 +19,8 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'question-generation-module'))
 
-from app.llm.groq_client import QuestionGenLLMClient
-from app.services.prompt_builder import (
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.prompt_builder import (
     build_mcq_prompt,
     build_short_answer_prompt,
     build_true_false_prompt,

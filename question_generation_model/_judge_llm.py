@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import os
 
-from app.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 try:
-    from app.llm.gemini_client import GeminiQuestionGenClient
+    from question_generation_model.llm.gemini_client import GeminiQuestionGenClient
 except ImportError:
     GeminiQuestionGenClient = None
 

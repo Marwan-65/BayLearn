@@ -479,9 +479,9 @@ import json
 import logging
 from typing import List, Optional
 
-from app.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
-from app.services.prompt_builder import (
+from question_generation_model.prompt_builder import (
     build_mcq_prompt,
     build_short_answer_prompt,
     build_true_false_prompt,
@@ -731,7 +731,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
 from app.services.question_service import QuestionGenerationService
 from app.routes.question_routes import question_router

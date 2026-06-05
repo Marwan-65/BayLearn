@@ -19,13 +19,13 @@ class GenerateQuestionsRequest(BaseModel):
 
 # ── One generated question ─────────────────────────────────────────────────
 class QuestionOption(BaseModel):
-    label: str          # "A", "B", "C", "D"
-    text: str           # "The speed of light"
-    is_correct: bool    # True for the correct answer
+    label: str 
+    text: str
+    is_correct: bool
 
 class GeneratedQuestion(BaseModel):
     question_text: str
-    question_type: str  # "mcq", "short_answer", "true_false"
+    question_type: str  # "mcq", "true_false"
     options: Optional[List[QuestionOption]] = None   # Only for MCQ
     correct_answer: str                              # The answer text
     keywords_to_match: Optional[List[str]] = None    # Short-answer grading hints

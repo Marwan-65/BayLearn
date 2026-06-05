@@ -687,10 +687,6 @@ function QuestionCard({ item, sessionId }) {
               </div>
             </div>
           )}
-
-          <div style={{ fontSize: 11, color: "#999", marginTop: 12, textAlign: "center" }}>
-            Use arrows or dots below to continue
-          </div>
         </div>
       )}
     </div>

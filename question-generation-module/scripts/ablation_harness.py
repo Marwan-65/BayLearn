@@ -63,7 +63,7 @@ class MockContextEnrichmentLayer:
         # Fire a single baseline query
         query = topic if topic else f"{difficulty} concepts"
         chunks = await self.chunk_fetcher.fetch_relevant_chunks(
-            project_id=project_id, query=query, limit=n
+            project_id=project_id, topic=query, limit=n
         )
         # Dummy diagnostics matching the baseline behavior
         diagnostics = {

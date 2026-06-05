@@ -10,8 +10,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'question-generation-module'))
 
-from app.llm.groq_client import QuestionGenLLMClient
-from app.services.prompt_builder import build_mcq_prompt
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.prompt_builder import build_mcq_prompt
 
 SAMPLE_STUDY_MATERIAL = """
 Physics: Fundamental Principles and Concepts

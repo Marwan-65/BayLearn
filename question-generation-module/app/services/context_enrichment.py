@@ -1,9 +1,9 @@
 """
 Context Enrichment Layer
 ========================
-Replaces the single-query + random.sample approach with:
+Replaces the single query + random.sample approach with:
 
-  1. Difficulty-aware multi-query expansion
+  1. Difficulty aware multi query expansion
      Fire multiple targeted queries to the RAG module based on difficulty
      level so the retrieved chunks actually match what the LLM needs to
      produce that kind of question.
@@ -22,7 +22,7 @@ Replaces the single-query + random.sample approach with:
      sim(c, s)            is cosine similarity on TF-IDF vectors of the
                           chunk texts — no embeddings model required.
 
-Dependencies added: scikit-learn (TF-IDF + cosine_similarity)
+Dependencies added: scikit learn (TF IDF + cosine_similarity)
 """
 
 import logging
@@ -35,16 +35,16 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
-# ── MMR balance: 0 = pure diversity, 1 = pure relevance ──────────────────────
+# MMR balance: 0 = pure diversity, 1 = pure relevance 
 MMR_LAMBDA = 0.65
 
-# ── How many chunks to request per individual query ──────────────────────────
+# How many chunks to request per individual query
 CHUNKS_PER_QUERY = 15
 
-# ── Difficulty-aware query templates ─────────────────────────────────────────
+#Difficulty aware query templates
 # Each difficulty has a primary intent + a set of query variants.
 # The RAG module is called once per variant; results are merged and
-# deduplicated, then MMR-selected.
+# deduplicated, then selected for relevance with mmr
 
 DIFFICULTY_QUERIES: Dict[str, List[str]] = {
     "easy": [
@@ -101,7 +101,6 @@ def _mmr_select(
     Greedy MMR selection.
 
     Parameters
-    ----------
     chunks      : deduplicated list of chunks from the RAG module.
                   Each chunk must have a float "score" key (relevance).
     n           : how many chunks to select.
@@ -129,7 +128,7 @@ def _mmr_select(
         logger.warning("MMR: TF-IDF failed (empty texts?), falling back to top-N.")
         return sorted(chunks, key=lambda c: c.get("score", 0), reverse=True)[:n]
 
-    # Relevance array: use the RAG module's own retrieval score
+    # relevance array use the RAG module's own retrieval score
     relevance = np.array([float(c.get("score", 0.0)) for c in chunks])
 
     selected_indices: List[int] = []
@@ -140,7 +139,7 @@ def _mmr_select(
             break
 
         if not selected_indices:
-            # First pick: purely by relevance
+            # first pick only by relevance
             best = max(remaining, key=lambda i: relevance[i])
         else:
             # MMR score for each remaining candidate
@@ -148,7 +147,7 @@ def _mmr_select(
             best = remaining[0]
             for i in remaining:
                 rel = relevance[i]
-                # Max similarity to any already-selected chunk
+                # max similarity to any already selected chunk
                 max_sim = max(sim_matrix[i, j] for j in selected_indices)
                 mmr_score = mmr_lambda * rel - (1 - mmr_lambda) * max_sim
                 if mmr_score > best_score:
@@ -184,15 +183,14 @@ class ContextEnrichmentLayer:
         Retrieve and select the best n chunks for the given difficulty.
 
         Returns
-        -------
         (selected_chunks, diagnostics)
-          selected_chunks : list of chunk dicts ready for _prepare_context
+          selected_chunks : list of chunk dictionaries ready for _prepare_context
           diagnostics     : dict with retrieval stats for logging/debugging
         """
         queries = _build_queries(difficulty, topic)
         logger.debug("Context enrichment queries for '%s': %s", difficulty, queries)
 
-        # ── Fire all queries concurrently (gather pattern) ────────────────
+        # Fire all queries at the same time 
         import asyncio
         results = await asyncio.gather(
             *[
@@ -206,7 +204,7 @@ class ContextEnrichmentLayer:
             return_exceptions=True,
         )
 
-        # Flatten, skip failed queries
+        # flatten returns and skip failed queries
         all_chunks: List[dict] = []
         query_hits: List[int] = []
         for i, res in enumerate(results):
@@ -216,11 +214,8 @@ class ContextEnrichmentLayer:
             else:
                 query_hits.append(len(res))
                 all_chunks.extend(res)
-
-        # ── Deduplicate ───────────────────────────────────────────────────
+        #removes duplicate chunks
         unique_chunks = _deduplicate(all_chunks)
-
-        # ── MMR selection ─────────────────────────────────────────────────
         selected = _mmr_select(unique_chunks, n=n)
 
         diagnostics = {

@@ -30,9 +30,11 @@ try:
 except ImportError:
     pass
 
+sys.path.insert(0, str(ROOT.parent))  # Add BayLearn root to path to resolve question_generation_model
+
 from app.services.example_bank import ExampleBank
 from app.services.question_service import QuestionGenerationService
-from _gen_llm import make_llm_client
+from question_generation_model._gen_llm import make_llm_client
 
 OUT_DIR = ROOT / "data" / "processed"
 OUT_DIR.mkdir(parents=True, exist_ok=True)

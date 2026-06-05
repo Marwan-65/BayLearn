@@ -2,11 +2,11 @@ import json
 import logging
 from typing import List, Optional
 
-from app.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
 from app.services.context_enrichment import ContextEnrichmentLayer
 from app.services.semantic_validator import SemanticValidator
-from app.services.prompt_builder import (
+from question_generation_model.prompt_builder import (
     build_mcq_prompt,
     build_short_answer_prompt,
     build_true_false_prompt,
@@ -287,9 +287,8 @@ class QuestionGenerationService:
     def _parse_llm_response(self, raw_response: str, question_type: str) -> List[GeneratedQuestion]:
         """
         Parse the JSON array the LLM returned into GeneratedQuestion objects.
-
-        The LLM sometimes wraps JSON in markdown code fences like ```json ... ```
-        This method handles that gracefully.
+        Tbecause he LLM sometimes wraps Json in markdown code fences 
+        This method handles that
         """
         # Strip markdown code fences if present
         text = raw_response.strip()
@@ -307,7 +306,7 @@ class QuestionGenerationService:
         qtype = (question_type or "").lower().strip()
         questions = []
         for item in data:
-            # Build options list only for MCQ
+            # Build options list only for mcq
             options = None
             if qtype == "mcq" and "options" in item:
                 options = [

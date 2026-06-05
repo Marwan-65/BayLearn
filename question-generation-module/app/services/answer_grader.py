@@ -1,18 +1,16 @@
 """
 Answer grading service.
 
-Grades a student's answer against the expected answer and returns is_correct.
-
-Design goals — latency & efficiency:
-  - MCQ / true_false: deterministic O(1) string comparison. (The frontend grades
-    these locally for zero latency; this server-side path exists so the /check
-    endpoint is complete and callers *may* route everything through it.)
-  - short_answer: keyword fast-path first (cheap substring check), then semantic
-    similarity using the SAME sentence-transformers model already loaded by the
-    ExampleBank — no extra model in memory, ~10-30ms per call, no API cost.
-
-The semantic step is what makes free-text grading robust: it accepts correct
-paraphrases that don't literally contain the keyword strings.
+Grades a student's answer against the expected answer and returns is_correct
+Design
+1. mcq / true_false: deterministic O(1) string comparison. (The frontend grades
+these locally for zero latency; this server-side path exists so the /check
+endpoint is complete and callers *may* route everything through it.)
+2. short_answer: keyword fast path first (cheap substring check), then semantic
+similarity using the sentence transformers model already loaded by the
+ExampleBank so no extra model in memory meaning around 20 ms per call no API cost
+The semantic step is what makes text grading robust it accepts correct
+paraphrases that don't literally contain the keyword strings
 """
 from __future__ import annotations
 
@@ -23,12 +21,12 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Cosine threshold for all-MiniLM-L6-v2 (normalized embeddings).
-# Empirically, genuine paraphrases of a correct short answer score ~0.55-0.75
+# Cosine threshold for MiniLM L6 v2 (normalized embeddings).
+# genuine paraphrases of a correct short answer score ~0.55-0.75
 # with this model, while unrelated answers score < 0.2 — so 0.55 captures
 # correct paraphrases while leaving a wide margin against wrong answers.
 # Leans slightly lenient on purpose: better to accept a correct paraphrase than
-# to mark a right answer wrong. Override per-deployment if needed.
+# to mark a right answer wrong. attunable for different needs
 DEFAULT_SIM_THRESHOLD = 0.55
 
 
@@ -43,7 +41,7 @@ class AnswerGrader:
     """
     Grades answers for all three question types.
 
-    `embedder` is any object exposing `embed_query(text) -> np.ndarray` that
+    embedder is any object exposing embed_query(text) -> np.ndarray that
     returns an L2-normalized vector (the ExampleBank satisfies this). When no
     embedder is available, short-answer grading degrades gracefully to keyword
     + substring matching.
@@ -101,17 +99,18 @@ class AnswerGrader:
         if not ua_l:
             return GradeResult(False, "fallback", 0.0)
 
-        # 1) Keyword fast-path (cheap, no model needed).
+        # check against keywords first to avoid overprocessing
         hints = [str(k).lower().strip() for k in (keywords or []) if str(k).strip()]
         if hints:
             matched = sum(1 for k in hints if k in ua_l)
-            required = len(hints) if len(hints) <= 2 else math.ceil(len(hints) * 0.6)
+            #require all keywords if 2 or fewer, otherwise require 60% of them tune to needs
+            required = len(hints) if len(hints) <= 2 else math.ceil(len(hints) * 0.6) 
             ratio = matched / len(hints)
             if matched >= required:
                 return GradeResult(True, "keyword", round(ratio, 3))
-            # keywords missed — let semantic similarity try to rescue below.
+            # keywords missed let semantic similarity try to rescue below.
 
-        # 2) Semantic similarity (reuses the already-loaded MiniLM model).
+        # semantic similarity (reuses the miniLM model)
         if self._embedder is not None and correct_answer.strip():
             try:
                 import numpy as np
@@ -122,7 +121,7 @@ class AnswerGrader:
             except Exception as e:
                 logger.warning("Semantic grading failed, falling back: %s", e)
 
-        # 3) Last-resort substring/equality fallback.
+        #as a last option check substring or equality fallback.
         cl = correct_answer.lower().strip()
         ok = bool(cl) and (ua_l == cl or cl in ua_l or ua_l in cl)
         return GradeResult(ok, "fallback")
