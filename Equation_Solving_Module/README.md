@@ -40,7 +40,7 @@ GROQ_API_KEY=your_key_here
 ```
 ### Running the Application
 ```bash
-uvicorn baylearn.api:app --reload
+uvicorn src.api:app --reload --port 9001
 ```
-Access at `http://localhost:8000`
-- API documentation: `http://localhost:8000/docs`
+Access at `http://localhost:9001`
+- API documentation: `http://localhost:9001/docs`

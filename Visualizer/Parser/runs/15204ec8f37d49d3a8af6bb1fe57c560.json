@@ -1,0 +1,49 @@
+{
+  "run_id": "15204ec8f37d49d3a8af6bb1fe57c560",
+  "status": "ready",
+  "created_at": "2026-06-05T19:25:51.959245+00:00",
+  "animation_type": "linked_list",
+  "viewer_url": "http://localhost:8081?run_id=15204ec8f37d49d3a8af6bb1fe57c560",
+  "classification": {
+    "animation_type": "linked_list",
+    "confidence": 0.99,
+    "evidence": [
+      "A linked list is a fundamental linear data structure in computer science that represents a sequence of elements, called nodes, where each node contains two main components: the data field, which stores the actual value, and a reference (or pointer) field, which stores the address of the next node in the sequence.",
+      "linked lists do not require contiguous memory allocation, which makes them highly flexible in terms of dynamic memory usage.",
+      "efficient insertion and deletion operations, especially at the beginning or middle of the structure, since these operations only require updating pointer references rather than shifting large blocks of memory.",
+      "accessing an element in a linked list is not constant time, because traversal must begin from the head node and proceed sequentially through each node until the desired position is reached.",
+      "The behavior and performance of a linked list can be formally described using recurrence relations that capture the cost of traversal or operations over its structure."
+    ]
+  },
+  "extraction": {
+    "animation_type": "linked_list",
+    "confidence": 0.4,
+    "initial_list": [],
+    "operations": [
+      {
+        "op": "traverse",
+        "value": null,
+        "index": null,
+        "source_quote": "traversal must begin from the head node and proceed sequentially through each node until the desired position is reached."
+      },
+      {
+        "op": "traverse",
+        "value": null,
+        "index": null,
+        "source_quote": "traverse a singly linked list of size n."
+      },
+      {
+        "op": "insertAtHead",
+        "value": null,
+        "index": null,
+        "source_quote": "insertion at the head of a linked list"
+      }
+    ],
+    "final_list": []
+  },
+  "llm_payload_meta": {
+    "document_id": "(anonymous)",
+    "window_count": 1,
+    "full_text_chars": 3747
+  }
+}

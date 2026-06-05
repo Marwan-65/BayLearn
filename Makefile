@@ -28,6 +28,7 @@ ANIM_PORT      ?= 8010
 ADAPTIVE_PORT  ?= 8002
 QUESTION_PORT  ?= 8001
 EQUATION_PORT  ?= 9001
+EQUATION_UI_PORT ?= 3000
 FRONTEND_PORT  ?= 5173
 LINKED_LIST_UI ?= 8081
 SCHEDULAR_UI   ?= 8082
@@ -71,7 +72,7 @@ $(STAMP)/parser: Input-Parsing-Module/requirements.txt | $(STAMP)
 	$(CONDA_RUN) $(PARSER_ENV) pip install -r $<
 	@touch $@
 
-$(STAMP)/equation: equation-module/requirements.txt | $(STAMP)
+$(STAMP)/equation: $(EQUATION_DIR)/requirements.txt | $(STAMP)
 	$(call ensure_env,$(EQUATION_ENV),$(EQUATION_PY))
 	$(CONDA_RUN) $(EQUATION_ENV) pip install -r $<
 	@touch $@
@@ -116,6 +117,7 @@ setup-minimal: $(STAMP)/parser $(STAMP)/rag $(STAMP)/frontend
 # 	@echo "All environments ready."
 setup: $(STAMP)/rag \
        $(STAMP)/parser \
+       $(STAMP)/equation \
        $(STAMP)/equation-frontend \
        $(STAMP)/adaptive \
        $(STAMP)/questions \
@@ -138,7 +140,7 @@ equation-api: # Equation backend :9001
 
 .PHONY: equation-frontend
 equation-frontend: # Equation UI (Vite dev)
-	cd $(EQUATION_UI) && npm run dev
+	cd $(EQUATION_UI) && npm run dev -- --port $(EQUATION_UI_PORT) --strictPort
 
 .PHONY: adaptive
 adaptive: # Adaptive-learning backend (Flask) :8002
@@ -205,7 +207,7 @@ all: check-node setup $(LOGS)
 	$(call bg,parser,Input-Parsing-Module,$(CONDA_RUN) $(PARSER_ENV) uvicorn app.main:app --port $(PARSER_PORT))
 	$(call bg,rag,Rag_Module/src,$(CONDA_RUN) $(RAG_ENV) uvicorn main:app --port $(RAG_PORT))
 	$(call bg,equation-api,$(EQUATION_DIR),$(CONDA_RUN) $(EQUATION_ENV) uvicorn src.api:app --reload --port $(EQUATION_PORT))
-	$(call bg,equation-frontend,$(EQUATION_UI),npm run dev)
+	$(call bg,equation-frontend,$(EQUATION_UI),npm run dev -- --port $(EQUATION_UI_PORT) --strictPort)
 	$(call bg,adaptive,Adaptive-Learning-Module,$(CONDA_RUN) $(ADAPTIVE_ENV) flask --app app.backend run --port $(ADAPTIVE_PORT))
 	$(call bg,questions,question-generation-module,$(CONDA_RUN) $(QUESTION_ENV) uvicorn app.main:app --port $(QUESTION_PORT))
 	$(call bg,transform-api,Visualizer/Parser,$(CONDA_RUN) $(PARSER_ENV) uvicorn transform_api:app --port $(ANIM_PORT))
@@ -231,7 +233,7 @@ stop:
 
 	@echo "Killing by ports (hard cleanup)..."
 	@for port in $(RAG_PORT) $(PARSER_PORT) $(ANIM_PORT) $(FRONTEND_PORT) \
-		$(ADAPTIVE_PORT) $(QUESTION_PORT) \
+		$(ADAPTIVE_PORT) $(QUESTION_PORT) $(EQUATION_PORT) $(EQUATION_UI_PORT) \
 		$(LINKED_LIST_UI) $(SCHEDULAR_UI) $(BTREE_UI); do \
 	  lsof -ti :$$port | xargs kill -9 2>/dev/null || true; \
 	done
