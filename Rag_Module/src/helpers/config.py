@@ -7,9 +7,6 @@ class Settings(BaseSettings):
     EMBEDDING_BACKEND: str
     GROQ_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
-    OPENAI_COMPAT_API_KEY: Optional[str] = None
-    OPENAI_COMPAT_BASE_URL: Optional[str] = "https://api.cerebras.ai/v1"
-    OPENAI_COMPAT_MODEL: Optional[str] = "llama-3.3-70b"
     GENERATION_MODEL_ID: Optional[str] = None
     GEMINI_MODEL_ID: Optional[str] = "gemini-2.5-flash"
     EMBEDDING_MODEL_ID: Optional[str] = None
@@ -43,7 +40,7 @@ class Settings(BaseSettings):
     UPLOAD_MAX_MB_PDF: Optional[int] = 50
     UPLOAD_MAX_MB_IMAGE: Optional[int] = 20
     UPLOAD_MAX_MB_AUDIO: Optional[int] = 200
-    UPLOAD_MAX_MB_VIDEO: Optional[int] = 1024  # 1 GB
+    UPLOAD_MAX_MB_VIDEO: Optional[int] = 1024  
     UPLOAD_MAX_MB_DEFAULT: Optional[int] = 25
     BM25_ENABLED: Optional[bool] = True
     BM25_BACKEND: Optional[str] = "IN_MEMORY"
@@ -54,7 +51,7 @@ class Settings(BaseSettings):
 # but smaller k favors top-ranked documents more strongly
     RRF_K: Optional[int] = 60
     HYBRID_OVER_RETRIEVAL_MULTIPLIER: Optional[int] = 2
-    # we canceled this approach 
+
     SAME_PAGE_IMAGE_PROMOTION: Optional[bool] = True
     SAME_PAGE_IMAGE_MAX: Optional[int] = 2
     SAME_PAGE_IMAGE_NEIGHBOR_RADIUS: Optional[int] = 2

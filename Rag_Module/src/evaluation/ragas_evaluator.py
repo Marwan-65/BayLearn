@@ -7,15 +7,12 @@ from ragas.run_config import RunConfig
 from ragas.metrics import (
     Faithfulness, AnswerRelevancy,
     ContextPrecision, ContextRecall,)
-from ragas.llms import LangchainLLMWrapper
-from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_openai import ChatOpenAI
-try:
-    from langchain_huggingface import HuggingFaceEmbeddings
-except ImportError:
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
-from .chatgroqfixed import GroqChatFixed
+from RAG_module_models.ragas_judges import (
+    build_embeddings,
+    build_openai_compat_judge,
+    build_gemini_judge,
+    build_groq_judge,
+)
 
 
 class RAGASEvaluator:
@@ -78,126 +75,49 @@ class RAGASEvaluator:
             logger.error(f"RAGAS evaluation failed: {e}")
             return self._zero_scores(str(e))
 
+    def _metrics(self):
+        return [Faithfulness(), AnswerRelevancy(strictness=1),
+                ContextPrecision(), ContextRecall()]
+
     def _run_ragas_openai_compat(self, test_cases):
-        model = self.oc_model or "llama-3.3-70b"
-        base_url = self.oc_base_url or "https://api.cerebras.ai/v1"
-        logger.info(f"RAGAS judge: OpenAI-compatible {model} @ {base_url}")
-        llm = ChatOpenAI(
-            model=model,
-            api_key=self.oc_api_key,
-            base_url=base_url,
-            temperature=0,
-            max_tokens=2048,
-            max_retries=10,   # honor free-tier 30 RPM caps with backoff
-            timeout=120,
-        )
-        ragas_llm = LangchainLLMWrapper(llm)
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
-        ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
+        logger.info(f"RAGAS judge: OpenAI-compatible {self.oc_model or 'default'}")
+        ragas_llm = build_openai_compat_judge(self.oc_api_key, self.oc_base_url, self.oc_model)
+        ragas_embeddings = build_embeddings()
         dataset = Dataset.from_list(test_cases)
         cfg = RunConfig(timeout=180, max_retries=12, max_workers=1)
         return ragas_evaluate(
             dataset=dataset,
-            metrics=[Faithfulness(), AnswerRelevancy(strictness=1),
-                    ContextPrecision(), ContextRecall()],
+            metrics=self._metrics(),
             llm=ragas_llm,
             embeddings=ragas_embeddings,
             run_config=cfg,
             raise_exceptions=False,
         )
+
     def _run_ragas_gemini(self, test_cases):
         judge_model = os.getenv("RAGAS_JUDGE_MODEL") or os.getenv("GEMINI_MODEL_ID") \
             or "gemini-2.5-flash-lite"
-        llm = ChatGoogleGenerativeAI(
-            model=judge_model,
-            google_api_key=self.gemini_api_key,
-            temperature=0,
-            max_output_tokens=2048,
-            # transport="rest" is REQUIRED for the new AQ.-prefixed AI Studio keys.
-            # The default gRPC transport mis-sends the AQ. key as an OAuth bearer
-            # token -> 401 "ACCESS_TOKEN_TYPE_UNSUPPORTED". REST sends it via the
-            # x-goog-api-key header (same path google-genai uses for generation),
-            # which the AQ. key accepts. Legacy AIza keys work on either transport.
-            transport="rest",
-        )
-        ragas_llm = LangchainLLMWrapper(llm)
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
-        ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
-
+        ragas_llm = build_gemini_judge(self.gemini_api_key, judge_model)
+        ragas_embeddings = build_embeddings()
         dataset = Dataset.from_list(test_cases)
-        # max_workers=1 -> sequential API calls (avoids rate-limit bursts on free tier).
-        # timeout=180   -> per-API-call timeout in seconds.
-        # max_retries=12 -> free-tier RPM caps (e.g. ~10 RPM on gemini-2.5-flash-lite)
-        #   mean many calls get a transient 429; the langchain client honors the
-        #   server's retry_delay, so generous retries let the run self-pace instead
-        #   of failing a metric.
         cfg = RunConfig(timeout=180, max_retries=12, max_workers=1)
-
-        # strictness=1 -> AnswerRelevancy generates ONE probe question per answer
-        # instead of the default 3. On free-tier judges this cuts the relevancy
-        # API-call volume by 3×, which is the single biggest source of the
-        # rate-limit budget exhaustion that produced None scores. One probe is
-        # enough to compute relevancy; the extra two only reduce variance slightly.
         return ragas_evaluate(
             dataset=dataset,
-            metrics=[Faithfulness(), AnswerRelevancy(strictness=1),
-                    ContextPrecision(), ContextRecall()],
+            metrics=self._metrics(),
             llm=ragas_llm,
             embeddings=ragas_embeddings,
             run_config=cfg,
             raise_exceptions=False,
         )
+
     def _run_ragas_groq(self, test_cases):
-        # Groq free 8b tier = 6000 tokens/MINUTE. Each call's request = prompt +
-        # max_tokens. At max_tokens=2048 the request was ~3384 tokens -> only ~2
-        # calls/min fit and the 3rd 429s. Two mitigations:
-        #   (1) max_tokens=900 — RAGAS judge outputs (statements/verdicts) are
-        #       short, so this shrinks each request well under the TPM ceiling.
-        #   (2) max_retries=15 — a TPM 429 says "retry in ~15s"; patient retries
-        #       turn it into a wait, not a failure (no more None cells).
-        llm = GroqChatFixed(
-            model="llama-3.1-8b-instant",
-            groq_api_key=self.groq_api_key,
-            temperature=0,
-            max_tokens=900,
-            timeout=120.0,
-            # max_retries=4: enough to wait out a per-MINUTE (TPM) 429 (~15s each),
-            # but few enough that a per-DAY (TPD) exhausted key fails fast and the
-            # judge rotates to the next provider (Cerebras) instead of hanging on
-            # 7-minute TPD retry-after waits.
-            max_retries=4,
-        )
-        ragas_llm = LangchainLLMWrapper(llm)
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
-        ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
-
+        ragas_llm = build_groq_judge(self.groq_api_key)
+        ragas_embeddings = build_embeddings()
         dataset = Dataset.from_list(test_cases)
-        # max_workers=1: PROVEN clean (gave EvalSR=1.0, zero None). Groq free tier
-        # throttles CONCURRENT requests, so workers>1 makes each call slow past the
-        # timeout -> TimeoutError -> None. Serial is slower (~15min/config) but
-        # reliable. timeout=240 gives generous headroom per cell.
         cfg = RunConfig(timeout=240, max_retries=4, max_workers=1)
-
         return ragas_evaluate(
             dataset=dataset,
-            # strictness=1 -> AnswerRelevancy uses 1 probe (Groq forces n=1 anyway),
-            # which silences the "1 generations instead of 3" warning and cuts calls.
-            metrics=[Faithfulness(), AnswerRelevancy(strictness=1),
-                    ContextPrecision(), ContextRecall()],
+            metrics=self._metrics(),
             llm=ragas_llm,
             embeddings=ragas_embeddings,
             run_config=cfg,
@@ -223,10 +143,10 @@ class RAGASEvaluator:
                     valid = col_data.dropna()
                     n_none = n_rows - len(valid)
                     none_counts[name] = n_none
-                    # dropna mean (reported score — consistent with prior runs)
+                    # dropna mean (reported score, consistent with prior runs)
                     scores[name] = round(float(valid.mean()), 3) if len(valid) else 0.0
                     if n_none > 0:
-                        # honest mean treating None as 0 — stored alongside for audit
+                        # honest mean treating None as 0, stored alongside for audit
                         full_mean = round(float(col_data.fillna(0).mean()), 3)
                         logger.warning(
                             f"Metric '{name}': {n_none}/{n_rows} questions returned None "
@@ -242,13 +162,7 @@ class RAGASEvaluator:
 
         metric_vals = [scores[m] for m in metric_aliases if m in scores]
         scores["overall"] = round(float(np.mean(metric_vals)), 3)
-        scores["none_counts"] = none_counts   # record how many judge failures per metric
-
-        # evaluation success rate (ESR) It is the fraction of (question × metric) cells the judge actually scored. A
-        # config that "wins" only because its shorter answers were easier to
-        # evaluate (fewer claims -> fewer judge calls -> fewer rate-limit drops)
-        # will show a HIGHER success rate,so we can see whether a score
-        # gap reflects retrieval quality or merely evaluation stability.
+        scores["none_counts"] = none_counts  
         total_cells = n_rows * len(metric_aliases)
         scored_cells = total_cells - sum(none_counts.values())
         scores["eval_success_rate"] = (
@@ -256,9 +170,6 @@ class RAGASEvaluator:
         )
         scores["n_questions"] = n_rows
         logger.info(f"Final scores: {scores}")
-
-        # document per-question records (question + per-metric score + contexts)
-        # this is how we verify whether a low faithfulness is a real failure or noise
         try:
             col = {}
             for name, aliases in metric_aliases.items():
@@ -273,7 +184,7 @@ class RAGASEvaluator:
                 for name, a in col.items():
                     v = row.get(a)
                     rec[name] = (None if v is None or (isinstance(v, float) and v != v)
-                                 else round(float(v), 3))
+                        else round(float(v), 3))
                 per_q.append(rec)
             self.last_per_question = per_q
         except Exception as e:
@@ -289,7 +200,7 @@ class RAGASEvaluator:
         }
 
     def save_results(self, scores, test_details=None, label=None,
-                     output_path="evaluation_results.json"):
+                    output_path="evaluation_results.json"):
         import datetime
 
         evaluator_label = (

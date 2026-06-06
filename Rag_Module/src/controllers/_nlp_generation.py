@@ -1,8 +1,5 @@
-# prompt engineering part for the rag system (takes retrieved chunks and returns the answer of the LLM)
 import re
-import time
-
-from controllers._llm_calls import _strict_answer, _normal_answer
+from RAG_module_models.llm_calls import _strict_answer, _normal_answer
 
 # catches common texts added to answer by LLM
 _DISCLAIMER_PATTERNS = [
@@ -36,7 +33,7 @@ def _strip_source_disclaimers(text: str) -> str:
             break
     return out.rstrip()
 
-# catch source tags (i made the llm generate it but sometimes hallucinate and write many)
+# catch source tags (as a result of hallucinate)
 _SOURCE_TAG_RE = re.compile(r"\[Source\s+([\d,\s&and]+)\]", re.IGNORECASE)
 
 def _drop_invalid_source_tags(text: str, num_sources: int) -> str:

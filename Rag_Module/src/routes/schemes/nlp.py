@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 class pushRequest(BaseModel):
     do_reset: Optional[int] = 0
 class ChatMessage(BaseModel):
-    role: str  # "user" | "assistant"
+    role: str  # "user" or "assistant"
     content: str
 class searchRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)

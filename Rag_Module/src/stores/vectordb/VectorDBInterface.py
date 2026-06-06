@@ -35,5 +35,5 @@ class VectorDBInterface(ABC):
 
     @abstractmethod
     def scroll_all(self, collection_name: str) -> List[dict]:
-        """Return all points (id + payload, no vectors) for cache rebuild after restart."""
+        """da to return all points (id + payload, no vectors) for cache rebuild after restart"""
         pass

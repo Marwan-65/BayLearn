@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class LLMEnum(str, Enum):
     LLAMA_2 = "llama2"
     MISTRAL = "mistral"

@@ -19,6 +19,7 @@ from routes._nlp_handlers import (
     _avg_latency,
 )
 from evaluation.test_set import get_test_cases
+import os, json as _json
 
 
 logger = logging.getLogger("uvicorn.error")
@@ -95,9 +96,7 @@ async def search(project_id: str,request: Request, search_request: searchRequest
         status_code=status.HTTP_200_OK,
         content={
             "signal": Response_Signal.SEARCH_VECTORDB_COLLECTION_SUCCESS.value,
-            "top_results": top_results,
-        },
-    )
+            "top_results": top_results,},)
 
 @nlp_router.get("/index/info/{project_id}")
 async def get_nlp_index_info(project_id: str, request: Request):
@@ -120,27 +119,19 @@ async def get_nlp_index_info(project_id: str, request: Request):
 
 @nlp_router.post("/ask/{project_id}")
 @limiter.limit("20/minute")
-async def ask_question(
-    project_id: str,
-    request: Request,
-    search_request: searchRequest,
-):
+async def ask_question(project_id: str,request: Request,search_request: searchRequest,):
     endpoint_t0 = time.time()
     controller = _build_controller(request)
 
     project = await controller.validate_project(project_id)
     if not project:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value},
-        )
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST,
+            content={"signal": Response_Signal.PROJECT_NOT_FOUND_ERROR.value},)
 
     question = search_request.text
     limit = search_request.limit
-    raw_history = [
-        {"role": m.role, "content": m.content}
-        for m in (search_request.chat_history or [])
-    ]
+    raw_history = [{"role": m.role, "content": m.content}
+        for m in (search_request.chat_history or [])]
 
     intent_router = getattr(request.app, "intent_router", None)
     intent = "rag_only"
@@ -157,49 +148,34 @@ async def ask_question(
         extracted_params = classification.get("extracted_params", {})
         logger.info(
             f"Intent: {intent} (confidence: {confidence:.2f}) "
-            f"for question: {question[:80]}..."
-        )
+            f"for question: {question[:80]}...")
 
     if intent == "equation_from_context":
-        response = await _handle_equation_from_context(
-            controller, project_id, question, limit, extracted_params, confidence
-        )
+        response = await _handle_equation_from_context(controller, project_id, question, limit, extracted_params, confidence)
     else:
-        response = await _handle_rag_only(
-            controller, project_id, question, limit, chat_history=raw_history
-        )
+        response = await _handle_rag_only(controller, project_id, question, limit, chat_history=raw_history)
         response["intent"] = "rag_only"
 
     if not response:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": Response_Signal.AUGMENTED_ANSWER_FAILURE.value},
-        )
+            content={"signal": Response_Signal.AUGMENTED_ANSWER_FAILURE.value},)
     if "error" in response and response["error"] != "no_relevant_sources":
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"signal": response["error"]},
-        )
+        return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,content={"signal": response["error"]},)
 
     response.setdefault("timings", {})
     response["timings"]["intent_classification_ms"] = intent_ms
-    response["timings"]["endpoint_total_ms"] = round(
-        (time.time() - endpoint_t0) * 1000
-    )
+    response["timings"]["endpoint_total_ms"] = round((time.time() - endpoint_t0) * 1000)
 
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
+    return JSONResponse(status_code=status.HTTP_200_OK,
         content={
             "signal": Response_Signal.AUGMENTED_ANSWER_SUCCESS.value,
-            "data": response,
-        },
-    )
+            "data": response,},)
 
 async def _do_single_eval(
     controller, project_id, cases_to_evaluate, groq_api_key,
     enable_multi_query, enable_hybrid, enable_reranker, enable_compression,
-    dataset, label,
-):
+    dataset, label,):
     test_cases, test_details = _run_batch(
         controller=controller,project_id=project_id,
         cases=cases_to_evaluate,enable_multi_query=enable_multi_query,
@@ -239,15 +215,12 @@ async def evaluate_rag(
 
     controller = _build_controller(request)
     groq_api_key = getattr(request.app.generation_client, "api_key", None)
-    from evaluation.test_set import get_test_cases
-
     try:
         level_filter = [int(x.strip()) for x in levels.split(",")] if levels else None
     except ValueError:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"signal": "Invalid levels parameter: must be comma-separated integers (e.g. '1,2,3')"},
-        )
+            content={"signal": "Invalid levels parameter: must be comma-separated integers (e.g. '1,2,3')"},)
     all_cases = get_test_cases(dataset=dataset, levels=level_filter)
     cases_to_evaluate = all_cases[batch_start: batch_start + batch_size] if batch_size > 0 else all_cases
 
@@ -281,13 +254,8 @@ class AblationRun(BaseModel):
 
 
 class AblationRequest(BaseModel):
-    runs: List[AblationRun] = Field(
-        ...,
-        description=(
-            "List of technique combinations to evaluate. Each run is "
-            "executed on the same batch of test cases and compared."
-        ),
-    )
+    runs: List[AblationRun] = Field(...,description=("List of technique combinations to evaluate. Each run is "
+            "executed on the same batch of test cases and compared."),)
     batch_start: int = 0
     batch_size: int = 5
     dataset: str = "scientific"
@@ -295,7 +263,6 @@ class AblationRequest(BaseModel):
 
 
 async def _do_ablation(controller, project_id, cases_to_evaluate, groq_api_key, body):
-    from evaluation.test_set import get_test_cases  # already resolved by caller
     results = {}
     for i, run in enumerate(body.runs):
         if i > 0:
@@ -387,7 +354,6 @@ async def get_eval_result(job_id: str):
 
 @nlp_router.get("/evaluate/results")
 async def list_eval_results():
-    import os, json as _json
     path = "evaluation_results.json"
     if not os.path.exists(path):
         return JSONResponse(status_code=200, content={"signal": "No results saved yet", "results": []})

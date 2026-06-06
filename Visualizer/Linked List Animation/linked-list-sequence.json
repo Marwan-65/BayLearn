@@ -1,19 +1,18 @@
 {
-  "initialList": [],
+  "initialList": [
+    10,
+    20,
+    30
+  ],
   "operations": [
     {
-      "op": "traverse",
-      "value": null,
-      "index": null
+      "op": "insertAtIndex",
+      "value": 15,
+      "index": 1
     },
     {
-      "op": "traverse",
-      "value": null,
-      "index": null
-    },
-    {
-      "op": "insertAtHead",
-      "value": null,
+      "op": "deleteByValue",
+      "value": 20,
       "index": null
     }
   ]

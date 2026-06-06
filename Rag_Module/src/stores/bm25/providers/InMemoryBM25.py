@@ -15,10 +15,8 @@ def _tokenize(text: str) -> List[str]:
     lowered = text.lower().translate(_PUNCT_TABLE)
     return [t for t in lowered.split() if len(t) > 1 or t.isalpha()]
 
-
 class InMemoryBM25(BM25Interface):
     PICKLE_VERSION = 1
-
     def __init__(self, index_dir: str, k1: float = 1.5, b: float = 0.75):
         self.index_dir = index_dir
         self.k1 = k1
@@ -35,7 +33,7 @@ class InMemoryBM25(BM25Interface):
     def build_index(self, project_id: str, texts: List[str],
                     ids: List, payloads: List[Dict]) -> bool:
         if not texts:
-            self.logger.warning(f"BM25 build_index: empty corpus for {project_id}")
+            self.logger.warning(f"bm25 build_index: empty corpus for {project_id}")
             return False
         try:
             tokenized_corpus = [_tokenize(t) for t in texts]
@@ -102,14 +100,11 @@ class InMemoryBM25(BM25Interface):
         part = np.argpartition(-scores, k - 1)[:k]
         part_sorted = part[np.argsort(-scores[part])]
 
-        return [
-            {
+        return [{
                 "id": ids[i],
                 "score": float(scores[i]),
-                "payload": payloads[i],
-            }
-            for i in part_sorted if scores[i] > 0.0
-        ]
+                "payload": payloads[i],}
+            for i in part_sorted if scores[i] > 0.0]
 
     def delete_index(self, project_id: str) -> bool:
         self._cache.pop(project_id, None)

@@ -5,7 +5,7 @@ from typing import Optional
 from compressors import AdaptiveContextualCompressor
 from stores.LLM.LLMEnums import DocumentTypeEnum
 from stores.bm25.fusion import reciprocal_rank_fusion
-from controllers._llm_calls import _hyde_call, _multi_query_call
+from RAG_module_models.llm_calls import _hyde_call, _multi_query_call
 
 # hena we start to add more improvement layers for retrival
 

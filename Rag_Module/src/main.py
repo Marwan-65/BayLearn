@@ -1,5 +1,9 @@
 # main file for intializing everything in the pipeline
 import os
+import sys
+from pathlib import Path
+# the prompt/LLM-call package lives at the repo root, outside this module
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 """ we disable it as libraries like hugging face use it so they can cause problems with fast api
 problems affect performance and may cause deadlocks 
@@ -22,7 +26,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from core.limiter import limiter
-
 
 app = FastAPI() #server we use
 app.add_middleware(

@@ -18,7 +18,7 @@ class QdrantDB(VectorDBInterface):
         elif distance_method == DistanceMethodEnum.DOT.value:
             self.distance_method = models.Distance.DOT
         else:
-            raise ValueError(f"Unsupported distance method: {distance_method}")
+            raise ValueError(f"this is unsupported distance method: {distance_method}")
 
         self.logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class QdrantDB(VectorDBInterface):
 
     def is_collection_exists(self, collection_name: str) -> bool:
         if self.client is None:
-            self.logger.error("Qdrant client is not connected.")
+            self.logger.error("no qdrant client is not connected.")
             return False
         return self.client.collection_exists(collection_name=collection_name)
 
@@ -44,19 +44,14 @@ class QdrantDB(VectorDBInterface):
             return self.client.delete_collection(collection_name=collection_name)
         return False
 
-    def create_collection(self, collection_name: str,
-                          embedding_size: int, do_reset: bool = False):
+    def create_collection(self, collection_name: str, embedding_size: int, do_reset: bool = False):
         if do_reset:
             self.delete_collection(collection_name=collection_name)
 
         if not self.is_collection_exists(collection_name):
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=models.VectorParams(
-                    size=embedding_size,
-                    distance=self.distance_method
-                )
-            )
+                vectors_config=models.VectorParams(size=embedding_size,distance=self.distance_method))
             return True
         return False
 

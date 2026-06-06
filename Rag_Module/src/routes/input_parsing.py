@@ -1,5 +1,3 @@
-# this file forwards the uploaded material to the parsing module via the adapter, so it has routes 
-# it recieves also chunks and index them 
 
 import httpx
 from fastapi import APIRouter, Request, UploadFile, status

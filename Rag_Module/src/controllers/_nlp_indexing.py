@@ -1,7 +1,7 @@
 # this file makes a list of chunk objects and indexes them into Qdrant + BM25.
 from stores.LLM.LLMEnums import DocumentTypeEnum
 from controllers._nlp_retrieval import _NLPRetrievalMixin
-from controllers._llm_calls import _contextual_desc_call
+from RAG_module_models.llm_calls import _contextual_desc_call
 
 class _NLPIndexingMixin:
     async def index_project(self, project_id: str, chunks: list, do_reset: bool = False):

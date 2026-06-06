@@ -1,4 +1,3 @@
-#caches LLM-generated contextual descriptions to avoid repeated expensive calls during re-indexing
 import hashlib
 import json
 import logging

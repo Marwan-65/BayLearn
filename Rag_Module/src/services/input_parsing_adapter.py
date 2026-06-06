@@ -1,7 +1,5 @@
 """adapter design pattern is a structural pattern that acts as a bridge between two 
 incompatible interfaces,allowing them to work together without modifying existing code.
-this adapter allows the RAG module to consume the Input Parsing Module's
-output via http 
 """
 import httpx
 import logging

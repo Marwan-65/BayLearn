@@ -1,0 +1,38 @@
+{
+  "run_id": "8dd9d5bb44c64076bdbc1e0a82dd2417",
+  "status": "ready",
+  "created_at": "2026-06-06T07:51:55.776598+00:00",
+  "animation_type": "btree",
+  "viewer_url": "http://localhost:3000?run_id=8dd9d5bb44c64076bdbc1e0a82dd2417",
+  "classification": {
+    "animation_type": "btree",
+    "confidence": 1.0,
+    "evidence": [
+      "SECTION: B Trees In 4 Minutes Intro",
+      "Today I'm going to introduce you to B-trees.",
+      "B-trees are similar to red black trees in that they are balanced search trees. Except unlike red black trees, which are binary nature, B-trees nodes may have numerous children, not just two.",
+      "B-trees are well suited for database systems. And are designed to handle a large volume of data.",
+      "The height of a B-trees can be much less than red black trees based on their branching factor, which is the number of children at each node."
+    ]
+  },
+  "extraction": {
+    "animation_type": "btree",
+    "confidence": 0.3,
+    "name": "B-Tree Search for 47 (Conceptual)",
+    "description": "A conceptual demonstration of searching for key 47 in a B-Tree, emphasizing disk operations. The initial tree structure and its keys are not explicitly defined in the text, only implied.",
+    "t": 2,
+    "initialKeys": [],
+    "operations": [
+      {
+        "op": "search",
+        "key": 47
+      }
+    ],
+    "pauseMs": 1500
+  },
+  "llm_payload_meta": {
+    "document_id": "B Trees In 4 Minutes  Intro",
+    "window_count": 1,
+    "full_text_chars": 3035
+  }
+}

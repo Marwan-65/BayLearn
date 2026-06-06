@@ -3,7 +3,6 @@ from stores.reranker.RerankerInterface import RerankerInterface
 import logging
 from typing import List, Dict
 
-
 class CrossEncoderReranker(RerankerInterface):
 
     def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):

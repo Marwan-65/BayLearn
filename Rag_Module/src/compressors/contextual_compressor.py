@@ -1,5 +1,4 @@
-# we use this in pipeline after retrival gets from qdrand(vecdb) to compress chunks before sending to LLM for answer generation.
-# after getting top k 
+
 import re
 import logging
 from math import ceil
@@ -112,7 +111,6 @@ class AdaptiveContextualCompressor:
                 if part:
                     sentences.append(part)
         return sentences
-    # 
     @staticmethod
     def _cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
         dot = np.dot(vec_a, vec_b)
