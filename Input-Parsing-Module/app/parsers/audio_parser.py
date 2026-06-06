@@ -1,18 +1,8 @@
 import uuid
 from app.parsers.base_parser import BaseParser
 from app.models.unified_content_schema import ParsedContent, Section, Chunk
+from app.wrappers.whisper_engine_wrapper import _get_whisper_model
 
-_whisper_model = None
-WHISPER_MODEL_SIZE = "base"  
-
-
-def _get_whisper_model():
-    """Load and cache the Whisper model on first use."""
-    global _whisper_model
-    if _whisper_model is None:
-        import whisper
-        _whisper_model = whisper.load_model(WHISPER_MODEL_SIZE)
-    return _whisper_model
 
 
 # Number of Whisper segments to put into a single chunk for rag module chuncking
