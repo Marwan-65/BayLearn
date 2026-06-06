@@ -21,12 +21,12 @@ class ChunkFetcher:
     async def fetch_relevant_chunks(
         self,
         project_id: str,
-        query: str,
+        topic: str,
         limit: int = 10,
     ) -> List[dict]:
         """
         Call the RAG module's search endpoint to get text chunks
-        semantically related to `query`.
+        semantically related to topic
 
         Returns a list of dicts, each with:
             - "id": chunk_id (int)
@@ -34,7 +34,7 @@ class ChunkFetcher:
             - "payload": { "text": "...", "page": 1, ... }
         """
         url = f"{self.rag_module_url}/api/v1/nlp/index/search/{project_id}"
-        payload = {"text": query, "limit": limit}
+        payload = {"text": topic, "limit": limit}
 
         try:
             async with httpx.AsyncClient(timeout=FETCH_TIMEOUT) as client:
@@ -49,10 +49,10 @@ class ChunkFetcher:
             status = e.response.status_code
             logger.error(f"RAG module returned {status}")
 
-            # The RAG search endpoint uses 400 when the project exists but
+            # The rag search endpoint uses 400 when the project exists but
             # no matching chunks are found for the query. Treat that as an
-            # empty retrieval so the route returns a clean client-facing
-            # validation message instead of a generic 500.
+            # empty retrieval so the route returns a clean response to the user
+            # with a validation message instead of a generic 500
             if status == 400:
                 return []
 

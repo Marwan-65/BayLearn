@@ -2,43 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import { evaluate } from "mathjs";
 import PlotlyPlot from "react-plotly.js";
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 const Plot = PlotlyPlot.default || PlotlyPlot;
-
-const cleanPlainText = (str) => {
-  if (!str) return "";
-  let s = str;
-
-  s = s.replace(/\r/g, "");
-  s = s.replace(/\*\*/g, '^');
-  s = s.replace(/[−\u2212]/g, '-');
-
-  const commandMap = {
-    quad: " ",
-    times: "×",
-    cdot: "·",
-    pm: "±",
-    div: "÷",
-    leq: "≤",
-    geq: "≥",
-    neq: "≠",
-    approx: "≈",
-    left: "",
-    right: "",
-  };
-
-  s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)");
-  while (/\\frac\{([^{}]+)\}\{([^{}]+)\}/.test(s)) {
-    s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)");
-  }
-  s = s.replace(/\\sqrt\{([^{}]+)\}/g, "√($1)");
-  s = s.replace(/\\text\{([^{}]*)\}/g, "$1");
-  s = s.replace(/\$/g, "");
-  s = s.replace(/\\([a-zA-Z]+)/g, (match, cmd) => commandMap[cmd] ?? cmd);
-  s = s.replace(/[{}]/g, "");
-  s = s.replace(/\s+/g, " ");
-  return s.trim();
-};
 
 // ─── renderStep ───────────────────────────────────────────────────────────────
 const renderStep = (stepText, idx) => {
@@ -53,14 +21,34 @@ const renderStep = (stepText, idx) => {
         if (/^step\s+\d+/i.test(trimmed)) {
           return (
             <div key={i} style={{ fontWeight: 700, marginBottom: 12, color: '#111827', fontSize: 16 }}>
-              {cleanPlainText(trimmed)}
+              {trimmed.replace(/\$/g, '')}
             </div>
           );
         }
 
+        let contentToRender = trimmed.replace(/\*\*/g, '^');
+        
+        // Fix SymPy's unclosed brace issue on functions (e.g. y{\left(x \right) -> y\left(x \right))
+        contentToRender = contentToRender.replace(/([a-zA-Z])\{\\left/g, "$1\\left");
+
+        // Automatically wrap equations in LaTeX delimiters if missing
+        if (!contentToRender.includes('$')) {
+          const splitIdx = contentToRender.indexOf(':');
+          if (splitIdx !== -1) {
+            const label = contentToRender.slice(0, splitIdx + 1);
+            const math = contentToRender.slice(splitIdx + 1).trim();
+            const isMath = math.includes('\\') || math.includes('=') || math.includes('^') || math.includes('_');
+            contentToRender = isMath ? `**${label}**\n\n$$${math}$$` : `**${label}** ${math}`;
+          } else if (contentToRender.includes('\\') || contentToRender.includes('=') || contentToRender.includes('^') || contentToRender.includes('_')) {
+            contentToRender = `$$${contentToRender}$$`;
+          }
+        }
+
         return (
-          <div key={i} style={{ marginBottom: 8, color: '#374151', lineHeight: '1.7' }}>
-            {cleanPlainText(trimmed)}
+          <div key={i} style={{ marginBottom: 8, color: '#374151', lineHeight: '1.7', overflowX: 'auto' }}>
+            <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+              {contentToRender}
+            </ReactMarkdown>
           </div>
         );
       })}
@@ -230,7 +218,9 @@ export default function EquationLab() {
                   )}
                   <h3 style={{ ...S.sectionTitle, marginTop: 24 }}>Final Result</h3>
                   <div style={S.finalResultBlock}>
-                    {cleanPlainText(finalResult)}
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+              {(finalResult.includes('$') ? finalResult : `$$${finalResult}$$`).replace(/\*\*/g, '^').replace(/([a-zA-Z])\{\\left/g, "$1\\left")}
+                    </ReactMarkdown>
                   </div>
                 </div>
               )}

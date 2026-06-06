@@ -1,11 +1,17 @@
 import logging
 from pathlib import Path
+import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
-from app.llm.groq_client import QuestionGenLLMClient
+_MODULE_ROOT = Path(__file__).resolve().parents[1]
+_REPO_ROOT = _MODULE_ROOT.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from question_generation_model.config import get_settings
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
 from app.services.question_service import QuestionGenerationService
 from app.services.example_bank import ExampleBank
@@ -16,7 +22,6 @@ from app.routes.adaptive_routes import adaptive_router
 from app.services.adaptive_session import AdaptiveSessionStore
 
 logger = logging.getLogger(__name__)
-_MODULE_ROOT = Path(__file__).resolve().parents[1]
 BLOOM_MODEL_DIR = _MODULE_ROOT / "models" / "bloom_distilbert"
 EXAMPLE_BANK_PATH = _MODULE_ROOT / "data" / "processed" / "example_bank.jsonl"
 

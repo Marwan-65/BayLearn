@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import BaymaxSvg from "../components/BaymaxSvg";
 
 // Parser backend  — login, signup, courses, file upload
-const PARSER_API_BASE   = import.meta.env.VITE_PARSER_API_BASE   || "http://127.0.0.1:8000";
+const PARSER_API_BASE   = import.meta.env.VITE_PARSER_API_BASE   || "http://127.0.0.1:8100";
 // Adaptive backend — session/start, session/status, session/results
 const ADAPTIVE_API_BASE = import.meta.env.VITE_ADAPTIVE_API_BASE || "http://127.0.0.1:8002";
 const VISUALIZER_BASE   = import.meta.env.VITE_VISUALIZER_BASE   || "http://localhost:8010";
 
+const RAG_API_BASE = import.meta.env.VITE_RAG_API_BASE || "http://127.0.0.1:8000";
 const RAG_URL = import.meta.env.VITE_RAG_URL      || "http://localhost:5173";
 const EQ_URL  = import.meta.env.VITE_EQUATION_URL || "http://localhost:3000";
 
@@ -196,7 +197,8 @@ async function uploadFile(e) {
           "POST",
           targetUrl,
           form,
-          true
+          true,
+          RAG_API_BASE
         );
       }
       await loadFiles(selectedCourseId);

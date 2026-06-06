@@ -1,10 +1,10 @@
 """
-we need these files in the 'data/processed' directory:
+we need these files in the data/processed directory:
     data/processed/example_bank.jsonl              
     data/processed/example_bank_embeddings.npy     
 
 flow for retrieval:
-  - first filter by `target_level` only (easy/medium/hard).
+  - first filter by target_level only (easy/medium/hard).
   - then rank candidates by cosine similarity to the query.
   - then return top-K (default 3).
 """

@@ -15,7 +15,7 @@ groq==0.11.0
 google-genai>=0.3.0
 
 # BloomBERT runtime (must match the versions used to train the model)
-torch==2.5.1
+torch>=2.5.1
 transformers==4.46.3
 tokenizers==0.20.3
 huggingface-hub==0.26.2
@@ -32,3 +32,9 @@ rank-bm25
 
 # Optional — only used by scripts that download datasets from Kaggle
 kagglehub==0.3.4
+textstat
+rank_bm25
+
+# Added for ablation study metrics and visualization
+nltk
+matplotlib

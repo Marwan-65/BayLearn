@@ -2,11 +2,11 @@ import json
 import logging
 from typing import List, Optional
 
-from app.llm.groq_client import QuestionGenLLMClient
+from question_generation_model.llm.groq_client import QuestionGenLLMClient
 from app.services.chunk_fetcher import ChunkFetcher
 from app.services.context_enrichment import ContextEnrichmentLayer
 from app.services.semantic_validator import SemanticValidator
-from app.services.prompt_builder import (
+from question_generation_model.prompt_builder import (
     build_mcq_prompt,
     build_short_answer_prompt,
     build_true_false_prompt,
@@ -15,13 +15,19 @@ from app.models.schemas import GeneratedQuestion, QuestionOption
 from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
 from app.services.example_bank import ExampleBank
 
+# Force Python to display INFO-level logs in the terminal
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Max characters of chunk text to include in a single prompt.
 MAX_CONTEXT_CHARS = 6000
 
 # Max characters per individual chunk (raised to support rich ablation chunks).
 MAX_SINGLE_CHUNK_CHARS = 2000
+
+# Single-question generation retries when semantic validation rejects output.
+MAX_REJECTION_RETRIES = 5
 
 
 class QuestionGenerationService:
@@ -53,14 +59,14 @@ class QuestionGenerationService:
     async def generate(
         self,
         project_id: str,
-        num_questions: int,
+        num_questions: int,        
         difficulty: str,
         question_type: str,
         topic: Optional[str] = None,
         include_guidance: bool = True,
     ) -> tuple[List[GeneratedQuestion], int]:
         """
-        Generate questions for a project.
+        Generate one question for a project.
 
         Returns: (list of GeneratedQuestion, number_of_chunks_used)
         """
@@ -130,29 +136,58 @@ class QuestionGenerationService:
             for c in selected_chunks
             if c.get("payload", {}).get("text")
         ]
-        reports = self.validator.validate_all(questions, chunk_texts)
-        
+        attempts = 0
+        last_question: Optional[GeneratedQuestion] = None
+        last_report = None
 
-        validated_questions: List[GeneratedQuestion] = []
-        for question, report in zip(questions, reports):
-            if report.decision == "reject":
-                logger.warning(
-                    "Question REJECTED by semantic validator: '%s…' | failures: %s",
-                    question.question_text[:60],
-                    [r.detail for r in report.results if not r.passed],
+        while attempts < MAX_REJECTION_RETRIES:
+            attempts += 1
+            if attempts > 1:
+                questions = await self._generate_with_retry(
+                    question_type=question_type,
+                    chunks_text=chunks_text,
+                    num_questions=num_questions,
+                    difficulty=difficulty,
+                    target_level=target_level,
+                    few_shot=few_shot,
+                    include_guidance=include_guidance,
                 )
+
+            if not questions:
+                logger.warning("Generation attempt %d returned no questions. Retrying.", attempts)
                 continue
-            # Attach the compact validation report to the question object
+
+            question = questions[0]
+            report = self.validator.validate_all([question], chunk_texts)[0]
             question.validation_report = report.to_dict()
-            validated_questions.append(question)
 
-        logger.info(
-            "Validation summary: %d/%d questions passed (rejected=%d)",
-            len(validated_questions), len(questions),
-            len(questions) - len(validated_questions),
-        )
+            last_question = question
+            last_report = report
 
-        return validated_questions, len(selected_chunks)
+            if report.decision != "reject":
+                logger.info("Question accepted by validator on attempt %d.", attempts)
+                return [question], len(selected_chunks)
+
+            logger.warning(
+                "Question REJECTED by semantic validator on attempt %d: '%s…' | failures: %s",
+                attempts,
+                question.question_text[:60],
+                [r.detail for r in report.results if not r.passed],
+            )
+
+        # Never return zero questions: fallback to the last generated question.
+        if last_question is not None:
+            fallback_report = last_report.to_dict() if last_report else {}
+            fallback_report["forced_accept"] = True
+            fallback_report["note"] = "Returned after max validation retries to avoid empty response."
+            last_question.validation_report = fallback_report
+            logger.warning(
+                "Returning fallback question after %d rejected attempts to avoid empty response.",
+                MAX_REJECTION_RETRIES,
+            )
+            return [last_question], len(selected_chunks)
+
+        raise ValueError("Unable to generate a question after repeated retries.")
 
     # helpers
     def _retrieve_few_shot(self, query_text: str, target_level: str) -> list:
@@ -169,7 +204,7 @@ class QuestionGenerationService:
 
     def _build_prompt(self, question_type, chunks_text, num_questions,
                       difficulty, few_shot, include_guidance=True):
-        qt = (question_type or "").lower().strip()   # accept MCQ/Mcq/true_false/etc.
+        qt = (question_type or "mcq").lower().strip()   # accept MCQ/Mcq/true_false/etc., default to mcq
         if qt == "mcq":
             return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         if qt == "short_answer":
@@ -199,22 +234,24 @@ class QuestionGenerationService:
                 temperature=0.85 if attempts == 1 else 0.6,
                 max_tokens=2048,
             )
+            
+            logger.info(f"\n--- RAW LLM RESPONSE (Attempt {attempts}) ---\n{raw_response}\n-----------------------------\n")
+            
             questions = self._parse_llm_response(raw_response, question_type)
             last_questions = self._classify_predicted_levels(questions)
 
             # Decide if we need a retry
             if not self.bloom_classifier or attempts == max_attempts:
                 break
-            mismatches = sum(
-                1 for q in last_questions
-                if q.predicted_level and q.predicted_level != target_level
-            )
-            if mismatches <= len(last_questions) // 2:
-                break  # majority correct -> accept , to overcome classifier noise
+            if not last_questions:
+                continue
+            predicted_level = last_questions[0].predicted_level
+            if predicted_level == target_level:
+                break
             logger.info(
-                "ICL retry: %d/%d questions had wrong level on attempt %d "
-                "(target=%s). Retrying with lower temperature.",
-                mismatches, len(last_questions), attempts, target_level,
+                "ICL retry: wrong level on attempt %d (predicted=%s target=%s). "
+                "Retrying with lower temperature.",
+                attempts, predicted_level, target_level,
             )
 
         return last_questions
@@ -256,16 +293,16 @@ class QuestionGenerationService:
     def _parse_llm_response(self, raw_response: str, question_type: str) -> List[GeneratedQuestion]:
         """
         Parse the JSON array the LLM returned into GeneratedQuestion objects.
-
-        The LLM sometimes wraps JSON in markdown code fences like ```json ... ```
-        This method handles that gracefully.
+        Tbecause he LLM sometimes wraps Json in markdown code fences 
+        This method handles that
         """
-        # Strip markdown code fences if present
         text = raw_response.strip()
-        if text.startswith("```"):
-            # Remove first line (```json or ```) and last line (```)
-            lines = text.split("\n")
-            text = "\n".join(lines[1:-1])
+
+        # Safely extract the JSON array ignoring any conversational text or markdown
+        start_idx = text.find('[')
+        end_idx = text.rfind(']')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            text = text[start_idx:end_idx+1]
 
         try:
             data = json.loads(text)
@@ -273,11 +310,12 @@ class QuestionGenerationService:
             logger.error(f"LLM returned invalid JSON: {e}\nRaw response: {raw_response[:500]}")
             raise ValueError("The LLM returned malformed JSON. Try again.")
 
-        qtype = (question_type or "").lower().strip()
+        qtype = (question_type or "mcq").lower().strip()
         questions = []
         for item in data:
-            # Build options list only for MCQ
-            options = None
+            # Build options list only for mcq
+            # Default to an empty array instead of None to prevent React map() crashes
+            options = [] if qtype == "mcq" else None
             if qtype == "mcq" and "options" in item:
                 options = [
                     QuestionOption(
@@ -289,13 +327,13 @@ class QuestionGenerationService:
                 ]
 
             questions.append(GeneratedQuestion(
-                question_text=item.get("question_text", ""),
-                question_type=question_type,
+                question_text=item.get("question_text") or "",
+                question_type=qtype,
                 options=options,
-                correct_answer=item.get("correct_answer", ""),
+                correct_answer=item.get("correct_answer") or "",
                 keywords_to_match=self._extract_keywords(item.get("keywords_to_match")),
-                explanation=item.get("explanation", ""),
-                difficulty=item.get("difficulty", "medium"),
+                explanation=item.get("explanation") or "",
+                difficulty=item.get("difficulty") or "medium",
             ))
 
         return questions

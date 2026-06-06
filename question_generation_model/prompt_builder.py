@@ -42,7 +42,7 @@ DIFFICULTY_GUIDANCE = {
     }
 }
 
-# Normalize any difficulty vocabulary (Bloom-6 OR easy/medium/hard) to the
+# Normalize any difficulty vocabulary (Bloom-6) to the
 # 3-level keys DIFFICULTY_GUIDANCE uses. Without this, passing "remember" etc.
 # silently falls back to "medium" guidance for every level.
 _BLOOM6_TO_LEVEL = {
@@ -119,7 +119,7 @@ in the OUTPUT FORMAT section below.
 STUDY MATERIAL:
 {chunks_text}
 
-OUTPUT FORMAT — return a JSON array, nothing else:
+OUTPUT FORMAT — return a JSON array with exactly 1 item, nothing else:
 [
   {{
     "question_text": "What does Ohm's law state?",
@@ -135,7 +135,7 @@ OUTPUT FORMAT — return a JSON array, nothing else:
   }}
 ]
 
-Generate {num_questions} diverse questions now:
+Generate 1 question now:
 """
     return system_prompt, user_prompt
 
@@ -167,7 +167,7 @@ But you MUST mirror the examples' COGNITIVE STYLE (compute, trace, analyze, etc.
 STUDY MATERIAL:
 {chunks_text}
 
-OUTPUT FORMAT — return a JSON array, nothing else:
+OUTPUT FORMAT — return a JSON array with exactly 1 item, nothing else:
 [
   {{
     "question_text": "What is the relationship between voltage, current, and resistance?",
@@ -184,7 +184,7 @@ IMPORTANT FOR SHORT ANSWER GRADING:
 - Keywords should capture core meaning, not exact sentence wording.
 - Use lowercase strings when possible.
 
-Generate {num_questions} diverse questions now:
+Generate 1 question now:
 """
     return system_prompt, user_prompt
 
@@ -217,7 +217,7 @@ in the OUTPUT FORMAT section below.
 STUDY MATERIAL:
 {chunks_text}
 
-OUTPUT FORMAT — return a JSON array, nothing else:
+OUTPUT FORMAT — return a JSON array with exactly 1 item, nothing else:
 [
   {{
     "question_text": "Ohm's law states that voltage equals current divided by resistance.",
@@ -229,6 +229,6 @@ OUTPUT FORMAT — return a JSON array, nothing else:
 
 IMPORTANT: correct_answer must be exactly "true" or "false" (lowercase strings).
 
-Generate {num_questions} diverse questions now:
+Generate 1 question now:
 """
     return system_prompt, user_prompt

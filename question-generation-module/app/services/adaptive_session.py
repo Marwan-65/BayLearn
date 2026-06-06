@@ -4,14 +4,12 @@ Adaptive-session coordination store.
 Bridges the RL adaptive agent and the student's answers for the agent-driven
 quiz loop:
 
-    agent  POST /adaptive/{session}/generate  -> a question becomes "pending"
+    agent  POST /adaptive/{session}/generate  -> a question becomes pending
     frontend GET /adaptive/{session}/current   -> shows the pending question
     student POST /questions/check (session_id)  -> records correct/wrong
     agent  GET  /adaptive/{session}/answer      -> long-polls until answered
 
-State is in-memory and keyed by session_id. For a single active student the
-caller can just use a fixed session id (e.g. "default"), mirroring the mock's
-single _last_question. A lock guards mutation; reads are cheap snapshots.
+State is inmemory and keyed by session id
 """
 from __future__ import annotations
 

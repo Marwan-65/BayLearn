@@ -33,7 +33,9 @@ try:
 except ImportError:
     pass
 
-from _judge_llm import make_judge_client, run_judge
+sys.path.insert(0, str(ROOT.parent))  # Add BayLearn root to path to resolve question_generation_model
+
+from question_generation_model._judge_llm import make_judge_client, run_judge
 
 GENERATIONS_CSV = ROOT / "data" / "processed" / "baseline_vs_icl_generations.csv"
 OUT_PER_CELL    = ROOT / "data" / "processed" / "llm_judge_per_cell.csv"

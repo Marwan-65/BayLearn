@@ -25,7 +25,6 @@ app/
     adaptive_routes.py   adaptive session endpoints
   services/
     question_service.py   the generation flow (retrieve examples -> prompt -> validate)
-    prompt_builder.py     builds the generation prompts
     example_bank.py       loads + retrieves few-shot examples
     chunk_fetcher.py      pulls chunks from the RAG/parsing side
     answer_grader.py      grades a student's answer
@@ -34,9 +33,6 @@ app/
     adaptive_session.py   tracks a student's session
   classifier/
     bloom_classifier.py   BloomBERT wrapper (load + predict)
-  llm/
-    groq_client.py        Groq generation client
-    gemini_client.py      Gemini generation client
 
 scripts/        offline data + evaluation scripts (see below)
 notebooks/      BloomBERT training notebooks
@@ -45,9 +41,9 @@ data/           raw + processed datasets, example bank
 ```
 
 The LLM clients and prompts are kept separate from the logic on purpose. The
-generation prompts live in `app/services/prompt_builder.py`, the two API clients
-in `app/llm/`, and in the evaluation scripts the prompt + client wiring sit in
-`scripts/_judge_llm.py` and `scripts/_gen_llm.py`. So the scripts themselves stay
+generation prompts live in `../question_generation_model/prompt_builder.py`, the two API clients
+in `../question_generation_model/llm/`, and in the evaluation scripts the prompt + client wiring sit in
+`../question_generation_model/_judge_llm.py` and `../question_generation_model/_gen_llm.py`. So the scripts themselves stay
 about the experiment, not the API plumbing.
 
 ## Running it

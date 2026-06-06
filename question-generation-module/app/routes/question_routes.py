@@ -2,12 +2,7 @@ import logging
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
 
-from app.models.schemas import (
-    GenerateQuestionsRequest,
-    GenerateQuestionsResponse,
-    CheckAnswerRequest,
-    CheckAnswerResponse,
-)
+from app.models.schemas import GenerateQuestionsRequest, GenerateQuestionsResponse, CheckAnswerRequest, CheckAnswerResponse
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +14,15 @@ async def generate_questions(
     request: Request,
 ):
     """
-    Generate quiz questions from an indexed project's study material.
-    
-    Requires the RAG module to be running and the project to be indexed first.
+    generates quiz questions given the concept and difficulty
+    Requires the rag module to be running and the file to be indexed first in
+    order to reuse the indexing to fetch relevant chunks to the question concept
     """
     service = request.app.question_service  # set in startup (see main.py)
 
     try:
         questions, chunks_used = await service.generate(
             project_id=body.project_id,
-            num_questions=body.num_questions,
             difficulty=body.difficulty,
             question_type=body.question_type,
             topic=body.topic,
@@ -70,7 +64,7 @@ async def check_answer(body: CheckAnswerRequest, request: Request):
     Grade a student's answer against the expected answer.
 
     Returns is_correct plus the grading method and (for short answers) the
-    similarity/match score. MCQ and true_false are exact comparisons; the
+    similarity/match score. mcq and true and false are exact comparisons; the
     frontend grades those locally for zero latency and only calls this for
     short_answer, where semantic similarity meaningfully improves accuracy.
     """
@@ -97,7 +91,7 @@ async def check_answer(body: CheckAnswerRequest, request: Request):
         )
 
     # If this answer belongs to an adaptive session, record the result so the
-    # RL agent's GET /adaptive/{session}/answer long-poll can pick it up.
+    # rl agent GET answer long-poll can pick it up
     if body.session_id:
         store = getattr(request.app, "adaptive_sessions", None)
         if store is not None:
@@ -114,5 +108,4 @@ async def check_answer(body: CheckAnswerRequest, request: Request):
 
 @question_router.get("/health")
 async def health_check():
-    """Health check endpoint — the orchestrator in src/ will call this."""
     return JSONResponse(status_code=200, content={"status": "ok"})
