@@ -182,7 +182,7 @@ def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
 
 def _concept_engine():
     return create_engine(CONCEPT_DB_URL)
-
+# el file el msh tmam lesa me7tageen el comcepts
 def get_unextracted_files(file_uuids: list[str]) -> list[str]:
     """
     returns file uuids with no concepts in concept files relationship
@@ -200,7 +200,7 @@ def get_unextracted_files(file_uuids: list[str]) -> list[str]:
             already_extracted = set()
     return [fid for fid in file_uuids if fid not in already_extracted]
 
-
+# nefta7 session gdeeda w n7ot el file ids w course id w esm el course 3ashan el extractor y3raf y7ot el concepts fe course da w y7ot el file da fe course da
 def create_session_row(user_id: str, scope_ids: str) -> str:
     """create a new session row and return the id"""
     import uuid

@@ -1,32 +1,8 @@
-"""
-build_knowledge_graph.py
-========================
-One-time setup script. Downloads the metacademy-content repository and
-populates two tables in the Adaptive-Learning-Module database:
 
-  knowledge_nodes — canonical concept nodes (name, description, type, aliases)
-  knowledge_edges — prerequisite edges  (from_node MUST be mastered before to_node)
-
-Run this ONCE before using concept_mapper.py.
-It is safe to re-run — existing rows are skipped via UNIQUE constraints.
-
-Usage:
-    python build_knowledge_graph.py
-
-Schema note:
-    knowledge_nodes.id  — SERIAL integer (not UUID)
-    knowledge_edges.id  — SERIAL integer (not UUID)
-    These tables are populated by this script and concept_mapper.py only.
-    concept_node_mappings.concept_id is VARCHAR (UUID) since concepts.id is UUID.
-    concept_node_mappings.node_id    is INTEGER since knowledge_nodes.id is SERIAL.
-
-Required .env key:
-    CONCEPT_DB_URL
-
-Optional .env keys:
-    METACADEMY_ZIP  — path to a locally downloaded metacademy-content .zip
-    ACM_CCS_PATH    — path to the ACM CCS XML file
-"""
+#this file is to be run only once w ba3deen el graph hayeb2a ready for use ba3d kda
+# el 2 sources homa ACM (the worlds largest educational and scientific computing society) w metacademy (open source platform designed to map out computer science field of study knowledge)
+#el 2 tables homa knowledge_nodes w knowledge_edges, el nodes feha name, description, type, aliases w el edges feha prerequisite edges (from_node MUST be mastered before to_node)
+# el ids are int msh uuid
 
 from __future__ import annotations
 
@@ -48,10 +24,7 @@ from sqlalchemy.orm import declarative_base, Session
 
 load_dotenv(Path(__file__).parent / ".env")
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-
+#configurin el database url mn el .env wl paths bta3et el sources (metacademy online w acm downloaded)
 CONCEPT_DB_URL = os.environ.get("CONCEPT_DB_URL", "").strip()
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr)
@@ -65,11 +38,6 @@ _CONTENT_URL = (
     "/archive/refs/heads/master.zip"
 )
 
-# ---------------------------------------------------------------------------
-# ORM models
-# knowledge_nodes and knowledge_edges use integer serial PKs.
-# concept_node_mappings.concept_id is VARCHAR (UUID) — concepts.id is UUID.
-# ---------------------------------------------------------------------------
 
 Base = declarative_base()
 
@@ -78,33 +46,28 @@ class KnowledgeNode(Base):
     __tablename__ = "knowledge_nodes"
     __table_args__ = (UniqueConstraint("source", "source_id"),)
 
-    id           = Column(Integer, primary_key=True, autoincrement=True)
-    name         = Column(String,  nullable=False)
-    description  = Column(Text)
-    aliases      = Column(JSON,    nullable=False, default=list)
+    id = Column(Integer, primary_key=True, autoincrement=True) # el id int msh uuid
+    name = Column(String,  nullable=False)
+    description  = Column(Text)   
+    aliases= Column(JSON,  nullable=False, default=list)
     concept_type = Column(String,  nullable=False, default="unknown")
-    source       = Column(String,  nullable=False)
-    source_id    = Column(String)
+    source = Column(String, nullable=False)
+    source_id= Column(String)
 
 
 class KnowledgeEdge(Base):
     __tablename__ = "knowledge_edges"
     __table_args__ = (UniqueConstraint("from_node_id", "to_node_id"),)
 
-    id           = Column(Integer, primary_key=True, autoincrement=True)
-    from_node_id = Column(Integer, ForeignKey("knowledge_nodes.id",
-                                               ondelete="CASCADE"),
-                          nullable=False)
-    to_node_id   = Column(Integer, ForeignKey("knowledge_nodes.id",
-                                               ondelete="CASCADE"),
-                          nullable=False)
-    source       = Column(String, nullable=False)
+    id= Column(Integer, primary_key=True, autoincrement=True) # el id int msh uuid
+    from_node_id = Column(Integer, ForeignKey("knowledge_nodes.id", ondelete="CASCADE"),nullable=False)
+    to_node_id= Column(Integer, ForeignKey("knowledge_nodes.id", ondelete="CASCADE"),nullable=False)
+    source= Column(String, nullable=False)
+# concept_node_mappings.concept_id is VARCHAR (UUID), concepts.id is UUID.
 
 
-# ---------------------------------------------------------------------------
-# Concept-type inference
-# ---------------------------------------------------------------------------
 
+# dol el types elly han7ot feha el concepts, w el rules basita bta3t el inference 3ala el name w description 3ashan n7awel n7ot kol concept fe type mn dol
 _TYPE_RULES: list[tuple[str, list[str]]] = [
     ("security_concept", [
         "cryptograph", "encrypt", "decrypt", "cipher", "authentication",
@@ -168,7 +131,7 @@ _TYPE_RULES: list[tuple[str, list[str]]] = [
     ]),
 ]
 
-
+# simple hueristic 3shan n infer el type bta3 el concept based 3ala el name w description, consistent fe el types elly hayet7at feha el concepts
 def _infer_type(name: str, description: str = "") -> str:
     haystack = (name + " " + (description or "")).lower()
     for concept_type, keywords in _TYPE_RULES:
@@ -177,10 +140,9 @@ def _infer_type(name: str, description: str = "") -> str:
     return "unknown"
 
 
-# ---------------------------------------------------------------------------
-# ACM CCS 2012
-# ---------------------------------------------------------------------------
 
+# database el ACM btesta5dem numeric IDS, w dol el roots bta3et el database fa e7na 3amalna mapping lkol root id le type 3shan el concepts el ma3refnash ndelha type mn el infer type function n2oom ndeeha el type bta3 el root parent bta3ha
+#a5er 3 roots dol ACM adminstrative categories malhomsh educational value
 _ACM_ROOT_TYPE: dict[str, str] = {
     "10010583": "hardware_concept",
     "10010520": "system_concept",
@@ -197,12 +159,12 @@ _ACM_ROOT_TYPE: dict[str, str] = {
     "10003456": "unknown",
 }
 
-
+#parse el acm ccs xml file w extract el concepts w el hierarchical edges benhom, w bta5od balha mn el roots elly ma3ndhash educational value w t7awel t infer el type bta3 kol concept 3ala 7asab el name w description, w law ma2drsh t infer type, t7awel t assign type based 3ala root parent bta3ha, w el output bta3ha howa list of nodes w edges fe format mo7add
 def parse_acm_ccs(xml_path: str) -> tuple[list[dict], list[tuple[str, str]]]:
     import xml.etree.ElementTree as ET
     SKOS = "http://www.w3.org/2004/02/skos/core#"
     RDF  = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-    _SKIP_ROOTS = {"10002944", "10003456", "10003120"}
+    _SKIP_ROOTS = {"10002944", "10003456", "10003120"} # el adminstrative roots malhomsh lazma
 
     tree    = ET.parse(xml_path)
     root_el = tree.getroot()
@@ -212,20 +174,20 @@ def parse_acm_ccs(xml_path: str) -> tuple[list[dict], list[tuple[str, str]]]:
     for concept in root_el.findall(f"{{{SKOS}}}Concept"):
         cid   = concept.get(f"{{{RDF}}}about", "").strip()
         depth = cid.count(".")
-        if depth == 0 or not cid:
+        if depth == 0 or not cid: #skip el roots
             continue
         root_id = cid.split(".")[0]
-        if root_id in _SKIP_ROOTS:
+        if root_id in _SKIP_ROOTS: # skip el admin roots le malhomsh lazma
             continue
 
         label_el = concept.find(f"{{{SKOS}}}prefLabel")
-        name = label_el.text.lower().strip() if label_el is not None else cid
+        name = label_el.text.lower().strip() if label_el is not None else cid #el name law ma3ndhash prefLabel hayeb2a el id bta3ha, w el id bta3ha numeric fe ACM CCS
 
         concept_type = _infer_type(name)
-        if concept_type == "unknown":
+        if concept_type == "unknown": #lw ma3refnash n infer el type then assign based on parent root node type
             concept_type = _ACM_ROOT_TYPE.get(root_id, "unknown")
 
-        broader_el = concept.find(f"{{{SKOS}}}broader")
+        broader_el = concept.find(f"{{{SKOS}}}broader") #
         parent_id  = broader_el.get(f"{{{RDF}}}resource", "").strip() \
                      if broader_el is not None else None
 
@@ -238,7 +200,7 @@ def parse_acm_ccs(xml_path: str) -> tuple[list[dict], list[tuple[str, str]]]:
     print(f"[parse-acm] {len(nodes)} concepts, {len(edges)} edges parsed.")
     return nodes, edges
 
-
+# insert el nodes w edges elly etla3o mn parsing el acm ccs fe el database,w t7awel t skip el edges elly ma3ndhash parent aw child node fe database aw elly parent w child homa nafs el node, w el output bta3ha howa summary 3adad el nodes w edges elly etinserto w etskipo.
 def _insert_acm_nodes_and_edges(
     session:   Session,
     raw_nodes: list[dict],
@@ -293,10 +255,7 @@ def _insert_acm_nodes_and_edges(
           f"{skipped_edges} skipped.")
 
 
-# ---------------------------------------------------------------------------
-# Download + parse metacademy
-# ---------------------------------------------------------------------------
-
+# ya ema by read a local file lw el .env maktob fi path el zip (msh mawgood), ya ema by get it from github (da eli bye7sal)
 def _get_zip_bytes() -> bytes:
     if METACADEMY_ZIP:
         p = Path(METACADEMY_ZIP)
@@ -330,7 +289,8 @@ def _read_zip_file(zf: zipfile.ZipFile, path: str) -> str:
     except KeyError:
         return ""
 
-
+# dependencies.txt files fe metacademy content 3ebara 3n blocks of text, w el lines elly bta3mlo comment bta3mlo start b # w el lines elly bta3mlo tag bt start b tag: w ba3d kda el tag name, w el output bta3t el function di howa list of kol el tags elly mawgooda fe dependencies.txt file,
+#  w el tags di hya el prerequisites bta3t el concept eli feha dependencies.txt file di, w el tag name hya el tag bta3t el concept eli feha dependencies.txt file di, w el tag name da byeb2a source_id fe database w hayet7at fe kol edge ben el prerequisite concept w el concept eli feha dependencies.txt file di
 def _parse_deps_txt(raw: str) -> list[str]:
     tags: list[str] = []
     for block in re.split(r"\n\s*\n", raw):
@@ -348,7 +308,7 @@ def _parse_deps_txt(raw: str) -> list[str]:
 def _parse_see_also_txt(raw: str) -> list[str]:
     return re.findall(r'"[^"]+":([a-zA-Z0-9_\-]+)', raw)
 
-
+# parse el metacademy zip archive w extract el concepts w el prerequisite edges benhom, w el output bta3ha howa list of nodes w edges fe format mo7add, w kol node feha name, description, aliases, type (inferred based 3ala name w description), source (metacademy), source_id (tag name), w kol edge feha from_node_id (source_id bta3t prerequisite concept), to_node_id (source_id bta3t dependent concept), source (metacademy).
 def parse_metacademy(zip_bytes: bytes) -> tuple[list[dict], list[tuple[str, str]]]:
     nodes: list[dict]            = []
     edges: list[tuple[str, str]] = []
@@ -357,23 +317,23 @@ def parse_metacademy(zip_bytes: bytes) -> tuple[list[dict], list[tuple[str, str]
         all_names = zf.namelist()
         concept_dirs: set[str] = set()
         for name in all_names:
-            m = re.match(r"([^/]+/concepts/)([^/]+)/", name)
+            m = re.match(r"([^/]+/concepts/)([^/]+)/", name) # el concept directories fe metacademy content byeb2a fe path el zip be format: <branch>/concepts/<concept-tag>/
             if m:
                 concept_dirs.add(m.group(1) + m.group(2) + "/")
 
         print(f"[parse] Found {len(concept_dirs)} concept directories.")
 
-        for concept_dir in sorted(concept_dirs):
+        for concept_dir in sorted(concept_dirs): # kol concept directory byeb2a feha files: title.txt, summary.txt, dependencies.txt, see-also.txt
             tag         = concept_dir.rstrip("/").split("/")[-1]
             name        = _read_zip_file(zf, concept_dir + "title.txt")
             description = _read_zip_file(zf, concept_dir + "summary.txt")
             deps_raw    = _read_zip_file(zf, concept_dir + "dependencies.txt")
             see_raw     = _read_zip_file(zf, concept_dir + "see-also.txt")
 
-            if not name:
+            if not name: # fall back ll tag name lw mafeesh title.txt
                 name = tag.replace("_", " ").replace("-", " ")
 
-            see_also_tags = _parse_see_also_txt(see_raw)
+            see_also_tags = _parse_see_also_txt(see_raw) #collect up to 4 aliases mn el see also file
             aliases = [t.replace("_", " ").replace("-", " ").lower()
                        for t in see_also_tags[:4]]
 
@@ -390,24 +350,21 @@ def parse_metacademy(zip_bytes: bytes) -> tuple[list[dict], list[tuple[str, str]
     return nodes, edges
 
 
-# ---------------------------------------------------------------------------
-# DB insertion
-# ---------------------------------------------------------------------------
-
+# main function 3shan torbot kol 7aga
 def build_graph() -> None:
     zip_bytes = _get_zip_bytes()
 
     print("\n=== Parsing archive ===")
-    raw_nodes, raw_edges = parse_metacademy(zip_bytes)
+    raw_nodes, raw_edges = parse_metacademy(zip_bytes) # parse metacademy el awel w traga3 raw nodes w edges
 
     if not raw_nodes:
         print("ERROR: No concept nodes found.", file=sys.stderr)
         sys.exit(1)
 
-    engine = create_engine(CONCEPT_DB_URL)
+    engine = create_engine(CONCEPT_DB_URL) # ebda2 el engine 3shan tkalem el databse
 
     print("\n=== Writing nodes ===")
-    with Session(engine) as session:
+    with Session(engine) as session: # insert nodes el awel
         existing: dict[str, int] = {
             sid: dbid for sid, dbid in session.query(
                 KnowledgeNode.source_id, KnowledgeNode.id
@@ -441,7 +398,7 @@ def build_graph() -> None:
         }
         inserted_edges = 0
         skipped_edges  = 0
-
+        #ba3d kda n insert el edges w n skip el edges elly ma3ndhash parent aw child node fe database aw elly parent w child homa nafs el node, w el source bta3t kol edge hayeb2a metacademy
         for prereq_tag, dependent_tag in raw_edges:
             from_id = tag_to_db_id.get(prereq_tag)
             to_id   = tag_to_db_id.get(dependent_tag)
@@ -458,7 +415,7 @@ def build_graph() -> None:
         print(f"[db] Edges: {inserted_edges} inserted, "
               f"{skipped_edges} skipped.")
 
-    # ACM CCS
+    # insert 7aget ACM
     if ACM_CCS_PATH:
         p = Path(ACM_CCS_PATH)
         if not p.is_absolute():
@@ -473,7 +430,7 @@ def build_graph() -> None:
     else:
         print("\n[acm-ccs] Skipped — set ACM_CCS_PATH in .env to include.")
 
-    # Summary
+    # count el concepts bl types 
     with Session(engine) as session:
         total_nodes = session.query(KnowledgeNode).count()
         total_edges = session.query(KnowledgeEdge).count()
@@ -497,8 +454,8 @@ if __name__ == "__main__":
     print(f"  Knowledge Graph Builder")
     print(f"  Sources: Metacademy")
     if ACM_CCS_PATH:
-        print(f"           ACM CCS 2012  ({ACM_CCS_PATH})")
+        print(f"      ACM CCS 2012  ({ACM_CCS_PATH})")
     else:
-        print(f"           ACM CCS 2012  (skipped — set ACM_CCS_PATH in .env)")
+        print(f"   ACM CCS 2012  (skipped — set ACM_CCS_PATH in .env)")
     print(f"{'='*60}\n")
     build_graph()

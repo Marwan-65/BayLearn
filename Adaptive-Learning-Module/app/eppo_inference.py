@@ -49,6 +49,7 @@ SCOPE_IDS_LIST = [v.strip() for v in SCOPE_IDS.split(",") if v.strip()]
 _Base = declarative_base()
 from db_models import ensure_tables
 
+# bn load el concepts mn el db abl ma n3ml inference 3ashan n7ot fe global variables w n7awel a5odhom mn el global variables di 3ashan maba2ash a5odhom mn el db kol mara n3ml inference
 def _load_concepts(db_url: str, user_id: str, scope_ids: list[str]):
     """
     load concepts from db
@@ -135,6 +136,7 @@ def load_pfa_history(db_url: str, user_id: str) -> dict | None:
     print(f"[pfa] Loaded history for {loaded} concepts.")
     return {"successes": successes, "failures": failures, "bonuses": bonuses}
 
+# bn save el pfa history ba3d kol interaction 3ashan lama y3ml inference tany yla2i el history da w y7seb 3aleih w y7awel y7ot fe global variables w keda
 def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
     engine = create_engine(db_url)
     now = datetime.utcnow()
@@ -171,7 +173,7 @@ def save_pfa_history(db_url: str, user_id: str, tracker) -> None:
         session.commit()
     print(f"[pfa] Saved state for {len(GLOBAL_CONCEPT_IDS)} concepts.")
 
-
+# for early termination 3ashan manotesh fel ses
 def mark_session_ended(db_url: str, session_id: str,
                        result: dict | None = None) -> None:
     """
@@ -373,6 +375,7 @@ class PFATracker:
             self.failures  = prior_history["failures"].copy()
             self.propagation_bonus = prior_history["bonuses"].copy()
 
+    # nebda2 session gfe2 w n7ot el file ids w course id w esm el course 3ashan el extractor y3raf y7ot el concepts fe course da w y7ot el file da fe course da
     def start_session(self, session_indices):
         self.session_indices  = list(session_indices)
         self.action_history   = {}
@@ -405,7 +408,7 @@ class PFATracker:
             "wapr_start":   self.wapr_start,
             "wapr_target":  self.wapr_target,
         }
-
+   # predict the probability of a correct response for a given concept and difficulty level, based on the PFA model parameters and the student's history with that concept and level. This function is used to estimate the student's current knowledge state and to make decisions about which concepts and difficulty levels to present next.
     def predict(self, ci, level):
         k = level
         z = (self.beta_concept[ci] + self.beta_level[k]
@@ -429,6 +432,7 @@ class PFATracker:
         sess_p = all_p[self.session_indices]
         return float((self.session_weights * sess_p.mean(axis=1)).sum())
 
+     #hangeeb el
     def compute_global_apr(self):
         """APR across ALL concepts in pool — true student level."""
         return float(self.predict_all_global().mean())
@@ -471,7 +475,8 @@ class PFATracker:
                     self.propagation_bonus[j, lvl] += (
                         self.cfg.PFA_ALPHA * sim / (lvl + 1) * delta)
         return p_before, p_after
-
+    
+    # get_state_features function is responsible for extracting a set of features that represent the current state of the student's knowledge and interaction history with the concepts in the session. These features are used as input to the EPPO model to make informed decisions about which concept and difficulty level to present next. The features include statistics about the predicted probabilities of correct responses, the student's performance history, and the similarity of concepts, among others.
     def get_state_features(self, ci):
         all_p = self.predict_all_global()
         sess_p = all_p[self.session_indices]
@@ -831,7 +836,7 @@ def run_session(
             if verbose:
                 print(f"\n  Goal met at step {step + 1}!")
             break
-
+   
     early_termination = _is_terminated(CONCEPT_DB_URL, SESSION_ID)
     apr_final  = tracker.compute_session_apr()
     wapr_final = tracker.compute_session_wapr()
