@@ -1,33 +1,18 @@
-// src/scenarios/ScenarioRunner.js
-//
-// Manages the sequential playback of a multi-operation scenario.
-// Emits events so app.js can wire it to the existing PlaybackController
-// pipeline without knowing about internal sequencing.
-//
-// Events:
-//   onOperationStart(op, key, opIndex, total)
-//   onOperationEnd(op, key, opIndex, total)
-//   onAnnounce(message, nextIndex, total)
-//   onProgressUpdate(opIndex, total)
-//   onComplete()
+
+// da el file el byhandle el scenario generation w el sequencing, byet2aked en el operations elly mawgooda fe el scenario betet3amal wa7da wa7da b correct timing w en el events elly byetfire fe el right moments w consistent ma3 el operations sequence. w kaman en el callbacks elly byetfire ma3a kol event byet3araf beha sah w consistent ma3a el arguments elly byetfire ma3aha.
 
 class ScenarioRunner {
-  /**
-   * @param {object}   scenario   - one entry from SCENARIOS
-   * @param {object}   callbacks  - event handlers (all optional)
-   * @param {function} startOp    - (op, key) → PlaybackController|null
-   */
+  // el input homa scenario object (one entry from SCENARIOS), callbacks object (event handlers, all optional), w startOp function (byet3ayen beha el operation elly hatet3amal, byetreceiv op w key w byerga3 PlaybackController or null)
   constructor(scenario, callbacks, startOp) {
     this._scenario   = scenario;
-    this._cbs        = callbacks ?? {};
-    this._startOp    = startOp;
+    this._cbs  = callbacks ?? {};
+    this._startOp = startOp;
     this._opIndex    = 0;
-    this._stopped    = false;
-    this._started    = false;
+    this._stopped = false;
+    this._started = false;
     this._pauseTimer = null;
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
 
   start() {
     this._opIndex = 0;
@@ -44,13 +29,12 @@ class ScenarioRunner {
       this._pauseTimer = null;
     }
   }
-
+// w dol el getters elly byet2aked en el state reporting byet3amal sah w consistent, we check en totalOperations byet3araf beha sah w consistent ma3a scenario.operations.length, w en currentIndex byet3araf beha sah w consistent ma3a the current operation index, w en isRunning byet3araf beha sah w consistent ma3a the started/stopped state and the current index.
   get totalOperations() { return this._scenario.operations.length; }
-  get currentIndex()    { return this._opIndex; }
-  get isRunning()       { return this._started && !this._stopped && this._opIndex < this.totalOperations; }
+  get currentIndex()  { return this._opIndex; }
+  get isRunning()  { return this._started && !this._stopped && this._opIndex < this.totalOperations; }
 
-  // ── Internal ────────────────────────────────────────────────────────────────
-
+// da el method elly betrun el scenario, byet2aked en el sequencing sah w consistent ma3a the operations array in the scenario, w en el callbacks byetfire ma3a kol event b sah w consistent ma3a the current operation w index. w kaman en el timing of the operations is consistent ma3 the pauseMs property in the scenario (e.g. if pauseMs is 0, all operations should run synchronously without delay).
   _runNext() {
     if (this._stopped) return;
 
@@ -91,7 +75,7 @@ class ScenarioRunner {
         return;
       }
 
-      // Announce next op
+      // announce el next operation, w enna el progress update byetfire ma3a kol operation end w consistent ma3a the new index. w kaman en el timing of the next operation is consistent ma3 the pauseMs property in the scenario (e.g. if pauseMs is 0, the next operation should start immediately without delay).
       const next = ops[this._opIndex];
       this._cbs.onAnnounce?.(
         `Next: ${this._formatOp(next.op)}(${next.key})`,
@@ -102,7 +86,7 @@ class ScenarioRunner {
 
       const delay = this._scenario.pauseMs ?? 1500;
       if (delay === 0) {
-        // Run synchronously so tests don't need fake timers
+        //  lw pauseMs howa 0, el next operation byetrun immediately without delay, w enna el callbacks byetfire ma3a kol event b sah w consistent ma3a the new operation w index.
         this._runNext();
       } else {
         this._pauseTimer = setTimeout(() => {

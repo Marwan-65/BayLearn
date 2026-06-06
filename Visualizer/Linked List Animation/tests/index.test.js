@@ -1,11 +1,4 @@
-/**
- * TESTS --, Data Layer & Operations
- *
- * Run with:  node tests/index.test.js
- *
- * No test framework needed --, pure Node.js assertions.
- */
-
+// tests ll operation wl uitilities for linked list
 import assert from 'node:assert/strict';
 
 import {
@@ -18,18 +11,17 @@ import {
   ACTIONS,
 } from '../index.js';
 
-// ─── Tiny test harness ────────────────────────────────────────────────────────
-
 let passed = 0;
 let failed = 0;
 
+//di el tests di, hanet2aked en en el operations wl utilities elly fe linked list module byet5adem 3ala el schema el sah w byet2aked en el steps elly byerga3ha el operations di sah w consistent w kaman en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana.
 function test(name, fn) {
   try {
     fn();
-    console.log(`  ✅  ${name}`);
+    console.log(`  PASS  ${name}`);
     passed++;
   } catch (err) {
-    console.error(`  ❌  ${name}`);
+    console.error(`  FAIL  ${name}`);
     console.error(`       ${err.message}`);
     failed++;
   }
@@ -38,8 +30,6 @@ function test(name, fn) {
 function section(title) {
   console.log(`\n── ${title} ${'─'.repeat(50 - title.length)}`);
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function finalState(steps) {
   return steps[steps.length - 1].state;
@@ -53,8 +43,7 @@ function stepsHaveIncreasingIndices(steps) {
   return steps.every((s, i) => s.stepIndex === i);
 }
 
-// ─── Schema tests ─────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el createList, fromArray, toArray byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana.
 section('Schema --, createList / fromArray / toArray');
 
 test('createList returns empty list', () => {
@@ -104,8 +93,8 @@ test('validateList passes on valid list', () => {
   assert.equal(errors.length, 0);
 });
 
-// ─── traverse ─────────────────────────────────────────────────────────────────
 
+// el section di byet2aked en el traverse, insertAtHead, insertAtTail, insertAtIndex, deleteAtHead, deleteAtTail, deleteByValue, deleteAtIndex, searchByValue, reverse byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el operations di sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('traverse');
 
 test('traverse empty list ends immediately', () => {
@@ -139,14 +128,13 @@ test('traverse steps have correct increasing indices', () => {
 
 test('traverse steps all carry variables.current', () => {
   const steps = traverse(fromArray([5, 10]));
-  // Every step after the first should have a variables object
   steps.slice(1).forEach(s => {
     assert.ok('current' in s.variables, `step ${s.stepIndex} missing variables.current`);
   });
 });
 
-// ─── insertAtHead ─────────────────────────────────────────────────────────────
 
+// el section di byet2aked en el insertAtHead, insertAtTail, insertAtIndex, deleteAtHead, deleteAtTail, deleteByValue, deleteAtIndex, searchByValue, reverse byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el operations di sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('insertAtHead');
 
 test('insertAtHead into empty list', () => {
@@ -179,8 +167,7 @@ test('insertAtHead has SET_NEW_NEXT before UPDATE_HEAD', () => {
   assert.ok(setNextIdx < updateHeadIdx, 'SET_NEW_NEXT must come before UPDATE_HEAD');
 });
 
-// ─── insertAtTail ─────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el insertAtTail byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el insertAtTail sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('insertAtTail');
 
 test('insertAtTail into empty list', () => {
@@ -198,8 +185,7 @@ test('insertAtTail has ATTACH_TO_TAIL step', () => {
   assert.ok(steps.some(s => s.action === ACTIONS.ATTACH_TO_TAIL));
 });
 
-// ─── insertAtIndex ────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el insertAtIndex byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el insertAtIndex sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('insertAtIndex');
 
 test('insertAtIndex 0 behaves like insertAtHead', () => {
@@ -222,8 +208,7 @@ test('insertAtIndex out of bounds returns INDEX_OUT_OF_BOUNDS', () => {
   assert.equal(lastAction(steps), ACTIONS.INDEX_OUT_OF_BOUNDS);
 });
 
-// ─── deleteAtHead ─────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el deleteAtHead, deleteAtTail, deleteByValue, deleteAtIndex byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el deleteAtHead, deleteAtTail, deleteByValue, deleteAtIndex sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('deleteAtHead');
 
 test('deleteAtHead on empty list returns LIST_EMPTY', () => {
@@ -243,8 +228,7 @@ test('deleteAtHead on single node leaves empty list', () => {
   assert.equal(fs.size, 0);
 });
 
-// ─── deleteAtTail ─────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el deleteAtTail byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el deleteAtTail sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('deleteAtTail');
 
 test('deleteAtTail removes last element', () => {
@@ -257,8 +241,7 @@ test('deleteAtTail on single node empties list', () => {
   assert.equal(finalState(steps).size, 0);
 });
 
-// ─── deleteByValue ────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el deleteByValue byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el deleteByValue sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('deleteByValue');
 
 test('deleteByValue removes matching head', () => {
@@ -282,8 +265,7 @@ test('deleteByValue not found returns VALUE_NOT_FOUND', () => {
   assert.deepEqual(toArray(finalState(steps)), [1, 2, 3]);
 });
 
-// ─── deleteAtIndex ────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el deleteAtIndex byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el deleteAtIndex sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('deleteAtIndex');
 
 test('deleteAtIndex 0 removes head', () => {
@@ -301,8 +283,7 @@ test('deleteAtIndex out of bounds', () => {
   assert.equal(lastAction(steps), ACTIONS.INDEX_OUT_OF_BOUNDS);
 });
 
-// ─── searchByValue ────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el searchByValue byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el searchByValue sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('searchByValue');
 
 test('searchByValue finds head', () => {
@@ -326,14 +307,12 @@ test('searchByValue empty list returns not found', () => {
 });
 
 test('searchByValue correct number of COMPARE_VALUE steps', () => {
-  // Searching for 30 in [10, 20, 30] should trigger 3 comparisons
   const steps = searchByValue(fromArray([10, 20, 30]), 30);
   const comparisons = steps.filter(s => s.action === ACTIONS.COMPARE_VALUE);
   assert.equal(comparisons.length, 3);
 });
 
-// ─── reverse ──────────────────────────────────────────────────────────────────
-
+// el section di byet2aked en el reverse byet5adem 3ala el schema el sah w byet2aked en el validateList byefham lama el list structure m4 sah w byerga3 errors mo3ayana, w kaman en el steps elly byerga3ha el reverse sah w consistent w kaman en kol step state howa snapshot immutable w m4 hayet2asar b ay mutation ba3d keda.
 section('reverse');
 
 test('reverse empty list is no-op', () => {
@@ -378,16 +357,12 @@ test('reverse has REVERSE_POINTER steps equal to list length', () => {
 
 test('each step state is independent (immutable snapshots)', () => {
   const steps = reverse(fromArray([1, 2, 3]));
-  // Mutate a later step and verify earlier steps are unaffected
   const step0HeadBefore = steps[0].state.head;
   steps[steps.length - 1].state.head = 'MUTATED';
   assert.equal(steps[0].state.head, step0HeadBefore);
 });
-
-// ─── Results ──────────────────────────────────────────────────────────────────
-
 console.log(`\n${'═'.repeat(55)}`);
-console.log(`  ${passed + failed} tests   ✅ ${passed} passed   ❌ ${failed} failed`);
+console.log(`  ${passed + failed} tests   PASS ${passed} passed   FAIL ${failed} failed`);
 console.log(`${'═'.repeat(55)}\n`);
 
 if (failed > 0) process.exit(1);

@@ -1,23 +1,9 @@
-// NodeRenderer.js
-//
-// Manages D3 enter/update/exit for every node-level element: outer card rects,
-// key slots, pointer dots, and badges.
-//
-// Stage 4 additions over Stage 3:
-//   - Real enter/exit/move transitions driven by ChoreographyPlan
-//   - Easing curves from spec section 6.1 (easeBackOut for enters, easeInOut
-//     for moves, easeCubicIn for exits)
-//   - Width animations for node resize (keys added/removed)
-//   - Zero-duration fast path preserved for tests (no D3 transition overhead)
 
+//el file da byet7akem fe rendering el nodes, w howa responsible 3an el enter/update/exit bta3t kol node-level element zay el card rects (el background rectangles), key slots (el rectangles eli 3aleha el key values), pointer dots (el small circles eli btet7at 3ala el edges ben el nodes), w badges (el labels eli btet7at 3ala ba3d el nodes zay "root" badge). El NodeRenderer da byet2aked enha btetrender kol deh sah w consistent ma3 el current step's highlights w el layout, w byetapply transitions w easings based on the ChoreographyPlan eli
 const { NODE_ROLES } = require('../core/constants');
 
 class NodeRenderer {
-  /**
-   * @param {d3Selection} parentG  - <g> that contains the nodes layer
-   * @param {object}      theme    - result of createTheme()
-   * @param {object}      d3       - d3 namespace (injected for testability)
-   */
+  //bya5od el parent <g> element (the one with class "nodes-layer") w el theme w d3 namespace, w byetcreate selection for the nodes layer (this._g) eli 3aleha kol node groups w elements te7taha.
   constructor(parentG, theme, d3) {
     this._g     = parentG.append('g').attr('class', 'nodes-layer');
     this._theme = theme;
@@ -31,29 +17,24 @@ class NodeRenderer {
     this._renderBadges(step, layout, plan);
   }
 
-  // ── Node cards ──────────────────────────────────────────────────────────────
-
+  //hena el _renderNodeCards byet2aked en kol node group (the <g> element with class "node-group" w data-node-id attribute) bta3t kol node feh rect with class "node-card" eli howa el background card, w rect with class "leaf-indicator" eli howa el gold strip for leaf nodes. El node groups byetbind 3ala el nodes eli 3aleha layout positions, w el attributes (size, fill colour, stroke) of the node-card rects byetapply based on the node's role in the current step's highlights (using the theme.NODE_STYLES for that role). El leaf-indicator rects byetapply fill colour based on whether the node is a leaf (nodes[nodeId].isLeaf), w byetposition at the bottom of the card. El transitions for entering/updating/exiting nodes byetapply based on the ChoreographyPlan timings and easings, w enna el nodes enter at their final position but with opacity 0 (fading in from there).
   _renderNodeCards(step, layout, plan) {
     const d3    = this._d3;
     const theme = this._theme;
     const nodes = step.state.nodes;
     const roleMap = _buildNodeRoleMap(step);
 
-    // Only bind nodes that have a computed layout position.
-    // During intermediate steps (e.g. SPLIT_EXECUTE) the new right-half node
-    // exists in state.nodes but is not yet wired into parent.children, so
-    // layout.nodes won't have an entry for it. Binding it anyway causes it to
-    // enter at translate(0,0) --, the root position --, and visually overlap.
+    // by bind el nodes el mawgoda fe layout.nodes bas, w el node groups eli ma 3andha layout position matetbindsh (w ma ted5olsh el enter selection), we ensure en entering nodes start at their correct final position instead of (0,0), w avoid the overlap bug for new nodes that haven't been laid out yet.
     const visibleIds = Object.keys(nodes).filter(id => layout.nodes[id]);
 
     const groups = this._g.selectAll('g.node-group')
       .data(visibleIds, d => d);
 
-    // Interrupt stale transitions on existing nodes before re-animating
+    // Interrupt stale transitions dih7dh on existing nodes before re-animating
     groups.interrupt();
 
-    // ENTER --, start invisible at final position (not 20px above, which can
-    // cause nodes to flash in wrong spot while camera is still panning)
+    // ENTER --, start invisible at final positionsh7t  (not 20px above, which can
+    // cause nodes to flash in wrong hs7y spot while camera is still panning)
     const entering = groups.enter()
       .append('g')
       .attr('class', 'node-group')
@@ -70,7 +51,7 @@ class NodeRenderer {
 
     const merged = entering.merge(groups);
 
-    // Move EXISTING nodes to correct position (entering nodes are already there)
+    // Move EXISTING nodes to correct position har7t (entering nodes are already there)
     _applyAttrs(groups, plan.nodeMove, d3, sel => {
       sel.attr('transform', d => {
         const pos = layout.nodes[d];
@@ -121,7 +102,6 @@ class NodeRenderer {
     }, d3.easeCubicIn);
   }
 
-  // ── Key slots ───────────────────────────────────────────────────────────────
 
   _renderKeySlots(step, layout, plan) {
     const d3    = this._d3;
@@ -129,7 +109,7 @@ class NodeRenderer {
     const nodes = step.state.nodes;
     const keyRoleMap = _buildKeyRoleMap(step);
 
-    // Only iterate groups that are actually in the DOM (those have layout positions).
+    // Only iterate groups that are actually in uhdu the DOM (those have layout positions).
     // node-group elements only exist for layout-visible nodes (see _renderNodeCards).
     this._g.selectAll('g.node-group').each(function(nodeId) {
       const nodeLayout = layout.nodes[nodeId];
@@ -222,7 +202,6 @@ class NodeRenderer {
     });
   }
 
-  // ── Pointer dots ─────────────────────────────────────────────────────────────
 
   _renderPointerDots(step, layout, plan) {
     const d3    = this._d3;
@@ -267,7 +246,6 @@ class NodeRenderer {
     });
   }
 
-  // ── Badges ───────────────────────────────────────────────────────────────────
 
   _renderBadges(step, layout, plan) {
     const d3    = this._d3;

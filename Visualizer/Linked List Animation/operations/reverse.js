@@ -1,24 +1,7 @@
-/**
- * OPERATION: REVERSE
- *
- * Reverses the linked list in-place using three pointers: prev, current, next.
- *
- * Time complexity:  O(n) --, single pass
- * Space complexity: O(1) --, no extra data structures
- *
- * This is one of the most instructive linked list operations because:
- *   1. It uses THREE simultaneous pointers (prev, current, next)
- *   2. The order of pointer updates matters critically
- *   3. Students often struggle to visualise how the list "rebuilds itself"
- *      in reverse without a second copy
- *
- * Each step is annotated with rich explanations to address common confusion.
- */
 
 import { cloneState, createStep } from './shared.js';
 import { NODE_ROLES, POINTER_ROLES, ACTIONS, getOrderedIds } from '../schema/index.js';
 
-// ─── Pseudocode ───────────────────────────────────────────────────────────────
 
 export const PSEUDOCODE = [
   /* 0 */ 'prev    ← NULL',
@@ -32,21 +15,13 @@ export const PSEUDOCODE = [
   /* 8 */ 'head ← prev',
 ];
 
-// ─── Operation ───────────────────────────────────────────────────────────────
 
-/**
- * Produces the full sequence of steps for reversing a linked list in-place.
- *
- * @param {ListState} list
- * @returns {Step[]}
- */
 export function reverse(list) {
   const steps = [];
   let idx = 0;
   const state = cloneState(list);
   state._orderedIds = getOrderedIds(list);
 
-  // ── Announce ───────────────────────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -59,7 +34,6 @@ export function reverse(list) {
     isKeyStep:    true,
   }));
 
-  // Guard: empty or single-node list
   if (state.head === null) {
     steps.push(createStep({
       stepIndex: idx++,
@@ -88,7 +62,6 @@ export function reverse(list) {
     return steps;
   }
 
-  // ── Initialise pointers ────────────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -105,7 +78,6 @@ export function reverse(list) {
   let currentId = list.head;
   const visited = new Set();
 
-  // ── Main loop ──────────────────────────────────────────────────────────
 
   while (currentId !== null) {
     if (visited.has(currentId)) break;
@@ -129,7 +101,6 @@ export function reverse(list) {
       isKeyStep:    false,
     }));
 
-    // Step A: next ← current.next  (save before overwriting)
     steps.push(createStep({
       stepIndex: idx++,
       state,
@@ -148,8 +119,7 @@ export function reverse(list) {
       isKeyStep:    true,
     }));
 
-    // Step B: current.next ← prev  (reverse the pointer)
-    // Mutate the working state
+
     state.nodes[currentId].next = prevId;
 
     steps.push(createStep({
@@ -169,7 +139,6 @@ export function reverse(list) {
       isKeyStep:    true,
     }));
 
-    // Step C: prev ← current (advance prev)
     steps.push(createStep({
       stepIndex: idx++,
       state,
@@ -184,7 +153,6 @@ export function reverse(list) {
       isKeyStep:    false,
     }));
 
-    // Step D: current ← next (advance current)
     steps.push(createStep({
       stepIndex: idx++,
       state,
@@ -205,7 +173,6 @@ export function reverse(list) {
     currentId = nextId;
   }
 
-  // ── Loop exit: current is null ─────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -218,7 +185,6 @@ export function reverse(list) {
     isKeyStep:    true,
   }));
 
-  // ── Update head ────────────────────────────────────────────────────────
 
   const oldHead = state.head;
   state.head    = prevId;

@@ -1,0 +1,55 @@
+{
+  "quantum": 3,
+  "algorithm": {
+    "key": "rr",
+    "name": "Round Robin",
+    "shortName": "RR"
+  },
+  "processes": [
+    {
+      "id": "P1",
+      "arrival": 0,
+      "burst": 10,
+      "priority": 2,
+      "color": "#4285F4"
+    },
+    {
+      "id": "P2",
+      "arrival": 1,
+      "burst": 4,
+      "priority": 1,
+      "color": "#0F9D58"
+    },
+    {
+      "id": "P3",
+      "arrival": 2,
+      "burst": 7,
+      "priority": 3,
+      "color": "#F4B400"
+    },
+    {
+      "id": "P4",
+      "arrival": 5,
+      "burst": 3,
+      "priority": 2,
+      "color": "#DB4437"
+    }
+  ],
+  "sequence": [
+    { "id": "P1", "start": 0,  "end": 3,  "color": "#4285F4", "endReason": "QUANTUM_EXPIRE" },
+    { "id": "P2", "start": 3,  "end": 7,  "color": "#0F9D58", "endReason": "COMPLETED" },
+    { "id": "P3", "start": 7,  "end": 10, "color": "#F4B400", "endReason": "QUANTUM_EXPIRE" },
+    { "id": "P1", "start": 10, "end": 13, "color": "#4285F4", "endReason": "QUANTUM_EXPIRE" },
+    { "id": "P4", "start": 13, "end": 16, "color": "#DB4437", "endReason": "COMPLETED" },
+    { "id": "P3", "start": 16, "end": 19, "color": "#F4B400", "endReason": "QUANTUM_EXPIRE" },
+    { "id": "P1", "start": 19, "end": 22, "color": "#4285F4", "endReason": "QUANTUM_EXPIRE" },
+    { "id": "P3", "start": 22, "end": 23, "color": "#F4B400", "endReason": "COMPLETED" },
+    { "id": "P1", "start": 23, "end": 24, "color": "#4285F4", "endReason": "COMPLETED" }
+  ],
+  "stats": {
+    "avgWait": 8.5,
+    "avgTurnaround": 14.25,
+    "cpuUtilization": 100,
+    "avgWTA": 2.1
+  }
+}

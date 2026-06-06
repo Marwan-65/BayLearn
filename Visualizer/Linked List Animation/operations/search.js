@@ -1,21 +1,7 @@
-/**
- * OPERATION: SEARCH
- *
- * Walks the list looking for a node whose value equals the target.
- * Returns steps that show each comparison, then either FOUND or NOT_FOUND.
- *
- * Time complexity: O(n) in the worst case (target not present or at tail).
- *
- * Teaching points:
- *   - Linked lists have O(n) search --, no random access, no binary search
- *   - Every node must be inspected in sequence
- *   - Contrast with arrays (O(1) index access) and hash maps (O(1) average)
- */
 
 import { cloneState, createStep } from './shared.js';
 import { NODE_ROLES, POINTER_ROLES, ACTIONS } from '../schema/index.js';
 
-// ─── Pseudocode ───────────────────────────────────────────────────────────────
 
 export const PSEUDOCODE = [
   /* 0 */ 'current ← head',
@@ -30,15 +16,8 @@ export const PSEUDOCODE = [
   /* 9 */ 'RETURN −1   (not found)',
 ];
 
-// ─── Operation ───────────────────────────────────────────────────────────────
 
-/**
- * Produces steps for a linear search through the list.
- *
- * @param {ListState} list
- * @param {*}         target  - The value to search for
- * @returns {Step[]}
- */
+
 export function searchByValue(list, target) {
   const steps = [];
   let idx = 0;
@@ -55,7 +34,6 @@ export function searchByValue(list, target) {
     isKeyStep:    true,
   }));
 
-  // Guard: empty list
   if (state.head === null) {
     steps.push(createStep({
       stepIndex: idx++,

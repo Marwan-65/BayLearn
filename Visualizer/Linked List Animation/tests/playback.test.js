@@ -1,25 +1,18 @@
-/**
- * TESTS --, PlaybackController
- *
- * Run with:  node tests/playback.test.js
- */
-
+//di the tests for the playback controller, el tests di byet2aked en el PlaybackController byet5adem 3ala el schema el sah w byet2aked en el status transitions sah w consistent w kaman en kol step //object elly byerga3ha el controller howa snapshot immutable w m4 hayet2asar b ay mutation ba3d shu76sh  keda
 import assert from 'node:assert/strict';
 import { PlaybackController, STATUS } from '../playback/PlaybackController.js';
 import { fromArray, insertAtHead, reverse, traverse } from '../index.js';
 
-// ─── Tiny test harness ────────────────────────────────────────────────────────
-
 let passed = 0;
 let failed = 0;
-
+// el main test function
 function test(name, fn) {
   try {
     fn();
-    console.log(`  ✅  ${name}`);
+    console.log(`  PASS  ${name}`);
     passed++;
   } catch (err) {
-    console.error(`  ❌  ${name}`);
+    console.error(`  FAIL  ${name}`);
     console.error(`       ${err.message}`);
     failed++;
   }
@@ -28,10 +21,10 @@ function test(name, fn) {
 async function testAsync(name, fn) {
   try {
     await fn();
-    console.log(`  ✅  ${name}`);
+    console.log(`  PASS  ${name}`);
     passed++;
   } catch (err) {
-    console.error(`  ❌  ${name}`);
+    console.error(`  FAIL  ${name}`);
     console.error(`       ${err.message}`);
     failed++;
   }
@@ -41,15 +34,12 @@ function section(title) {
   console.log(`\n── ${title} ${'─'.repeat(50 - title.length)}`);
 }
 
-// ─── Fixture ──────────────────────────────────────────────────────────────────
-
 function makeCtrl(options = {}) {
   const steps = insertAtHead(fromArray([2, 3, 4]), 1);
   return { ctrl: new PlaybackController(steps, options), steps };
 }
 
-// ─── Construction ─────────────────────────────────────────────────────────────
-
+//el section da by taregt el construction w el initial properties of the PlaybackController, we check en el steps array elly byet2adem lel constructor m4 fadi w en el properties elly byet3araf beha el controller zay el status w el currentIndex w el totalSteps w el currentStep sah w consistent ma3 el steps array.
 section('Construction');
 
 test('throws on empty steps array', () => {
@@ -76,8 +66,7 @@ test('currentStep returns step 0 initially', () => {
   assert.deepEqual(ctrl.currentStep, steps[0]);
 });
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
-
+// els section da by taregt el navigation functions stepForward w stepBack w jumpTo w jumpToEnd w rewind, we check en kol wa7da menhom btet2aked en el index bet3ada b sah w consistent ma3 el totalSteps w en el index m4 hayet2asar b ay overflow aw underflow w en el status betet3araf beha sah w consistent ma3 el navigation state (e.g. m4 momken a3mel stepForward lw ana already at the end).
 section('Navigation --, stepForward / stepBack / jumpTo');
 
 test('stepForward advances index by 1', () => {
@@ -132,8 +121,7 @@ test('jumpToEnd reaches last step', () => {
   assert.equal(ctrl.isAtEnd, true);
 });
 
-// ─── Key step navigation ──────────────────────────────────────────────────────
-
+// el section da byet2aked en el key step navigation functions nextKeyStep w prevKeyStep byet2aked enhom byet7arakoo sah w consistent ma3 el isKeyStep property of the steps w enhom byet5ademoo 3ala el correct subset of steps (i.e. only the key steps).
 section('Key step navigation');
 
 test('nextKeyStep jumps to next isKeyStep', () => {
@@ -151,8 +139,7 @@ test('prevKeyStep jumps to previous isKeyStep', () => {
   assert.ok(steps[idx].isKeyStep, `step ${idx} should be a key step`);
 });
 
-// ─── Progress ─────────────────────────────────────────────────────────────────
-
+//el section da byet2aked en el progress property byet7asab sah w consistent ma3 el currentIndex w totalSteps, we check en el progress howa 0 at the start w 1 at the end w between 0 w 1 in the middle.
 section('Progress');
 
 test('progress is 0 at start', () => {
@@ -172,8 +159,7 @@ test('progress is between 0 and 1 in the middle', () => {
   assert.ok(ctrl.progress > 0 && ctrl.progress < 1);
 });
 
-// ─── Events ───────────────────────────────────────────────────────────────────
-
+// el section da byet2aked en el event system byet7akem sah w consistent, we check en el events elly byetfirew zay el frame w el narrative w el statusChange byetfirew b sah w consistent ma3 el navigation state w en el payload elly byetfire m3ahom sah w consistent ma3 el current step w current index, w kaman en el on() method byet7akem sah w byerga3 function unsubscribe w enha btet5adem sah.
 section('Events --, frame / narrative / statusChange');
 
 test('stepForward fires frame event with correct step', () => {
@@ -220,7 +206,7 @@ test('on() returns unsubscribe function that works', () => {
   assert.equal(count, 1);
   unsub();
   ctrl.stepForward();
-  assert.equal(count, 1);   // listener removed, count stays at 1
+  assert.equal(count, 1);
 });
 
 test('on() throws on unknown event', () => {
@@ -228,8 +214,7 @@ test('on() throws on unknown event', () => {
   assert.throws(() => ctrl.on('invalid', () => {}), /Unknown event/);
 });
 
-// ─── Speed ────────────────────────────────────────────────────────────────────
-
+// el section da byet2aked en el speed control byet7akem sah w consistent, we check en el setSpeed method byet3araf beha sah w byet7aded el speed property b sah w consistent ma3 el input, w kaman enha btet7akem fe el minimum speed (e.g. m4 momken a3ayen speed of 0 or negative).
 section('Speed');
 
 test('setSpeed updates speed property', () => {
@@ -244,8 +229,7 @@ test('setSpeed clamps to minimum 0.1', () => {
   assert.equal(ctrl.speed, 0.1);
 });
 
-// ─── loadSteps ────────────────────────────────────────────────────────────────
-
+// el section da byet2aked en el loadSteps method byet7akem sah w consistent, we check enha btet2aked en el steps array elly byet2adem laha m4 fadi w enha btet2aked en el currentIndex w totalSteps w currentStep betet3araf beha sah w consistent ma3 el new steps array w kaman enha btetfire frame w narrative events b sah w consistent ma3 step 0 of the new steps array.
 section('loadSteps');
 
 test('loadSteps replaces steps and resets to 0', () => {
@@ -274,13 +258,12 @@ test('loadSteps throws on empty array', () => {
   assert.throws(() => ctrl.loadSteps([]), /non-empty/);
 });
 
-// ─── Async: play / pause / complete ──────────────────────────────────────────
-
+// el section da byet2aked en el play / pause / complete behavior byet7akem sah w consistent, we check en play() byet7arak sah w byetfire complete event at the end w en pause() byetwaqqaf sah w m4 hayet2asar b ay mutation ba3d keda
+// also en play() after pause byet7arak men el index elly waqqafto 3aleh w en pauseOnKeySteps=true byetwaqqaf automatically at key steps. + en el play() byet7akem fe el speed property w en el timing of the auto-advance is consistent ma3 el speed (e.g. faster speed should result in faster completion). w kaman en el complete event byetfire b sah w consistent ma3 el final step w enha btetfire exactly once. w kaman en play() after complete does nothing. w kaman en pause() after complete does nothing.
 section('Async --, play / pause / complete');
 
 await testAsync('play() reaches complete and fires complete event', () => {
   return new Promise((resolve, reject) => {
-    // Use a 2-step sequence and high speed so the test is fast
     const steps = insertAtHead(fromArray([1]), 0);
     const ctrl  = new PlaybackController(steps, { speed: 50, pauseOnKeySteps: false });
 
@@ -303,7 +286,6 @@ await testAsync('pause() stops auto-advance', () => {
     const steps = insertAtHead(fromArray([2, 3, 4]), 1);
     const ctrl  = new PlaybackController(steps, { speed: 50, pauseOnKeySteps: false });
 
-    // Let it play briefly, then pause and verify no further advancement
     ctrl.play();
     setTimeout(() => {
       ctrl.pause();
@@ -370,7 +352,6 @@ await testAsync('pauseOnKeySteps=true auto-pauses at key steps', () => {
           ctrl.destroy();
           resolve();
         } else {
-          // Resume manually (simulates student pressing "next")
           setTimeout(() => ctrl.play(), 20);
         }
       }
@@ -381,8 +362,7 @@ await testAsync('pauseOnKeySteps=true auto-pauses at key steps', () => {
   });
 });
 
-// ─── destroy ──────────────────────────────────────────────────────────────────
-
+// a5er section byet2aked en el destroy method byet7aken sa7 w consistent
 section('destroy');
 
 test('destroy clears all listeners', () => {
@@ -390,14 +370,12 @@ test('destroy clears all listeners', () => {
   let count = 0;
   ctrl.on('frame', () => count++);
   ctrl.destroy();
-  ctrl.stepForward();   // would normally fire frame
+  ctrl.stepForward();
   assert.equal(count, 0);
 });
 
-// ─── Results ──────────────────────────────────────────────────────────────────
-
 console.log(`\n${'═'.repeat(55)}`);
-console.log(`  ${passed + failed} tests   ✅ ${passed} passed   ❌ ${failed} failed`);
+console.log(`  ${passed + failed} tests   PASS ${passed} passed   FAIL ${failed} failed`);
 console.log(`${'═'.repeat(55)}\n`);
 
 if (failed > 0) process.exit(1);

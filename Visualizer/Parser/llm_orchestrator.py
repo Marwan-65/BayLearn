@@ -42,7 +42,7 @@ def extract_first_json_object(text: str) -> Dict[str, Any]:
     candidate = match.group(0)
     return json.loads(candidate)
 
-
+# generate le json mn gemini using el parameters el given hena 
 def gemini_generate_json(api_key: str, model: str, prompt: str, temperature: float = 0.1) -> Dict[str, Any]:
     client = genai.Client(api_key=api_key)
     config = types.GenerateContentConfig(
@@ -69,7 +69,7 @@ def gemini_generate_json(api_key: str, model: str, prompt: str, temperature: flo
 
     return extract_first_json_object(text)
 
-
+#el main prompt bta3et el classification el hanebny 3aleha
 def build_classification_prompt(document_text: str) -> str:
     return (
         "You are a strict classifier for algorithm animation routing.\n"
@@ -84,7 +84,7 @@ def build_classification_prompt(document_text: str) -> str:
         f"{document_text}\n"
     )
 
-
+# prompt el linkedlist 3sha ytala3 el relevant data
 def build_linked_list_extraction_prompt(document_text: str) -> str:
     return (
         "You extract linked list operation sequences from text.\n"
@@ -107,12 +107,18 @@ def build_linked_list_extraction_prompt(document_text: str) -> str:
         "- Keep operation order exactly as in text.\n"
         "- Use null for value/index when not required.\n"
         "- Do not invent operations not supported by linked list animation.\n"
-        "- If a value appears multiple times in text as repeated operation, emit repeated operations.\n\n"
+        "- If a value appears multiple times in text as repeated operation, emit repeated operations.\n"
+        "- SCENARIO GENERATION: If the document explains linked list concepts (e.g. deletion, insertion, traversal) "
+        "but does not provide a concrete numeric example or step-by-step scenario, you MUST generate one yourself. "
+        "Design the scenario to best illustrate the specific operations or concepts the document focuses on — "
+        "for example, if the document covers all three deletion cases, generate a scenario that exercises "
+        "deleteAtHead, deleteAtTail, and deleteByValue/deleteAtIndex on a realistic list. "
+        "Set source_quote to \"[generated scenario based on document concepts]\" for generated operations.\n\n"
         "Document:\n"
         f"{document_text}\n"
     )
 
-
+# prompt el scheduler 3sha ytala3 el relevant data
 def build_scheduler_extraction_prompt(document_text: str) -> str:
     return (
         "You extract scheduler process inputs from text for a process file.\n"
@@ -135,12 +141,20 @@ def build_scheduler_extraction_prompt(document_text: str) -> str:
         "Rules:\n"
         "- If some fields are missing, use safe defaults: priority=1, memsize=1.\n"
         "- Do not create negative values.\n"
-        "- ids must be unique, increasing integers starting from 1 if not explicit.\n\n"
+        "- ids must be unique, increasing integers starting from 1 if not explicit.\n"
+        "- SCENARIO GENERATION: If the document explains a scheduling algorithm but does not list concrete "
+        "processes with arrival times and burst times, you MUST generate a realistic process set yourself. And hardcode the memsize to 1 for all processes "
+        "Design it to clearly demonstrate the key characteristics of the algorithm described — "
+        "for example, for RR generate processes with varying burst times that show preemption well; "
+        "for SJF generate processes that highlight shortest-job-first ordering; "
+        "for HPF generate processes with distinct priorities that show priority preemption; "
+        "for MLQ generate processes that span different priority queues. "
+        "Use 4-6 processes unless the document implies a different scale.\n\n"
         "Document:\n"
         f"{document_text}\n"
     )
 
-
+# prompt el btree 3sha ytala3 el relevant data
 def build_btree_extraction_prompt(document_text: str) -> str:
     return (
         "You extract B-Tree operation sequences from text.\n"
@@ -163,26 +177,32 @@ def build_btree_extraction_prompt(document_text: str) -> str:
         "Rules:\n"
         "- Extract sequential operations in the exact order found in text.\n"
         "- t is the minimum degree of the B-Tree (usually 2 or 3). Default to 2 if not explicitly stated.\n"
-        "- initialKeys are any keys that should already be in the tree before the main operations begin.\n\n"
+        "- initialKeys are any keys that should already be in the tree before the main operations begin.\n"
+        "- SCENARIO GENERATION: If the document explains B-Tree concepts but does not provide a concrete "
+        "sequence of keys or operations, you MUST generate a scenario yourself. "
+        "Design it to illustrate the specific operations or structural properties the document focuses on — "
+        "for example, if the document covers node splitting on insertion, generate enough insertions to "
+        "trigger at least one split; if it covers deletion and borrowing/merging, generate a scenario "
+        "where both cases are demonstrated. Use realistic integer keys and an appropriate value of t.\n\n"
         "Document:\n"
         f"{document_text}\n"
     )
 
-
+#validate en el classification returns sa7
 def validate_classification(result: Dict[str, Any]) -> None:
     allowed = {"linked_list", "scheduler", "btree", "unknown"}
     t = result.get("animation_type")
     if t not in allowed:
         raise ValueError(f"Invalid animation_type: {t}")
 
-
+#validate en el linked list extraction returns sa7
 def validate_linked_list(result: Dict[str, Any]) -> None:
     if result.get("animation_type") != "linked_list":
         raise ValueError("Linked list extraction did not return animation_type=linked_list")
     if not isinstance(result.get("operations"), list):
         raise ValueError("operations must be a list")
 
-
+#validate en el scheduler extraction returns sa7
 def validate_scheduler(result: Dict[str, Any]) -> None:
     if result.get("animation_type") != "scheduler":
         raise ValueError("Scheduler extraction did not return animation_type=scheduler")
@@ -194,14 +214,14 @@ def validate_scheduler(result: Dict[str, Any]) -> None:
             if key not in p:
                 raise ValueError(f"Missing key in process: {key}")
 
-
+#validate en el btree extraction returns sa7
 def validate_btree(result: Dict[str, Any]) -> None:
     if result.get("animation_type") != "btree":
         raise ValueError("B-Tree extraction did not return animation_type=btree")
     if not isinstance(result.get("operations"), list):
         raise ValueError("operations must be a list")
 
-
+#write el processes.txt file elly hayro7 lel scheduler animation mn el extracted data
 def write_scheduler_processes_txt(path: Path, scheduler_data: Dict[str, Any]) -> None:
     lines = ["#id arrival runtime priority memsize"]
     processes = sorted(scheduler_data["processes"], key=lambda p: int(p["id"]))
@@ -212,7 +232,7 @@ def write_scheduler_processes_txt(path: Path, scheduler_data: Dict[str, Any]) ->
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-
+#ekteb el json fileel el linked list haya5od menha el scenario data
 def write_linked_list_json(path: Path, linked_data: Dict[str, Any]) -> None:
     # Convert extraction schema to visualizer expected schema.
     out = {}
@@ -229,7 +249,7 @@ def write_linked_list_json(path: Path, linked_data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
-
+# el json bta3 el b tree scenario
 def write_btree_json(path: Path, btree_data: Dict[str, Any]) -> None:
     out = {
         "name": btree_data.get("name", "B-Tree Scenario"),
@@ -249,7 +269,7 @@ def write_btree_json(path: Path, btree_data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
 
-
+# nshoof windowed wl ala
 def maybe_windowed_extract(
     api_key: str,
     model: str,
@@ -307,7 +327,7 @@ def get_env_int(name: str, default: int) -> int:
     except ValueError as exc:
         raise ValueError(f"Environment variable {name} must be an integer") from exc
 
-
+#el function el bt orchestrate kol 7aga
 def run_orchestration(
     payload: Dict[str, Any],
     api_key: str | None = None,

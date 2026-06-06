@@ -1,9 +1,3 @@
-/**
- * OPERATIONS --, BARREL EXPORT
- *
- * Re-exports every operation and its associated pseudocode.
- * Import from here rather than individual files.
- */
 
 export { traverse, PSEUDOCODE as TRAVERSE_PSEUDOCODE }          from './traverse.js';
 export { insertAtHead, insertAtTail, insertAtIndex,

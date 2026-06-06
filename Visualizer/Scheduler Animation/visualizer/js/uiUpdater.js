@@ -1,7 +1,3 @@
-// ── Narration sentence generator ──────────────────────────────────────────────
-// Generates a human-readable sentence for the current sequence segment.
-// All data comes from the sequence JSON (endReason, id, start, end) and
-// the process list (burst, arrival, priority) — no C code changes needed.
 
 function buildNarration(seg, prevSeg, processMap, processState, step, totalSteps) {
     const p        = processMap[seg.id];
@@ -13,7 +9,6 @@ function buildNarration(seg, prevSeg, processMap, processState, step, totalSteps
     }
 
     const priInfo = (p?.priority != null) ? ` (priority ${p.priority})` : '';
-    // remaining after this segment completes — computed from processState
     const remaining = processState[seg.id]?.remaining ?? '?';
 
     switch (seg.endReason) {
@@ -56,7 +51,6 @@ function buildNarration(seg, prevSeg, processMap, processState, step, totalSteps
     }
 }
 
-// Priority colour scale for priority badges (lower value = higher priority in HPF/MLQ)
 function priorityColor(pri) {
     if (pri == null) return null;
     if (pri <= 2)  return { color: '#f87171', bg: 'rgba(239,68,68,0.12)' };
@@ -72,7 +66,6 @@ export class UIUpdater {
         this.stats     = stats;
         this.algoKey   = algoKey;
 
-        // Build a quick lookup map id→process
         this.processMap = {};
         processes.forEach(p => { this.processMap[p.id] = p; });
 
@@ -104,7 +97,6 @@ export class UIUpdater {
         this.updateNarration(step, isFinal, processState);
     }
 
-    // ── State computation ────────────────────────────────────────────────────
 
     _computeStateAtStep(step, currentTime) {
         const currentSegment = this.sequence[step];
@@ -161,7 +153,6 @@ export class UIUpdater {
         return stateMap;
     }
 
-    // ── Narration strip ──────────────────────────────────────────────────────
 
     updateNarration(step, isFinal, processState) {
         const textEl   = document.getElementById('narrationText');
@@ -190,7 +181,6 @@ export class UIUpdater {
         strip.style.borderColor   = `${narration.color}55`;
     }
 
-    // ── Ready queue ──────────────────────────────────────────────────────────
 
     updateQueue(currentSegment, currentTime, processState) {
         const queueContainer = document.getElementById('queueContainer');
@@ -232,7 +222,6 @@ export class UIUpdater {
         return chip;
     }
 
-    // ── Process table ────────────────────────────────────────────────────────
 
     updateTable(processState) {
         const tbody = document.getElementById('processTable');
@@ -242,7 +231,6 @@ export class UIUpdater {
             const state = processState[p.id];
             const row   = tbody.insertRow();
 
-            // Per-row color for the CSS pulse animation
             row.style.setProperty('--row-color', p.color);
 
             let statusClass = 'status-wait';
@@ -264,7 +252,6 @@ export class UIUpdater {
                 ? state.wait + p.burst
                 : '—';
 
-            // Priority cell — only rendered if column is visible
             const priCell = this.showPriority
                 ? `<td>${this._priorityBadge(p.priority)}</td>`
                 : '';
@@ -288,13 +275,11 @@ export class UIUpdater {
         return `<span class="priority-badge" style="color:${c.color};border-color:${c.color};background:${c.bg};">${pri}</span>`;
     }
 
-    // ── Stats ────────────────────────────────────────────────────────────────
 
     updateStats(step) {
         const stats = this.stats;
         const isFinal = step === this.sequence.length;
 
-        // CPU utilization: proportion of total schedule elapsed so far
         let currentTime = 0;
         if (isFinal) {
             currentTime = stats.totalTime;
@@ -311,7 +296,6 @@ export class UIUpdater {
         document.getElementById('cpuUtil').textContent         = utilization;
     }
 
-    // ── Reset ────────────────────────────────────────────────────────────────
 
     resetUI() {
         document.getElementById('queueContainer').innerHTML =

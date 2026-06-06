@@ -1,7 +1,4 @@
-// Search operation. Returns Step[] --, never mutates the input state.
-//
-// Pseudocode indices match spec section 5.1 so pseudocodeLine values
-// stay in sync with what the narrative layer will render.
+//by return step array, kol step 3ebara 3n snapshot
 
 const { ACTIONS, NODE_ROLES, KEY_ROLES, EDGE_ROLES } = require('./constants');
 const { createStep } = require('./shared');
@@ -22,20 +19,24 @@ function search(state, targetKey) {
   const steps = [];
   let idx = 0;
 
-  // State never changes during search so we reuse it for every step.
-  // createStep deep-clones it internally.
+  //state 3omraha ma btet8ayar, fa momken nesta5dem nafs el state object 3ady
+  
+  //createStep deep-clones it internally.
 
   steps.push(createStep({
-    stepIndex: idx++,
-    action:    ACTIONS.INITIAL_STATE,
-    state,
+    stepIndex: idx++,  
+    action: ACTIONS.INITIAL_STATE,
+    state, 
     explanation: `Searching for key ${targetKey}. We start at the root and compare keys left to right, descending into the appropriate child subtree at each level.`,
     pseudocodeLine: 0,
     variables: { key: targetKey, t: state.t },
-    meta: { phase: 'descend', depth: 0 },
+    meta: { phase: 'descend', depth: 0 }, 
   }));
 
-  // Track the path we've descended so we can highlight those edges on each step
+
+
+
+  //da bytrach el dedges eli 3adeet 3aleha wana mashy 3shan ab2a a3melaha highlight fl frontned
   const edgePath = []; // [{ fromId, toId }]
 
   function visit(nodeId, depth) {
@@ -43,12 +44,12 @@ function search(state, targetKey) {
     if (!node) return false;
 
     steps.push(createStep({
-      stepIndex: idx++,
+      stepIndex: idx++, //rdtfyjgk
       action:    ACTIONS.SEARCH_ENTER_NODE,
       state,
       highlights: {
         nodes: [{ nodeId, role: NODE_ROLES.ACTIVE }],
-        edges: edgePath.map(e => ({ ...e, role: EDGE_ROLES.PATH })),
+        edges: edgePath.map(e => ({ ...e, role: EDGE_ROLES.PATH })),// srdtfygu
       },
       explanation: depth === 0
         ? 'We begin at the root. Every search starts here regardless of tree depth.'
@@ -61,7 +62,7 @@ function search(state, targetKey) {
     for (let i = 0; i < node.keys.length; i++) {
       const k = node.keys[i];
 
-      let compareExplanation;
+      let compareExplanation; //han7ot di based 3la el results bta3et el comparison
       if (k === targetKey) {
         compareExplanation = `Is ${targetKey} == ${k}? YES --, found!`;
       } else if (targetKey < k) {
@@ -96,7 +97,7 @@ function search(state, targetKey) {
             keys:  [{ nodeId, keyIndex: i, role: KEY_ROLES.FOUND }],
             edges: edgePath.map(e => ({ ...e, role: EDGE_ROLES.PATH })),
           },
-          explanation:    `Search complete. Key ${targetKey} found at depth ${depth}, index ${i}.`,
+          explanation:    `Search complete. Key ${targetKey} found at depth ${depth}, index ${i}.`,//rdtfyguhij
           pseudocodeLine: 3,
           variables: { node: nodeId, key: targetKey, keyIndex: i, t: state.t },
           meta: { phase: 'act', reason: 'found', depth },
@@ -114,7 +115,7 @@ function search(state, targetKey) {
             highlights: {
               nodes: [{ nodeId, role: NODE_ROLES.ACTIVE }],
             },
-            explanation:    `${targetKey} < ${k} and this is a leaf --, there is no subtree to descend into. Key ${targetKey} is not in the tree.`,
+            explanation:    `${targetKey} < ${k} and this is a leaf --, there is no subtree to descend into. Key ${targetKey} is not in the tree.`,//esrdtfg87
             pseudocodeLine: 5,
             variables: { node: nodeId, key: targetKey, t: state.t },
             meta: { phase: 'act', reason: 'not-found', depth },
@@ -134,7 +135,7 @@ function search(state, targetKey) {
               { fromId: nodeId, toId: childId, role: EDGE_ROLES.PATH },
             ],
           },
-          explanation:    `${targetKey} < ${k}, so we descend through child pointer ${i}. Every key in that subtree is < ${k}.`,
+          explanation:    `${targetKey} < ${k}, so we descend through child pointer ${i}. Every key in that subtree is < ${k}.`,//s5fh
           pseudocodeLine: 6,
           variables: { node: nodeId, key: targetKey, childIndex: i, t: state.t },
           meta: { phase: 'descend', depth },
@@ -146,7 +147,7 @@ function search(state, targetKey) {
         return found;
       }
 
-      // targetKey > k --, moving right. Emit a step if there are more keys to look at.
+      // targetKey > k --, moving right. emit a step if there are more keys to look at.
       if (i < node.keys.length - 1) {
         steps.push(createStep({
           stepIndex: idx++,

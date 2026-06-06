@@ -12,7 +12,7 @@
     },
     {
       "op": "deleteByValue",
-      "value": 20,
+      "value": 30,
       "index": null
     }
   ]

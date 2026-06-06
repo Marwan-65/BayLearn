@@ -19,10 +19,9 @@ from llm_orchestrator import (
     write_linked_list_json,
 )
 
-
 app = FastAPI(title="Visualizer Transform API", version="1.0.0")
 
-# Allow browser-based viewers to fetch run payloads
+# el cors policy motasam7a 3shan t5aly el 7agat te3raf tetsht8l mn ay origin
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -36,13 +35,13 @@ RUNS_DIR = BASE_DIR / "runs"
 RUNS_DIR.mkdir(parents=True, exist_ok=True)
 load_dotenv(BASE_DIR.parent / ".env")
 
-
+#el class da 3shan y7aded el shape beta3 el data elly hayegi mn el client w y5aly el code aktar nazafa w sahel feh el debugging w el maintenance ba3d kda
 class TransformRequest(BaseModel):
     parsed_content: Dict[str, Any] = Field(..., description="Parsed JSON from Input Parsing Module /upload endpoint")
     max_chars_per_window: int = Field(12000, ge=1000, le=100000)
     max_single_tokens: Optional[int] = Field(None, ge=1000, le=200000)
 
-
+#el class da 3shan y7aded el shape beta3 el data elly hayro7 lel client ba3d ma yet3ml processing 3aleh w kda kda hayb2a nazef w sahel feh el debugging w el maintenance ba3d kda
 class TransformResponse(BaseModel):
     animation_type: str
     classification: Dict[str, Any]
@@ -100,7 +99,7 @@ def _read_run(run_id: str) -> RunRecord:
         raise HTTPException(status_code=404, detail=f"run_id not found: {run_id}")
     return RunRecord.model_validate_json(path.read_text(encoding="utf-8"))
 
-
+#el function di 3shan t7aded el url elly hayro7 3aleh el client 3ashan yshoof el animation
 def _build_viewer_url(animation_type: str, run_id: str) -> str:
     linked_base = _get_env("LINKED_LIST_VIEWER_URL", "http://localhost:8081")
     scheduler_base = _get_env("SCHEDULER_VIEWER_URL", "http://localhost:8082")
@@ -119,7 +118,7 @@ def _build_viewer_url(animation_type: str, run_id: str) -> str:
 def health() -> Dict[str, str]:
     return {"status": "ok"}
 
-
+# el endpoint el byestelem el data elly gayya mn el input parsing module w by3ml 3aleha processing 3ashan y7awelha le format elly el visualizer 3ayezha
 @app.post("/v1/transform", response_model=TransformResponse)
 def transform(req: TransformRequest) -> TransformResponse:
     try:
@@ -146,7 +145,7 @@ def transform(req: TransformRequest) -> TransformResponse:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-
+# el endpoint da byestelem file upload mn ay client (browser-based aw postman aw gpt function calling) w by3ml forward lel file di lel input parsing module 3ashan y7awelha le parsed json w ba3d kda byro7 lel transform function 3ashan y7awelha le llm payload w extraction w classification w kda w ba3d kda byro7 lel launch function 3ashan y7mlha fe el visualizer
 @app.post("/v1/ingest-transform", response_model=TransformResponse)
 async def ingest_transform(
     file: UploadFile = File(...),
@@ -178,7 +177,7 @@ async def ingest_transform(
         )
     )
 
-
+# el launch endpoint da byestelem el data elly gayya mn el transform function w by7awelha le format mo3ayan 3ashan el visualizer y2dar yefhamha w y3mlha animate
 @app.post("/v1/launch", response_model=LaunchResponse)
 def launch(req: LaunchRequest) -> LaunchResponse:
     if req.extraction is None:
@@ -244,7 +243,7 @@ def launch(req: LaunchRequest) -> LaunchResponse:
 
     return LaunchResponse(run_id=run_id, animation_type=req.animation_type, viewer_url=viewer_url)
 
-
+#da kan for testing el get run endpoint w el viewer url generation
 @app.post("/v1/ingest-launch", response_model=LaunchResponse)
 async def ingest_launch(
     file: UploadFile = File(...),
@@ -265,7 +264,7 @@ async def ingest_launch(
         )
     )
 
-
+# da el actual endpoint eli bnesta5demo fl frontend 3shanysha8al el module kol, heya eli mgama3a kol eli fo2 w sha8ala 3la el final shape bta3 el input parsing
 @app.post("/v1/file-launch", response_model=LaunchResponse)
 def file_launch(req: FileLaunchRequest) -> LaunchResponse:
     base_url = _get_env("INPUT_PARSING_BASE_URL", "http://localhost:8000")
@@ -313,12 +312,12 @@ def file_launch(req: FileLaunchRequest) -> LaunchResponse:
         )
     )
 
-
+#byget el runs 
 @app.get("/v1/runs/{run_id}", response_model=RunRecord)
 def get_run(run_id: str) -> RunRecord:
     return _read_run(run_id)
 
-
+#byget el payload beta3 el run record 3ashan y7awelha lel client w y3ml beha animate
 @app.get("/v1/runs/{run_id}/payload")
 def get_run_payload(run_id: str) -> Dict[str, Any]:
     record = _read_run(run_id)

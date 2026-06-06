@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Any
 
-
+#clean el text el awel 3ashan n7awel el parsed json le full text mo3ayan
 def _clean_text(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     # Collapse excessive spaces/tabs inside lines
@@ -12,7 +12,7 @@ def _clean_text(text: str) -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
-
+# bycheck el line di 3ashan n7aded el lines elly feha noise zay el repeating headers aw footers elly betetla3 fe kol page w btrawa7 el parser w t5ali el output ak cleaner
 def _is_noise_line(line: str) -> bool:
     line = line.strip()
     if not line:
@@ -24,12 +24,8 @@ def _is_noise_line(line: str) -> bool:
         return True
     return False
 
-
+#by reconstruct el full text mn el parsed json structure eli 3andena, w n7awel el sections w el chunks le text mo3ayan, w nclean el text di 3ashan n5aliha cleaner w ashal lel llm yestakhdemha fe extraction w classification w kda
 def reconstruct_full_text(parsed: Dict[str, Any], keep_section_markers: bool = True) -> str:
-    """
-    Converts parser output (sections/chunks) into one clean plain-text document string,
-    preserving reading order and light structure.
-    """
     sections = parsed.get("sections", [])
     blocks: List[str] = []
 
@@ -67,12 +63,9 @@ def reconstruct_full_text(parsed: Dict[str, Any], keep_section_markers: bool = T
     full_text = _clean_text("\n".join(cleaned_lines))
     return full_text
 
-
+#build windows 3shan lw el 7agm kbeer 3la el llm input limit
 def build_windows(text: str, max_chars: int = 12000, overlap_chars: int = 1200) -> List[str]:
-    """
-    Splits long text into sequential windows for LLM APIs with context limits.
-    Keeps paragraph boundaries where possible.
-    """
+
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
     windows: List[str] = []
     current = ""
@@ -105,14 +98,9 @@ def build_windows(text: str, max_chars: int = 12000, overlap_chars: int = 1200) 
 
     return windows
 
-
+#byzabbat el payload eli hayro7 lel llm 3ashan yestakhdemha fe extraction w classification w kda
 def prepare_llm_payload(parsed: Dict[str, Any], max_chars_per_window: int = 12000) -> Dict[str, Any]:
-    """
-    Returns:
-    - full_text: best single-document input for extraction
-    - windows: fallback chunked inputs for long docs
-    - metadata: lightweight metadata
-    """
+
     full_text = reconstruct_full_text(parsed, keep_section_markers=True)
     windows = build_windows(full_text, max_chars=max_chars_per_window, overlap_chars=1200)
 

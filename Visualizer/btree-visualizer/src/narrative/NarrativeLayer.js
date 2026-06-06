@@ -1,41 +1,30 @@
-// NarrativeLayer.js
+
+///da le public face bta3 el narrative kolo. ay 7d by import byimport el file da
+//by mount el 5 sub panels f div gowa el sidebar conatiner
 //
-// The public face of the entire narrative system. Everything outside this
-// directory imports NarrativeLayer and nothing else.
-//
-// It owns five sub-panels and mounts each one into a child div it creates
-// inside the container element. The container is expected to be the sidebar
-// <div id="narrative"> from index.html.
-//
-// Usage (from app.js in Stage 8):
-//   const narr = new NarrativeLayer(document.getElementById('narrative'), theme);
-//   narr.loadOperation('insert');
-//   playbackCtrl.on('narrative', (step, prev) => narr.update(step, prev));
 
 const { ExplanationPanel }  = require('./ExplanationPanel');
-const { PseudocodePanel }   = require('./PseudocodePanel');
+const { PseudocodePanel } = require('./PseudocodePanel');
 const { VariableInspector } = require('./VariableInspector');
 const { InvariantTracker }  = require('./InvariantTracker');
-const { ComplexityPanel }   = require('./ComplexityPanel');
-const { RecursionDepth }    = require('./RecursionDepth');
-const { createTheme }       = require('../animation/ThemeModule');
 
-// Section IDs --, these become the ids on the child divs so CSS can target them
+const { ComplexityPanel } = require('./ComplexityPanel');
+const { RecursionDepth }   = require('./RecursionDepth');
+const { createTheme }  = require('../animation/ThemeModule');
+
 const SECTION_IDS = {
-  invariant:   'narr-invariant',
-  recursion:   'narr-recursion',
-  pseudocode:  'narr-pseudocode',
+  invariant: 'narr-invariant',
+  recursion: 'narr-recursion',
+  pseudocode: 'narr-pseudocode',
   explanation: 'narr-explanation',
-  variables:   'narr-variables',
+  variables:  'narr-variables',   
   complexity:  'narr-complexity',
 };
 
 class NarrativeLayer {
-  /**
-   * @param {HTMLElement} container     - the sidebar DOM element
-   * @param {object}      [themeOverrides] - optional partial theme
-   */
-  constructor(container, themeOverrides = {}) {
+
+  //bya5od container el howa html element w theme ovverrdies el howa optional object
+  constructor(container, themeOverrides = {}) {  
     this._container = container;
     this._theme     = createTheme(themeOverrides);
     this._op        = null;
@@ -44,13 +33,9 @@ class NarrativeLayer {
     this._buildPanels();
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
 
-  /**
-   * Prepare the sidebar for a new operation. Swaps pseudocode, resets panels.
-   * @param {'search'|'insert'|'delete'} op
-   */
-  loadOperation(op) {
+
+  loadOperation(op) { //op di momken teb2a search insert delete
     this._op = op;
     this._pseudocode.loadOperation(op);
     this._complexity.loadOperation(op);
@@ -60,12 +45,7 @@ class NarrativeLayer {
     this._invariant.reset();
   }
 
-  /**
-   * Update all panels for the new step.
-   * @param {Step}      step
-   * @param {Step|null} prevStep
-   */
-  update(step, prevStep) {
+  update(step, prevStep) {//prev step momken teb2a null aw optional ya3ni
     this._invariant.update(step);
     this._recursion.update(step);
     this._explanation.update(step);
@@ -74,7 +54,7 @@ class NarrativeLayer {
     this._complexity.update(step);
   }
 
-  /** Tear down --, empties the container. */
+
   destroy() {
     this._invariant.destroy();
     this._recursion.destroy();
@@ -86,8 +66,7 @@ class NarrativeLayer {
     this._container = null;
   }
 
-  // Exposed for testing
-  get panels() {
+  get panels() {//bnesta5demha fl testing
     return {
       invariant:   this._invariant,
       recursion:   this._recursion,
@@ -98,8 +77,7 @@ class NarrativeLayer {
     };
   }
 
-  // ── DOM construction ─────────────────────────────────────────────────────────
-
+//el ta7t da bybuild el DOM
   _buildLayout() {
     const T = this._theme;
 
@@ -116,11 +94,11 @@ class NarrativeLayer {
 
     // Create a child div for each section in sidebar order
     const sections = [
-      { id: SECTION_IDS.invariant,   label: 'Properties' },
+      { id: SECTION_IDS.invariant, label: 'Properties' },   
       { id: SECTION_IDS.recursion,   label: 'Call Stack' },
-      { id: SECTION_IDS.pseudocode,  label: 'Pseudocode' },
-      { id: SECTION_IDS.explanation, label: 'Explanation' },
-      { id: SECTION_IDS.variables,   label: 'Variables' },
+      { id: SECTION_IDS.pseudocode,label: 'Pseudocode' },
+      { id: SECTION_IDS.explanation, label: 'Explanation' },    
+      { id: SECTION_IDS.variables, label: 'Variables' },                                                               ///5dfgcydt5tju
       { id: SECTION_IDS.complexity,  label: 'Complexity' },
     ];
 

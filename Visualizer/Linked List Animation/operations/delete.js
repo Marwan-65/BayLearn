@@ -1,24 +1,7 @@
-/**
- * OPERATION: DELETE
- *
- * Four variants:
- *   deleteAtHead   --, O(1)
- *   deleteAtTail   --, O(n), must find second-to-last node
- *   deleteByValue  --, O(n), two-pointer technique (prev + current)
- *   deleteAtIndex  --, O(n), two-pointer technique
- *
- * Key teaching points:
- *   - deleteAtHead is O(1) because head is directly accessible
- *   - deleteAtTail is O(n) because we need the node BEFORE the tail, and
- *     singly linked lists can only move forward
- *   - The two-pointer pattern (prev + current) is fundamental to linked list
- *     deletion and will reappear in many other algorithms
- */
 
 import { cloneState, createStep } from './shared.js';
 import { NODE_ROLES, POINTER_ROLES, ACTIONS } from '../schema/index.js';
 
-// ─── Pseudocode ───────────────────────────────────────────────────────────────
 
 export const DELETE_AT_HEAD_PSEUDOCODE = [
   /* 0 */ 'IF head = NULL THEN RETURN (empty list)',
@@ -82,15 +65,7 @@ export const DELETE_AT_INDEX_PSEUDOCODE = [
   /* 11 */ 'RETURN deleted',
 ];
 
-// ─── deleteAtHead ─────────────────────────────────────────────────────────────
 
-/**
- * Removes the head node and returns its value.
- * Time complexity: O(1).
- *
- * @param {ListState} list
- * @returns {Step[]}
- */
 export function deleteAtHead(list) {
   const steps = [];
   let idx = 0;
@@ -107,7 +82,6 @@ export function deleteAtHead(list) {
     isKeyStep:    true,
   }));
 
-  // Guard: empty list
   if (state.head === null) {
     steps.push(createStep({
       stepIndex: idx++,
@@ -126,7 +100,6 @@ export function deleteAtHead(list) {
   const deletedValue = state.nodes[deletedId].value;
   const nextId       = state.nodes[deletedId].next;
 
-  // Step: identify the node to delete
   steps.push(createStep({
     stepIndex: idx++,
     state,
@@ -141,7 +114,6 @@ export function deleteAtHead(list) {
     isKeyStep:    true,
   }));
 
-  // Step: head ← head.next
   delete state.nodes[deletedId];
   state.head = nextId;
   state.size -= 1;
@@ -171,15 +143,7 @@ export function deleteAtHead(list) {
   return steps;
 }
 
-// ─── deleteAtTail ─────────────────────────────────────────────────────────────
 
-/**
- * Removes the tail node and returns its value.
- * Time complexity: O(n) --, must find the second-to-last node.
- *
- * @param {ListState} list
- * @returns {Step[]}
- */
 export function deleteAtTail(list) {
   const steps = [];
   let idx = 0;
@@ -196,7 +160,6 @@ export function deleteAtTail(list) {
     isKeyStep:    true,
   }));
 
-  // Guard: empty list
   if (state.head === null) {
     steps.push(createStep({
       stepIndex: idx++,
@@ -211,7 +174,6 @@ export function deleteAtTail(list) {
     return steps;
   }
 
-  // Guard: single node
   if (state.nodes[state.head].next === null) {
     const onlyId    = state.head;
     const onlyValue = state.nodes[onlyId].value;
@@ -245,7 +207,6 @@ export function deleteAtTail(list) {
     return steps;
   }
 
-  // Traverse to find the second-to-last node
   steps.push(createStep({
     stepIndex: idx++,
     state,
@@ -323,16 +284,7 @@ export function deleteAtTail(list) {
   return steps;
 }
 
-// ─── deleteByValue ────────────────────────────────────────────────────────────
 
-/**
- * Removes the first node whose value equals `target`.
- * Time complexity: O(n).
- *
- * @param {ListState} list
- * @param {*}         target
- * @returns {Step[]}
- */
 export function deleteByValue(list, target) {
   const steps = [];
   let idx = 0;
@@ -410,7 +362,6 @@ export function deleteByValue(list, target) {
     return steps;
   }
 
-  // Two-pointer traversal
   steps.push(createStep({
     stepIndex: idx++,
     state,
@@ -450,7 +401,6 @@ export function deleteByValue(list, target) {
     }));
 
     if (currentNode.value === target) {
-      // Found --, bypass the current node
       const nextId = currentNode.next;
       delete state.nodes[currentId];
       state.nodes[prevId].next = nextId;
@@ -521,16 +471,7 @@ export function deleteByValue(list, target) {
   return steps;
 }
 
-// ─── deleteAtIndex ────────────────────────────────────────────────────────────
 
-/**
- * Removes the node at a given 0-based index.
- * Time complexity: O(n).
- *
- * @param {ListState} list
- * @param {number}    index
- * @returns {Step[]}
- */
 export function deleteAtIndex(list, index) {
   const steps = [];
   let idx = 0;

@@ -1,5 +1,4 @@
-// Marker text and tooltip label for each end-of-bar reason code.
-// Using clean single-letter markers instead of emoji for professionalism.
+
 const END_REASON = {
     'QUANTUM_EXPIRE':                  { icon: 'Q',  label: 'Quantum expired — preempted, sent to back of queue' },
     'QUANTUM_EXPIRE+DEMOTED':          { icon: 'Q↓', label: 'Quantum expired — demoted one priority level' },
@@ -24,7 +23,7 @@ export class Visualizer {
         this.yScale = null;
         this.bars       = [];
         this.icons      = [];
-        this.barLabels  = [];  // per-bar center text labels
+        this.barLabels  = [];  
         
         this.init();
     }
@@ -120,7 +119,6 @@ export class Visualizer {
 
             this.barLabels.push(barLabel);
 
-            // End-of-bar marker — sits just to the right of the bar's right edge
             const reason = END_REASON[d.endReason];
             const iconText = this.svg.append("text")
                 .attr("x", this.xScale(d.end) + 4)
@@ -159,13 +157,11 @@ export class Visualizer {
     animateToStep(step, speed = 1) {
         if (!this.svg) return;
 
-        // Scale all D3 transition durations inversely with speed
-        // (speed=1 → full duration; speed=2 → half; speed=3 → third; min 100ms)
+
         const barDur    = Math.max(100, Math.round(800  / speed));
         const cursorDur = Math.max(100, Math.round(600  / speed));
         const exitDur   = Math.max(100, Math.round(600  / speed));
         if (step < 0) {
-            // Reset all bars, labels, and icons
             this.bars.forEach((bar) => {
                 bar.transition()
                     .duration(exitDur)
@@ -186,7 +182,6 @@ export class Visualizer {
             return;
         }
 
-        // Final synthetic frame: all bars fully shown, no active highlight, cursor at end
         const isFinal = step === this.sequence.length;
         const activeIdx = isFinal ? -1 : step;
 

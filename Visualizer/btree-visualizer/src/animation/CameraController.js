@@ -51,7 +51,6 @@ class CameraController {
     this._current = d3.zoomIdentity;
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
 
   /**
    * Called after every AnimationLayer.render(). Picks a camera rule and fires.
@@ -197,7 +196,6 @@ class CameraController {
     this._zoom  = null;
   }
 
-  // ── Internal ────────────────────────────────────────────────────────────────
 
   _focusNodes(nodeIds, layout, duration, delay) {
     const positions = nodeIds.map(id => layout.nodes[id]).filter(Boolean);
@@ -310,7 +308,6 @@ class CameraController {
   }
 }
 
-// ─── Exported geometry helper (also used by tests) ───────────────────────────
 
 function _boundingBox(positions) {
   if (!positions || positions.length === 0) return null;

@@ -1,0 +1,60 @@
+{
+  "run_id": "a99982f788bd4e54a9f0b5d646012625",
+  "status": "ready",
+  "created_at": "2026-06-04T19:25:12.175175+00:00",
+  "animation_type": "linked_list",
+  "viewer_url": "http://localhost:8081?run_id=a99982f788bd4e54a9f0b5d646012625",
+  "classification": {
+    "animation_type": "linked_list",
+    "confidence": 0.99,
+    "evidence": [
+      "SECTION: Introduction to Linked List Deletion",
+      "A linked list is a linear data structure where each element, called a node, contains a data value and a pointer to the next node in the sequence.",
+      "Deletion in a Linked List",
+      "Deletion at the Head",
+      "Deletion at the Tail",
+      "Deletion by Value or Index",
+      "All three deletion operations run in O(n) time in the worst case due to traversal, except for head deletion which runs in O(1). Deletion does not require shifting elements as in arrays, which makes linked lists advantageous when frequent deletions are expected."
+    ]
+  },
+  "extraction": {
+    "animation_type": "linked_list",
+    "confidence": 0.9,
+    "initial_list": [
+      10,
+      20,
+      30,
+      40,
+      50
+    ],
+    "operations": [
+      {
+        "op": "deleteAtHead",
+        "value": null,
+        "index": null,
+        "source_quote": "[generated scenario based on document concepts]"
+      },
+      {
+        "op": "deleteAtTail",
+        "value": null,
+        "index": null,
+        "source_quote": "[generated scenario based on document concepts]"
+      },
+      {
+        "op": "deleteByValue",
+        "value": 30,
+        "index": null,
+        "source_quote": "[generated scenario based on document concepts]"
+      }
+    ],
+    "final_list": [
+      20,
+      40
+    ]
+  },
+  "llm_payload_meta": {
+    "document_id": "file.pdf",
+    "window_count": 1,
+    "full_text_chars": 2217
+  }
+}

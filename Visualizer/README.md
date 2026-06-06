@@ -11,10 +11,11 @@ You need to start the two Python servers that handle PDF extraction and LLM orch
 **Terminal 1 (Input Parsing Module):**
 ```bash
 cd "Input-Parsing-Module"
-uvicorn app.main:app --reload --port 8000
+.\venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --port 8100
 ```
 
-**Terminal 2 (Transform & Orchestration API):**
+**Terminal 2 (Transform & Orchestration API) (Using the sae venv as input parsing):**
 ```bash
 cd "Visualizer/Parser"
 uvicorn transform_api:app --reload --port 8010
@@ -40,6 +41,7 @@ python -m http.server 8082
 **Terminal 5 (B-Tree UI):**
 ```bash
 cd "Visualizer/btree-visualizer"
+npm run build
 python -m http.server 8083
 ```
 

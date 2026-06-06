@@ -1,12 +1,3 @@
-/**
- * NARRATIVE / CONSTANTS
- *
- * Shared data for the narrative layer.
- * Imported by NarrativeLayer, PseudocodePanel, and ComplexityPanel.
- */
-
-// ─── Pseudocode strings per operation ────────────────────────────────────────
-// Each array index matches the pseudocodeLine field in a Step.
 
 export const PSEUDOCODES = {
   traverse: [
@@ -103,7 +94,6 @@ export const PSEUDOCODES = {
   ],
 };
 
-// ─── Complexity info per operation ───────────────────────────────────────────
 
 export const COMPLEXITY_MAP = {
   traverse: {
@@ -147,9 +137,6 @@ export const COMPLEXITY_MAP = {
     note: 'Single pass with three pointer variables. No copy of the list needed.',
   },
 };
-
-// ─── Variable name → colour role mapping ─────────────────────────────────────
-// Used by VariableInspector to colour chips consistently.
 
 export const VAR_ROLES = {
   current: 'amber',

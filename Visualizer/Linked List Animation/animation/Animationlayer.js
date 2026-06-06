@@ -1,17 +1,3 @@
-/**
- * ANIMATION / ANIMATION LAYER
- *
- * The main class. Owns the SVG and orchestrates all sub-renderers.
- * Its only public method called by the outside world is render(step).
- *
- * Internal flow on each render(step):
- *   1. LayoutEngine  → compute positions
- *   2. Choreographer → compute timing plan
- *   3. Render nodes  (enter / update / exit with D3 transitions)
- *   4. Render arrows (enter / update / exit with D3 transitions)
- *   5. Render labels (head, tail, variable labels like "current", "prev")
- *   6. Pan viewport  to keep active nodes visible
- */
 
 import { getOrderedIds, NODE_ROLES } from '../schema/index.js';
 import { computeHorizontalLayout }   from './LayoutEngine.js';
@@ -19,11 +5,7 @@ import { plan as choreograph }        from './TransitionChoreographer.js';
 import { DEFAULT_THEME }              from './ThemeModule.js';
 
 export class AnimationLayer {
-  /**
-   * @param {SVGElement} svgEl   - The <svg> element to draw into
-   * @param {object}     d3      - The D3 library (passed in to avoid import issues)
-   * @param {object}     theme   - Optional theme override
-   */
+
   constructor(svgEl, d3, theme = DEFAULT_THEME) {
     this._svg   = d3.select(svgEl);
     this._d3    = d3;
@@ -38,9 +20,7 @@ export class AnimationLayer {
     this._setupZoom();
   }
 
-  // ─── Public API ───────────────────────────────────────────────────────────
 
-  /** Called by PlaybackController's 'frame' event on every step. */
   render(step) {
     const positions = computeHorizontalLayout(step.state, this._theme);
     const cp        = choreograph(this._prev, step, this._theme);
@@ -69,13 +49,11 @@ export class AnimationLayer {
     this._svg.selectAll('*').remove();
   }
 
-  // ─── Setup ────────────────────────────────────────────────────────────────
 
   _setupDefs() {
     this._svg.select('defs').remove();
     const defs = this._svg.append('defs');
 
-    // One arrowhead marker per pointer role colour
     const T = this._theme;
     Object.entries(T.pointerRoles).forEach(([role, style]) => {
       defs.append('marker')
@@ -91,7 +69,6 @@ export class AnimationLayer {
           .attr('fill', style.stroke);
     });
 
-    // Glow filter for highlighted nodes
     const glow = defs.append('filter').attr('id', 'glow');
     glow.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'blur');
     glow.append('feMerge').selectAll('feMergeNode')
@@ -101,17 +78,14 @@ export class AnimationLayer {
   }
 
   _setupLayers() {
-    // Render order: grid → arrows → nodes → labels (top)
     this._layerGrid    = this._svg.append('g').attr('class', 'layer-grid');
     this._layerArrows  = this._svg.append('g').attr('class', 'layer-arrows');
     this._layerNodes   = this._svg.append('g').attr('class', 'layer-nodes');
     this._layerLabels  = this._svg.append('g').attr('class', 'layer-labels');
 
     this._innerG = this._svg.append('g').attr('class', 'zoom-container');
-    // Re-parent all layers inside the zoom container
     this._svg.node().appendChild(this._layerGrid.node());
-    // Actually the layers need to be inside the zoom container for pan/zoom
-    // Re-do: put everything inside _innerG
+
     this._svg.selectAll('g.layer-grid, g.layer-arrows, g.layer-nodes, g.layer-labels').remove();
     this._innerG      = this._svg.append('g').attr('class', 'zoom-container');
     this._layerArrows = this._innerG.append('g').attr('class', 'layer-arrows');
@@ -131,9 +105,7 @@ export class AnimationLayer {
     this._currentTransform = d3.zoomIdentity;
   }
 
-  // ─── Role map ─────────────────────────────────────────────────────────────
 
-  /** Build { nodeId → roleName } from step.highlights.nodes */
   _buildRoleMap(step) {
     const map = {};
     (step.highlights?.nodes ?? []).forEach(h => {
@@ -154,7 +126,6 @@ export class AnimationLayer {
     return { role, style: this._theme.pointerRoles[role] ?? this._theme.pointerRoles.default };
   }
 
-  // ─── Node rendering ───────────────────────────────────────────────────────
 
   _renderNodes(state, positions, roleMap, cp) {
     const d3    = this._d3;
@@ -173,7 +144,6 @@ export class AnimationLayer {
       .selectAll('g.node')
       .data(nodeData, d => d.id);
 
-    // ── EXIT ──────────────────────────────────────────────────────────────
     groups.exit()
       .transition().delay(cp.nodeExit.delay).duration(cp.nodeExit.duration)
         .style('opacity', 0)
@@ -183,14 +153,12 @@ export class AnimationLayer {
         })
       .remove();
 
-    // ── ENTER ─────────────────────────────────────────────────────────────
     const entered = groups.enter()
       .append('g')
         .attr('class', 'node')
         .attr('transform', d => `translate(${d.pos.x},${d.pos.y})`)
         .style('opacity', 0.01);
 
-    // Value box (left)
     entered.append('rect')
       .attr('class', 'value-box')
       .attr('x',      -nodeW / 2)
@@ -203,7 +171,6 @@ export class AnimationLayer {
       .attr('stroke',  d => d.style.stroke)
       .attr('stroke-width', 1.5);
 
-    // Next pointer box (right)
     entered.append('rect')
       .attr('class', 'next-box')
       .attr('x',     -nodeW / 2 + T.nodeValueW)
@@ -216,7 +183,6 @@ export class AnimationLayer {
       .attr('stroke', d => d.style.stroke)
       .attr('stroke-width', 1.5);
 
-    // Divider line between value and next
     entered.append('line')
       .attr('class', 'divider')
       .attr('x1', -nodeW / 2 + T.nodeValueW)
@@ -227,7 +193,6 @@ export class AnimationLayer {
       .attr('stroke-width', 1)
       .attr('stroke-opacity', 0.4);
 
-    // Value text
     entered.append('text')
       .attr('class', 'value-text')
       .attr('x',            -nodeW / 2 + T.nodeValueW / 2)
@@ -240,7 +205,6 @@ export class AnimationLayer {
       .attr('fill',         d => d.style.textFill)
       .text(d => d.node.value);
 
-    // "→" symbol in next box
     entered.append('text')
       .attr('class', 'next-symbol')
       .attr('x',            -nodeW / 2 + T.nodeValueW + T.nodeNextW / 2)
@@ -252,7 +216,6 @@ export class AnimationLayer {
       .attr('fill',         d => d.style.stroke)
       .text('→');
 
-    // Safe fade-in for newly entered nodes.
     const enteredFade = entered.transition('node-fade')
       .delay(cp.nodeEnter.delay)
       .duration(cp.nodeEnter.duration)
@@ -264,17 +227,14 @@ export class AnimationLayer {
       .attr('transform', d => `translate(${d.pos.x},${d.pos.y})`)
       .style('opacity', 1);
 
-    // ── MERGE (enter + update) ────────────────────────────────────────────
     const merged = entered.merge(groups);
 
-    // Existing nodes: move/update position smoothly.
     groups.transition('node-move')
       .delay(cp.nodeMove.delay)
       .duration(cp.nodeMove.duration)
         .attr('transform', d => `translate(${d.pos.x},${d.pos.y})`)
         .style('opacity', 1);
 
-    // Recolour
     merged.transition('node-color-value')
       .delay(cp.colorChange.delay)
       .duration(cp.colorChange.duration)
@@ -309,13 +269,11 @@ export class AnimationLayer {
       .attr('stroke-opacity', 0.4);
   }
 
-  // ─── Arrow rendering ──────────────────────────────────────────────────────
 
   _renderArrows(state, positions, roleMap, cp) {
     const d3 = this._d3;
     const T  = this._theme;
 
-    // Build arrow data: one per non-null next pointer + one null stub per tailnode
     const arrowData = [];
     const orderedIds = getOrderedIds(state);
 
@@ -400,10 +358,8 @@ export class AnimationLayer {
     });
   }
 
-  /** Compute SVG path string for an arrow between two nodes (or a null stub). */
   _arrowPath(d, T) {
     const nodeW = T.nodeValueW + T.nodeNextW;
-    // Start: right edge of the next-box of fromNode
     const sx = d.from.x + nodeW / 2;
     const sy = d.from.y;
 
@@ -412,17 +368,14 @@ export class AnimationLayer {
       return `M${sx},${sy} L${ex},${sy}`;
     }
 
-    // End: left edge of target node
     const ex = d.to.x - nodeW / 2;
     const ey = d.to.y;
 
-    // Straight horizontal arrow (nodes on same row, target to the right)
     if (ex > sx + 5) {
       const mx = sx + (ex - sx) * 0.5;
       return `M${sx},${sy} C${mx},${sy} ${mx},${ey} ${ex},${ey}`;
     }
 
-    // Loopback arrow (for reversed or non-linear cases) --, arc under the nodes
     const arc = T.nodeH * 1.6;
     return [
       `M${sx},${sy}`,
@@ -432,7 +385,6 @@ export class AnimationLayer {
     ].join(' ');
   }
 
-  // ─── Variable labels (current, prev, newNode) ─────────────────────────────
 
   _renderVariableLabels(variables, positions, cp) {
     const T   = this._d3;
@@ -478,7 +430,6 @@ export class AnimationLayer {
     });
   }
 
-  // ─── Head / tail badges above nodes ──────────────────────────────────────
 
   _renderHeadTailBadges(state, positions, cp) {
     const th    = this._theme;
@@ -513,7 +464,6 @@ export class AnimationLayer {
       .attr('fill', '#a5b4fc').attr('font-weight', '600')
       .text('head');
 
-    // Tail badge
     const orderedIds = getOrderedIds(state);
     const tailId     = orderedIds[orderedIds.length - 1];
     if (tailId && tailId !== state.head && positions[tailId]) {
@@ -537,9 +487,7 @@ export class AnimationLayer {
     }
   }
 
-  // ─── Auto-pan ─────────────────────────────────────────────────────────────
 
-  /** Pan so the first highlighted node stays centred in the viewport. */
   _panToActive(positions, roleMap) {
     const d3 = this._d3;
     const T  = this._theme;
@@ -562,8 +510,7 @@ export class AnimationLayer {
   }
 }
 
-// Monkey-patch resetView onto the prototype after the class definition
-// because we need access to getOrderedIds which is already imported at the top.
+
 AnimationLayer.prototype.resetView = function(state) {
   const T    = this._theme;
   const ids  = getOrderedIds(state);
