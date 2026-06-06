@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 
 from app.parsers.base_parser import BaseParser
-from app.parsers.audio_parser import AudioParser, _get_whisper_model
+from app.wrappers.whisper_engine_wrapper import _get_whisper_model
 from app.models.unified_content_schema import ParsedContent, Section, Chunk
 
 # Reuse the same segment grouping constant as AudioParser for consistency
