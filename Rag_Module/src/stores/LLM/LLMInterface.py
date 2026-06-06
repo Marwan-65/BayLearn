@@ -26,7 +26,6 @@ class LLMInterface(ABC):
         pass
 
     def embed_texts_batch(self, texts: list, document_type: str) -> list:
-        """Embed multiple texts at once. Providers can override for true batch encoding."""
         return [self.embed_text(t, document_type) for t in texts]
     @abstractmethod
     # the construct_prompt method is used to construct a prompt for generating a response based on the input prompt and the role of the user (e.g., system, user, assistant). This method can be used to format the prompt in a way that is suitable for the specific LLM being used.

@@ -1,18 +1,4 @@
 """
-unified schema for all question sources:
-    question   (str)
-    level      ("easy" , "medium" , "hard")
-    bloom level  (BTL)     (1..6)
-    source     (str)
-
-label normalization:
-    BTL-1/2 / Remember/Understand / "remember"/"understand"  -> easy / btl=1 or 2
-    BTL-3/4 / Apply/Analyze                                  -> medium
-    BTL-5/6 / Evaluate/Create                                -> hard
-    
-config file tells how to read each source and deduplication of questions across
-the whole final set is done
-
 run command:
     python3 scripts/build_training_set.py
     
@@ -146,13 +132,6 @@ def load_srm() -> list[dict]:
 
 def split_data(rows: list[dict], TRAIN_SPLIT: float, VAL_SPLIT: float,
                     seed: int) -> tuple[list, list, list]:
-    """
-    we avoid two data leakage and failure modes:
-    1. source bias — one source dominates one split (like all SRM in train) so 
-    the model learns source style, not Bloom level.
-    2. class imbalance per split.
-    we split by bucket(source, level), split each bucket 80/10/10, then concatenate.
-    """
     random_generator = random.Random(seed)
     by_bucket: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for row in rows:

@@ -32,10 +32,6 @@ def has_image(text: str) -> bool:
 
 
 def strip_markdown(text: str) -> str:
-    """remove **, unescape backslash-escaped chars,
-    collapse spaces. image references (![…](…) or ![…][ref]) are left
-    so that questions with diagrams retain that marker.
-    """
     text = re.sub(r"\\([\.\-\\\[\]\(\)])", r"\1", text)   # \\. -> .
     text = re.sub(r"\*{1,2}", "", text)                    # drop ** wrappers
     text = re.sub(r"\s+", " ", text).strip()
@@ -44,7 +40,6 @@ def strip_markdown(text: str) -> str:
 _LEADING_NUM_HEADER = re.compile(r"^\s*\*{0,2}\s*\d{1,3}\s*[\.\-\\\)]+\s*")
 
 def extract_question(block: str) -> str:
-    """question is a block with leading numeric header"""
     q = _LEADING_NUM_HEADER.sub("", block, count=1)
     return strip_markdown(q)
 
@@ -81,7 +76,6 @@ def parse_md(md_path: Path) -> list[dict]:
         merged.append(block)
         if num is not None:
             last_real_num = num
-
     rows = []
     for block in merged:
         question = extract_question(block)
@@ -91,8 +85,7 @@ def parse_md(md_path: Path) -> list[dict]:
             "question":       question,
             "level":          "",                  # filled by BloomBERT later
             "has_image":      has_image(question),
-            "source_file":    md_path.name,
-        })
+            "source_file":    md_path.name,})
     return rows
 
 

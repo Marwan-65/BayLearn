@@ -1,17 +1,4 @@
-"""
-this file builds the few-shot example bank from labeled CSV sources , and you can add more test 
-banks by drop your labeled CSV under data/processed/ and append a dict to SOURCES:
-    {"name": "<short-id>", "path": "<csv-file>",
-    "question_col": "<col>", "level_col": "<col>"}
-
-run command: python scripts/build_example_bank.py
-
-outputs:
-    data/processed/example_bank.jsonl                — one JSON per question (question, level, source)
-    data/processed/example_bank_embeddings.npy       — (N, 384) float32, L2-normalized so dot product = cosine
-"""
 from __future__ import annotations
-
 import argparse
 import csv
 import json
@@ -20,25 +7,25 @@ import sys
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from collections import Counter
-
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT.parent))
+from question_generation_model.curated_questions import CURATED_ENTRIES
 PROC = ROOT / "data" / "processed"
 OUT_JSONL = PROC / "example_bank.jsonl"
 OUT_NPY   = PROC / "example_bank_embeddings.npy"
 
 csv.field_size_limit(sys.maxsize)
-
 EMBED_MODEL_DEFAULT = "sentence-transformers/all-MiniLM-L6-v2"
 
 SOURCES: list[dict] = [
-    {
-    "name": "srm",
-    "path": "srm_questions.csv",
-    "question_col": "question",
-    "level_col":    "level"
-    },
+    # {
+    # "name": "srm",
+    # "path": "srm_questions.csv",
+    # "question_col": "question",
+    # "level_col":    "level"
+    # },
     
     {
     "name": "os_bank",
@@ -47,6 +34,7 @@ SOURCES: list[dict] = [
     "level_col":    "level"
     },
 ]
+
 
 _LEADING_NUM_RE = re.compile(r"^\s*\d{1,3}\s*[\.\-\)\\]+\s*")
 
@@ -88,7 +76,6 @@ def load_source(config: dict) -> list[dict]:
                 "level":    level,
                 "source":   config["name"],
             })
-    # logging
     message = f"loaded {len(rows):>6} from {config['name']:<14} ({path.name})"
     if skipped_level + skipped_validty:
         message += f"skipped level={skipped_level} validty={skipped_validty}"
@@ -97,7 +84,6 @@ def load_source(config: dict) -> list[dict]:
 
 
 def embed_all(texts: list[str], model_name: str) -> np.ndarray:
-    """embed every question once """
     model = SentenceTransformer(model_name)
     print(f"  embedding {len(texts)} questions with {model_name}...")
     embs = model.encode(
@@ -116,24 +102,30 @@ def main() -> int:
     all_rows: list[dict] = []
     for config in SOURCES:
         all_rows.extend(load_source(config))
+
+    curated = [
+        {"question": e["question"], "level": e["level"], "source": "curated_os"}
+        for e in CURATED_ENTRIES
+        if is_valid_entry_for_question_field(e["question"])
+    ]
+    print(f"loaded {len(curated):>6} from curated_os      (inline)")
+    all_rows.extend(curated)
+
     if not all_rows:
         print("ERROR: no rows loaded. Check SOURCES paths and column names",
             file=sys.stderr)
         return 1
 
-    # dedupe by question text.
     seen: dict[str, dict] = {}
     for r in all_rows:
         seen.setdefault(r["question"].lower().strip(), r)
     entries = list(seen.values())
     print(f"length after dedupe: {len(entries)}")
 
-    # compute embeddings and save them into .npy
     questions = [r["question"] for r in entries]
     embs = embed_all(questions, args.embed_model)
     np.save(OUT_NPY, embs)
 
-    # write text JSONL file in parallel with the .npy
     with OUT_JSONL.open("w", encoding="utf-8") as f:
         for r in entries:
             f.write(json.dumps({

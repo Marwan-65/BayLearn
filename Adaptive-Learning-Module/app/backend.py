@@ -1,35 +1,9 @@
-"""
-backend.py
-==========
-Adaptive Learning backend.
-
-Endpoints:
-    POST /session/start      — frontend triggers a new session
-    GET  /session/status     — frontend polls for progress
-    GET  /student/level      — returns student's current global APR
-
-Swagger UI: http://localhost:8000/docs
-
-Both DBs use UUIDs. The same user UUID and course UUID work in both DBs.
-Frontend always sends raw UUIDs — backend resolves names internally.
-
-Required .env keys:
-    CONCEPT_DB_URL
-    CHUNK_DB_URL
-    GROQ_API_KEY
-
-Run:
-    pip install flask flasgger psycopg2-binary sqlalchemy python-dotenv numpy
-    python backend.py
-"""
-
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
 from pathlib import Path
-
 import numpy as np
 import requests
 from dotenv import load_dotenv
@@ -38,15 +12,12 @@ from flasgger import Swagger
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from db_models import ensure_tables
+from app.db_models import ensure_tables
 
 load_dotenv(Path(__file__).parent / ".env")
 
 app = Flask(__name__)
 
-# ---------------------------------------------------------------------------
-# Swagger
-# ---------------------------------------------------------------------------
 swagger_config = {
     "headers": [],
     "specs": [{"endpoint": "apispec", "route": "/apispec.json",
@@ -146,9 +117,7 @@ swagger_template = {
 }
 swagger = Swagger(app, config=swagger_config, template=swagger_template)
 
-# ---------------------------------------------------------------------------
-# CORS
-# ---------------------------------------------------------------------------
+# cors
 ALLOWED_ORIGINS = {
     "http://localhost:5173",
     "http://127.0.0.1:5173",
@@ -174,13 +143,11 @@ def add_cors_headers(response):
         response.headers["Access-Control-Max-Age"] = "86400"
     return response
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-CONCEPT_DB_URL        = os.environ.get("CONCEPT_DB_URL",        "").strip()
-CHUNK_DB_URL          = os.environ.get("CHUNK_DB_URL",          "").strip()
+
+CONCEPT_DB_URL   = os.environ.get("CONCEPT_DB_URL",        "").strip()
+CHUNK_DB_URL    = os.environ.get("CHUNK_DB_URL",          "").strip()
 QUESTION_GEN_BASE_URL = os.environ.get("QUESTION_GEN_BASE_URL", "http://localhost:8001").strip()
-EPPO_SCRIPT           = Path(__file__).parent / "eppo_inference.py"
+EPPO_SCRIPT  = Path(__file__).parent / "eppo_inference.py"
 
 if not CONCEPT_DB_URL:
     print("ERROR: CONCEPT_DB_URL not set in .env", file=sys.stderr); sys.exit(1)
@@ -189,19 +156,12 @@ if not CHUNK_DB_URL:
 if not QUESTION_GEN_BASE_URL:
     print("ERROR: QUESTION_GEN_BASE_URL not set in .env", file=sys.stderr); sys.exit(1)
 
-
-# ---------------------------------------------------------------------------
-# Chunk DB helpers
-# ---------------------------------------------------------------------------
-
 def _chunk_engine():
     return create_engine(CHUNK_DB_URL)
 
-
 def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
     """
-    Return {id, name} of the course these files belong to.
-    Returns None if files are uncategorized.
+    returns the course id and name for session files
     """
     from sqlalchemy import bindparam, ARRAY
     from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -220,19 +180,12 @@ def get_course_info_for_files(file_uuids: list[str]) -> dict | None:
     return {"id": row[0], "name": row[1]} if row else None
 
 
-# ---------------------------------------------------------------------------
-# Concept DB helpers
-# ---------------------------------------------------------------------------
-
 def _concept_engine():
     return create_engine(CONCEPT_DB_URL)
-
-
+# el file el msh tmam lesa me7tageen el comcepts
 def get_unextracted_files(file_uuids: list[str]) -> list[str]:
     """
-    Core check used by both scope modes.
-    Returns file UUIDs that do NOT yet have any concepts in concept_files.
-    A file is considered extracted if it has at least one row in concept_files.
+    returns file uuids with no concepts in concept files relationship
     """
     if not file_uuids:
         return []
@@ -247,9 +200,9 @@ def get_unextracted_files(file_uuids: list[str]) -> list[str]:
             already_extracted = set()
     return [fid for fid in file_uuids if fid not in already_extracted]
 
-
+# nefta7 session gdeeda w n7ot el file ids w course id w esm el course 3ashan el extractor y3raf y7ot el concepts fe course da w y7ot el file da fe course da
 def create_session_row(user_id: str, scope_ids: str) -> str:
-    """Insert a session row, return its UUID."""
+    """create a new session row and return the id"""
     import uuid
     session_uuid = str(uuid.uuid4())
     with Session(_concept_engine()) as session:
@@ -259,6 +212,18 @@ def create_session_row(user_id: str, scope_ids: str) -> str:
         """), {"sid": session_uuid, "uid": user_id, "si": scope_ids})
         session.commit()
     return session_uuid
+
+
+def run_concept_extractor(file_ids: list[str], course_id: str,
+                           course_name: str, user_id: str) -> None:
+    from app.concept_extractor import extract_and_store
+    result = extract_and_store(
+        file_ids=file_ids,
+        course_id=course_id,
+        course_name=course_name,
+        user_id=user_id,
+    )
+    print(f"[backend] Extraction result: {result}")
 
 
 def get_session_row(session_id: str) -> dict | None:
@@ -280,7 +245,6 @@ def get_session_row(session_id: str) -> dict | None:
         "result_json": row[5],
     }
 
-
 def get_student_apr(user_id: str) -> float | None:
     with Session(_concept_engine()) as session:
         rows = session.execute(text("""
@@ -301,24 +265,11 @@ def get_student_apr(user_id: str) -> float | None:
     return float(np.mean(probs))
 
 
-def run_concept_extractor(file_ids: list[str], course_id: str,
-                           course_name: str, user_id: str) -> None:
-    from concept_extractor import extract_and_store
-    result = extract_and_store(
-        file_ids=file_ids,
-        course_id=course_id,
-        course_name=course_name,
-        user_id=user_id,
-    )
-    print(f"[backend] Extraction result: {result}")
-
 
 def call_config_endpoint(session_id: str, file_ids: list[str],
                           question_type: str) -> None:
     """
-    Call POST /api/v1/questions/adaptive/{session_id}/config on the
-    question generation module to register file IDs and question type
-    for this session before eppo starts sending generate requests.
+    call config before the loop
     """
     url = (f"{QUESTION_GEN_BASE_URL}"
            f"/api/v1/questions/adaptive/{session_id}/config")
@@ -333,47 +284,19 @@ def call_config_endpoint(session_id: str, file_ids: list[str],
         print(f"[backend] WARNING: config call failed: {e}", file=sys.stderr)
 
 
-# ---------------------------------------------------------------------------
-# POST /session/start
-# ---------------------------------------------------------------------------
 
 @app.route("/session/start", methods=["POST"])
 def start_session():
     """
-    Start a new adaptive learning session.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/SessionStartRequest'
-    responses:
-      200:
-        description: Session created and inference process launched.
-        schema:
-          $ref: '#/definitions/SessionStartResponse'
-      400:
-        description: Missing or invalid parameters.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      404:
-        description: Course or file not found.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      422:
-        description: Course has no concepts yet.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    to start a session
+  
     """
     data = request.get_json(force=True)
 
     data = request.get_json(force=True)
 
-    user_id       = data.get("user_id")           # chunk DB user UUID
-    file_ids      = data.get("scope_ids", [])     # chunk DB file UUIDs
+    user_id   = data.get("user_id")           # chunk DB user uuid
+    file_ids   = data.get("scope_ids", [])     # chunk DB file uuid
     question_type = data.get("question_type", "mcq")
 
     if not user_id:
@@ -392,7 +315,7 @@ def start_session():
 
     scope_ids_str = ",".join(file_ids)
 
-    # ── Step 1: extract concepts for any files not yet processed ────────
+    # extract concepts if not done
     missing_file_ids = get_unextracted_files(file_ids)
     if missing_file_ids:
         course_info = get_course_info_for_files(missing_file_ids)
@@ -409,15 +332,11 @@ def start_session():
     else:
         print(f"[backend] All {len(file_ids)} files already extracted.")
 
-    # ── Step 2: create session row ──────────────────────────────────────
     session_id = create_session_row(user_id, scope_ids_str)
     print(f"[backend] Created session {session_id} for user {user_id[:8]}...")
 
-    # ── Step 3: configure the question generation module ────────────────
-    # Must happen before eppo starts — eppo POSTs /generate on its first step
     call_config_endpoint(session_id, file_ids, question_type)
 
-    # ── Step 4: launch eppo_inference.py ───────────────────────────────
     cmd = [
         sys.executable, str(EPPO_SCRIPT),
         "--user-id",       user_id,
@@ -438,36 +357,12 @@ def start_session():
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /session/status
-# ---------------------------------------------------------------------------
+# get status
 
 @app.route("/session/status", methods=["GET"])
 def session_status():
     """
-    Poll the status of a running or finished session.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: query
-        name: session_id
-        type: string
-        required: true
-        example: "550e8400-e29b-41d4-a716-446655440002"
-    responses:
-      200:
-        description: Session status.
-        schema:
-          $ref: '#/definitions/SessionStatusResponse'
-      400:
-        description: Missing session_id.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      404:
-        description: Session not found.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    poll session status and results
     """
     session_id = request.args.get("session_id")
     if not session_id:
@@ -497,37 +392,13 @@ def session_status():
 
     return jsonify(row), 200
 
-
-# ---------------------------------------------------------------------------
-# POST /session/terminate
-# ---------------------------------------------------------------------------
+# terminate session
 
 @app.route("/session/terminate", methods=["POST", "OPTIONS"])
 def terminate_session():
     """
-    Request early termination of a running session.
-    Sets terminate_requested=true in the DB; eppo_inference picks it up
-    within one long-poll cycle (≤55 s) and saves PFA state before exiting.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/SessionTerminateRequest'
-    responses:
-      200:
-        description: Termination flag set. Poll /session/status for finished=true.
-      400:
-        description: Missing session_id.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
-      404:
-        description: Session not found or already finished.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    to request early termination of a running session
+    Sets terminate_requested=true in the db so eppo inference picks it up 
     """
     if request.method == "OPTIONS":
         return "", 204
@@ -556,31 +427,10 @@ def terminate_session():
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /session/results
-# ---------------------------------------------------------------------------
-
 @app.route("/session/results", methods=["GET"])
 def session_results():
     """
-    Get the full results and learning insights for a finished session.
-    The frontend calls this at session end to show the progress card.
-    ---
-    tags:
-      - Session
-    parameters:
-      - in: query
-        name: session_id
-        type: string
-        required: true
-        example: "550e8400-e29b-41d4-a716-446655440002"
-    responses:
-      200:
-        description: Session results with human-readable messages and insights.
-      400:
-        description: Missing session_id.
-      404:
-        description: Session not found or not finished yet.
+   get sessin results
     """
     import json as _json
     import numpy as np
@@ -594,8 +444,6 @@ def session_results():
         return jsonify({"error": "session not found"}), 404
     if not row["finished"]:
         return jsonify({"error": "session not finished yet"}), 404
-
-    # ── Parse raw result from eppo ─────────────────────────────────────
     raw = {}
     if row.get("result_json"):
         try:
@@ -614,16 +462,24 @@ def session_results():
     n_mastered = raw.get("newly_mastered", 0)
     apr_per    = raw.get("apr_per_course", {})
 
-    # ── Goal progress ─────────────────────────────────────────────────
-    goal_range        = wapr_target - wapr_start
-    goal_achieved_pct = (
-        round(min((wapr_final - wapr_start) / goal_range * 100, 100), 1)
-        if goal_range > 1e-6 else 100.0
-    )
-    target_improvement_pct = round((wapr_target - wapr_start) * 100, 1)
-    actual_improvement_pct = round((wapr_final  - wapr_start) * 100, 1)
+   # goal prog
+    goal_range = wapr_target - wapr_start
 
-    # ── Level label ───────────────────────────────────────────────────
+    if goal_range > 1e-6:
+        raw_pct = (wapr_final - wapr_start) / goal_range * 100
+        # Clamp between 0 and 99 when goal not met,
+        # only show 100 when goal_met is actually True
+        if goal_met:
+            goal_achieved_pct = 100.0
+        else:
+            goal_achieved_pct = round(max(0.0, min(raw_pct, 99.9)), 1)
+    else:
+        goal_achieved_pct = 100.0 if goal_met else 0.0
+
+    # Always show as a positive target (how much we aimed to improve)
+    target_improvement_pct = round(abs(wapr_target - wapr_start) * 100, 1)
+    actual_improvement_pct = round((wapr_final - wapr_start) * 100, 1)
+
     def _level_label(apr: float) -> str:
         if apr >= 0.85: return "Advanced"
         if apr >= 0.70: return "Proficient"
@@ -633,7 +489,6 @@ def session_results():
 
     level = _level_label(global_apr)
 
-    # ── Concept breakdown from PFA state ──────────────────────────────
     GAMMA = 0.8884; RHO = 0.2331; BETA_L = 0.4271
     LLM_BETA_SCALE = -0.4; LLM_BETA_MID = 3.0
 
@@ -660,36 +515,40 @@ def session_results():
 
     concept_probs.sort(key=lambda x: x["p_hard"], reverse=True)
     strongest = concept_probs[:3]
-    weakest   = concept_probs[-3:][::-1] if len(concept_probs) >= 3                 else concept_probs[::-1]
+    weakest   = concept_probs[-3:][::-1] if len(concept_probs) >= 3    else concept_probs[::-1]
     focus_concept = weakest[0]["name"] if weakest else None
 
-    # ── Human-readable messages ───────────────────────────────────────
-    # Goal description — what the session was trying to achieve
+
+    # Goal description — always positive, human-readable target
     goal_description = (
         f"Improve your mastery of these concepts by "
         f"{target_improvement_pct}% during this session."
     )
 
-    # Progress summary — what actually happened
+    # Progress summary
     if goal_met:
         progress_summary = (
-            f"Great work! You achieved {goal_achieved_pct}% of your session "
-            f"goal and answered {steps} questions."
+            f"Well done! You reached your session goal "
+            f"and answered {steps} questions. "
+            f"Your level is {level}."
         )
     elif goal_achieved_pct >= 75:
         progress_summary = (
             f"Almost there — you achieved {goal_achieved_pct}% of your "
-            f"session goal across {steps} questions. Keep going!"
+            f"session goal across {steps} questions. "
+            f"You're {level} level. Keep going!"
         )
     elif goal_achieved_pct >= 40:
         progress_summary = (
             f"You achieved {goal_achieved_pct}% of your session goal "
-            f"across {steps} questions. More practice will get you there."
+            f"across {steps} questions. "
+            f"You're {level} level. More practice will get you there."
         )
     else:
         progress_summary = (
             f"You achieved {goal_achieved_pct}% of your session goal "
-            f"across {steps} questions. This material needs more attention."
+            f"across {steps} questions. "
+            f"You're {level} level. This material needs more attention."
         )
 
     # Mastery message
@@ -723,67 +582,36 @@ def session_results():
     )
 
     return jsonify({
-        # ── Human-readable (ready to display directly) ─────────────────
+   
         "goal_description":  goal_description,
         "progress_summary":  progress_summary,
         "mastery_message":   mastery_message,
-        "next_step":         next_step,
-        "level_message":     level_message,
+        "next_step":     next_step,
+        "level_message":   level_message,
 
-        # ── Goal ───────────────────────────────────────────────────────
-        "goal_met":              goal_met,
+        "goal_met":     goal_met,
         "goal_achieved_pct":     goal_achieved_pct,
         "target_improvement_pct": target_improvement_pct,
         "actual_improvement_pct": actual_improvement_pct,
-
-        # ── Session numbers ────────────────────────────────────────────
         "steps_taken":       steps,
         "concepts_mastered": n_mastered,
-
-        # ── Knowledge level ────────────────────────────────────────────
         "global_apr": round(global_apr, 4),
-        "level":      level,
-
-        # ── Per-course breakdown ───────────────────────────────────────
+        "level":   level,
         "apr_per_course": {
             course: round(apr, 4)
             for course, apr in apr_per.items()
         },
 
-        # ── Concept insights ───────────────────────────────────────────
         "strongest_concepts":  strongest,
         "weakest_concepts":    weakest,
         "next_session_focus":  focus_concept,
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /student/level
-# ---------------------------------------------------------------------------
-
 @app.route("/student/level", methods=["GET"])
 def student_level():
     """
-    Get a student's current global knowledge level (APR).
-    ---
-    tags:
-      - Student
-    parameters:
-      - in: query
-        name: user_id
-        type: string
-        required: true
-        description: Chunk DB user UUID
-        example: "550e8400-e29b-41d4-a716-446655440000"
-    responses:
-      200:
-        description: Student's global APR.
-        schema:
-          $ref: '#/definitions/StudentLevelResponse'
-      400:
-        description: Missing user_id.
-        schema:
-          $ref: '#/definitions/ErrorResponse'
+    get the student apr level
     """
     user_id = request.args.get("user_id")
     if not user_id:
@@ -796,30 +624,15 @@ def student_level():
     }), 200
 
 
-# ---------------------------------------------------------------------------
-# GET /
-# ---------------------------------------------------------------------------
-
 @app.route("/")
 def index():
     """
-    Health check.
-    ---
-    tags:
-      - Session
-    responses:
-      200:
-        description: Server is running.
+     health check 
     """
     return jsonify({
         "status": "BayLearn adaptive backend running",
         "docs":   request.host_url + "docs",
     }), 200
-
-
-# ---------------------------------------------------------------------------
-# Run
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     ensure_tables(CONCEPT_DB_URL)

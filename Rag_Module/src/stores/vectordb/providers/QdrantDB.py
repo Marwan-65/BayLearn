@@ -18,7 +18,7 @@ class QdrantDB(VectorDBInterface):
         elif distance_method == DistanceMethodEnum.DOT.value:
             self.distance_method = models.Distance.DOT
         else:
-            raise ValueError(f"Unsupported distance method: {distance_method}")
+            raise ValueError(f"this is unsupported distance method: {distance_method}")
 
         self.logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class QdrantDB(VectorDBInterface):
 
     def is_collection_exists(self, collection_name: str) -> bool:
         if self.client is None:
-            self.logger.error("Qdrant client is not connected.")
+            self.logger.error("no qdrant client is not connected.")
             return False
         return self.client.collection_exists(collection_name=collection_name)
 
@@ -44,19 +44,14 @@ class QdrantDB(VectorDBInterface):
             return self.client.delete_collection(collection_name=collection_name)
         return False
 
-    def create_collection(self, collection_name: str,
-                          embedding_size: int, do_reset: bool = False):
+    def create_collection(self, collection_name: str, embedding_size: int, do_reset: bool = False):
         if do_reset:
             self.delete_collection(collection_name=collection_name)
 
         if not self.is_collection_exists(collection_name):
             self.client.create_collection(
                 collection_name=collection_name,
-                vectors_config=models.VectorParams(
-                    size=embedding_size,
-                    distance=self.distance_method
-                )
-            )
+                vectors_config=models.VectorParams(size=embedding_size,distance=self.distance_method))
             return True
         return False
 
@@ -66,19 +61,12 @@ class QdrantDB(VectorDBInterface):
             self.logger.error(f"Collection {collection_name} does not exist.")
             return False
         try:
-            # WHY str(uuid.uuid4()) as fallback?
-            # Qdrant requires id to be int or UUID string — never None
             point_id = int(record_id) if str(record_id).isdigit() else str(uuid.uuid4())
             self.client.upsert(
                 collection_name=collection_name,
                 points=[
-                    models.PointStruct(
-                        id=point_id,
-                        vector=vector,
-                        payload={"text": text, **(metadata or {})}
-                    )
-                ]
-            )
+                    models.PointStruct(id=point_id,vector=vector,
+                        payload={"text": text, **(metadata or {})})])
             return True
         except Exception as e:
             self.logger.error(f"Error inserting record: {e}")
@@ -87,23 +75,18 @@ class QdrantDB(VectorDBInterface):
     def insert_many(self, collection_name: str, texts: list, vectors: list,
                     metadata: list = None, record_ids: list = None,
                     batch_size: int = 100) -> bool:
-
         if not texts:
             return True
-
         if not self.is_collection_exists(collection_name):
             self.logger.error(f"Collection {collection_name} does not exist.")
             return False
-
         if record_ids is None:
             record_ids = list(range(len(texts)))
         if metadata is None:
             metadata = [{}] * len(texts)
-
         if not (len(texts) == len(vectors) == len(metadata) == len(record_ids)):
             self.logger.error("Length mismatch among texts, vectors, metadata, record_ids.")
             return False
-
         try:
             for i in range(0, len(texts), batch_size):
                 batch_end = min(i + batch_size, len(texts))
@@ -111,40 +94,23 @@ class QdrantDB(VectorDBInterface):
                 batch_vectors = vectors[i:batch_end]
                 batch_metadatas = metadata[i:batch_end]
                 batch_record_ids = record_ids[i:batch_end]
-
                 points = []
                 for x in range(len(batch_texts)):
                     raw_id = batch_record_ids[x]
-                    # WHY this conversion?
-                    # Qdrant only accepts int or UUID string as point ID.
-                    # Our chunk_ids are integers, but may arrive as strings.
-                    # isdigit() safely converts "5" → 5, keeps UUIDs as strings.
                     point_id = int(raw_id) if str(raw_id).isdigit() \
-                               else str(raw_id)
+                            else str(raw_id)
+                    points.append(models.PointStruct(id=point_id,vector=batch_vectors[x],
+                            payload={"text": batch_texts[x],**(batch_metadatas[x] or {})}))
 
-                    points.append(
-                        models.PointStruct(
-                            id=point_id,
-                            vector=batch_vectors[x],
-                            payload={
-                                "text": batch_texts[x],
-                                **(batch_metadatas[x] or {})
-                            }
-                        )
-                    )
-
-                self.logger.info(f"Inserting batch {i//batch_size + 1}: "
+                self.logger.info(f"inserting batch {i//batch_size + 1}: "
                                 f"{len(points)} points into {collection_name}")
-                self.client.upsert(
-                    collection_name=collection_name,
-                    points=points
-                )
-
-            self.logger.info(f"Successfully inserted {len(texts)} records.")
+                self.client.upsert(collection_name=collection_name,
+                    points=points)
+            self.logger.info(f"successfully inserted {len(texts)} records.")
             return True
 
         except Exception as e:
-            self.logger.error(f"Error while inserting batch: {e}")
+            self.logger.error(f"error while inserting batch: {e}")
             return False
 
     def search_by_vector(self, collection_name: str, query_vector: list,
@@ -179,3 +145,23 @@ class QdrantDB(VectorDBInterface):
         if not self.is_collection_exists(collection_name):
             return {}
         return self.client.get_collection(collection_name=collection_name)
+
+    def scroll_all(self, collection_name: str) -> list:
+        if self.client is None or not self.is_collection_exists(collection_name):
+            return []
+        results = []
+        offset = None
+        while True:
+            points, next_offset = self.client.scroll(
+                collection_name=collection_name,
+                offset=offset,
+                limit=200,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for p in points:
+                results.append({"id": p.id, "payload": p.payload or {}})
+            if next_offset is None:
+                break
+            offset = next_offset
+        return results

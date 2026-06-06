@@ -32,5 +32,8 @@ class VectorDBInterface(ABC):
     @abstractmethod
     def search_by_vector(self, collection_name: str, query_vector: list, top_k: int = 5) -> List[dict]:
         pass
-    
-    
+
+    @abstractmethod
+    def scroll_all(self, collection_name: str) -> List[dict]:
+        """da to return all points (id + payload, no vectors) for cache rebuild after restart"""
+        pass

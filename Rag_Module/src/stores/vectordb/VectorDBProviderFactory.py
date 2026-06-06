@@ -1,7 +1,6 @@
 from .providers.QdrantDB import QdrantDB
 from .VectorDBEnum import VectorDBEnum
 from controllers.base import BaseController
-from helpers.config import Settings
 class VectorDBProviderFactory:
     def __init__(self, config):
         self.config = config

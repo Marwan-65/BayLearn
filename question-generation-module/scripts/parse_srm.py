@@ -1,20 +1,15 @@
 """
-parse SRM Valliammai Engineering College question-bank PDFs.
-note from pdfs : the end of the question is marked by a "BTL-X" token.
-
-run command:
-    python3 scripts/parse_srm.py
+run command: python3 scripts/parse_srm.py
 outputs:
     data/processed/srm_questions.csv
-    data/processed/srm_parse_report.txt   (counts per file, dedup stats)
+    data/processed/srm_parse_report.txt 
 """
 from __future__ import annotations
 import csv
-import os
 import re
 import subprocess
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,8 +22,7 @@ REPORT = OUT_DIR / "srm_parse_report.txt"
 BTL_TO_LEVEL = {1: "easy", 2: "easy", 3: "medium", 4: "medium", 5: "hard", 6: "hard"}
 BTL_TO_COMPETENCE = {
     1: "Remembering", 2: "Understanding", 3: "Applying",
-    4: "Analyzing",5: "Evaluating", 6: "Creating",
-}
+    4: "Analyzing",5: "Evaluating", 6: "Creating",}
 
 BTL_RE = re.compile(r"\bBTL[\s\-]?([1-6])\b", re.IGNORECASE)
 # lines we always discard (sections with no questions)
@@ -124,7 +118,6 @@ def is_quality_question(q: str) -> bool:
 
 
 def parse_pdf(path: Path) -> list[dict]:
-    """return list of dicts like {question, btl, competence, level, part, subject, source_file}"""
     text = pdftotext(path)
     if not text:
         return []
@@ -243,11 +236,9 @@ def main() -> int:
     #  report 
     level_counts = Counter(r["level"] for r in deduped)
     btl_counts = Counter(r["btl"] for r in deduped)
-    subject_counts = Counter(r["subject"] for r in deduped)
 
     lines = []
     lines.append(f"SRM Question Bank parse report")
-    lines.append(f"==============================")
     lines.append(f"PDFs scanned:        {len(pdfs)}")
     lines.append(f"PDFs failed:         {len(failed)}")
     if failed:

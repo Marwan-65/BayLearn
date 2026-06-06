@@ -1,52 +1,12 @@
 {
-  "name": "Student Enrollment B-Tree Scenario",
-  "description": "A university records system indexes student IDs into a B-tree. The scenario describes initial loading, a series of insertions, followed by searches, deletions, and a final insertion.",
+  "name": "B-Tree Search for 47 (Conceptual)",
+  "description": "A conceptual demonstration of searching for key 47 in a B-Tree, emphasizing disk operations. The initial tree structure and its keys are not explicitly defined in the text, only implied.",
   "t": 2,
-  "initialKeys": [
-    15,
-    25,
-    35
-  ],
+  "initialKeys": [],
   "operations": [
     {
-      "op": "insert",
-      "key": 10
-    },
-    {
-      "op": "insert",
-      "key": 20
-    },
-    {
-      "op": "insert",
-      "key": 5
-    },
-    {
-      "op": "insert",
-      "key": 30
-    },
-    {
-      "op": "insert",
-      "key": 40
-    },
-    {
       "op": "search",
-      "key": 20
-    },
-    {
-      "op": "search",
-      "key": 99
-    },
-    {
-      "op": "delete",
-      "key": 25
-    },
-    {
-      "op": "delete",
-      "key": 5
-    },
-    {
-      "op": "insert",
-      "key": 50
+      "key": 47
     }
   ],
   "pauseMs": 1500

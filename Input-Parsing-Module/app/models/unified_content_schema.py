@@ -2,22 +2,22 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
 class Chunk(BaseModel):
-    """Individual chunk of content suitable for RAG/LLM processing"""
+    """chunk of content for RAG/LLM processing"""
     id: str
-    content: str  # Clean, prepared text for LLM
+    content: str 
     chunk_index: int
-    metadata: Dict[str, Any] = {}  # Page number, section heading, position, etc.
+    metadata: Dict[str, Any] ={}  
 
 class Section(BaseModel):
-    """Logical section containing multiple chunks"""
+    """section containing multiple chunks"""
     id: str
     heading: Optional[str]
     page: Optional[int]
     chunks: List[Chunk]
 
 class ParsedContent(BaseModel):
-    """Complete parsed document with structured chunks ready for RAG/LLM"""
+    """parsed document with structured chunks """
     source_type: str
     title: Optional[str]
     sections: List[Section]
-    total_chunks: int = 0  # Total number of chunks across all sections
+    total_chunks: int =0

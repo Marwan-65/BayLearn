@@ -6,7 +6,6 @@ from app.models.unified_content_schema import ParsedContent
 
 class DBService:
 
-    # ── Courses ───────────────────────────────────────────────────
 
     def create_course(self, db: Session, user_id: str, name: str, description: str = None) -> Course:
         """Create a new course for a user."""
@@ -64,8 +63,7 @@ class DBService:
             .all()
         )
 
-    # ── Files ─────────────────────────────────────────────────────
-
+  #el saved contet aham 7aga 
     def save_parsed_content(
         self,
         db: Session,

@@ -1,29 +1,4 @@
-"""
-concept_extractor.py
-====================
-Library module — called programmatically by backend.py only.
 
-Public API:
-    extract_and_store(file_ids, course_id, course_name, user_id, dry_run=False)
-
-    file_ids    : list of chunk DB file UUIDs
-    course_id   : chunk DB course UUID (used as concept DB course PK)
-    course_name : resolved from chunk DB — stored in concept DB courses.name
-    user_id     : chunk DB user UUID (used as concept DB user PK)
-
-Both DBs now use the same UUIDs for users and courses, so no integer mapping needed.
-
-Required .env keys:
-    CHUNK_DB_URL    — SQLAlchemy URL for the Input-Parsing DB
-    CONCEPT_DB_URL  — SQLAlchemy URL for the Adaptive-Learning DB
-    GROQ_API_KEY    — Groq API key
-
-Optional .env keys:
-    GROQ_MODEL          — default: llama-3.3-70b-versatile
-    MAX_CHARS           — max chars per Groq call   (default: 40000)
-    BATCH_SIZE          — chunks per batch call     (default: 10)
-    BATCH_THRESHOLD     — char count above which batching kicks in (default: 40000)
-"""
 
 from __future__ import annotations
 
@@ -46,9 +21,7 @@ from sqlalchemy.orm import declarative_base, Session
 load_dotenv(Path(__file__).parent / ".env")
 
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
+# el config
 
 def _require(key: str) -> str:
     val = os.environ.get(key, "").strip()
@@ -78,10 +51,7 @@ VALID_CONCEPT_TYPES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# ORM — Chunk DB (read-only)
-# All IDs are UUIDs stored as strings
-# ---------------------------------------------------------------------------
+# el models elly han save feha el concepts elly et extractu
 
 ChunkBase = declarative_base()
 
@@ -96,7 +66,7 @@ class UploadedFile(ChunkBase):
     __tablename__ = "uploaded_files"
     id           = Column(String, primary_key=True)
     user_id      = Column(String, nullable=False)
-    course_id    = Column(String, nullable=True)    # nullable — uncategorized files
+    course_id    = Column(String, nullable=True)    # nullable - uncategorized files
     file_name    = Column(String, nullable=False)
     file_type    = Column(String)
     source_type  = Column(String)
@@ -116,10 +86,7 @@ class Chunk(ChunkBase):
     chunk_metadata = Column(JSON)
 
 
-# ---------------------------------------------------------------------------
-# Step 1: Chunk DB helpers
-# ---------------------------------------------------------------------------
-
+# han fetch el file info w course info w chunks based on file ids elly et uploadu w han build batch text
 def get_file_info(file_id: str) -> dict | None:
     """
     Return { id, course_id, course_name, title, file_name } for a file UUID.
@@ -203,10 +170,7 @@ class _ChunkRow:
         self.chunk_type     = row[4]
         self.chunk_metadata = row[5]
 
-
-# ---------------------------------------------------------------------------
-# Step 2: Extract concepts via Groq (adaptive batching)
-# ---------------------------------------------------------------------------
+# el extraction hya 3ala 7asab el chunks elly gayeen
 
 EXTRACTION_SYSTEM_PROMPT = textwrap.dedent("""\
     You are an expert engineering educator with deep knowledge of Computer
@@ -401,9 +365,7 @@ def extract_concepts_from_chunks(chunks: list, title: str = "") -> list[dict]:
     return merged
 
 
-# ---------------------------------------------------------------------------
-# Step 3: Save to Concept DB (UUID-based)
-# ---------------------------------------------------------------------------
+# han save fel db 3ashan el concepts el gdod elly et extractu y7otohom fe course da w ylinkohom bel files elly et extractu menha
 
 def save_concepts(
     concepts:    list[dict],
@@ -422,20 +384,38 @@ def save_concepts(
     engine = create_engine(CONCEPT_DB_URL)
     with Session(engine) as session:
 
-        # Upsert course using chunk DB UUID as PK
+        resolved_course_id = course_id
+
+        # Reuse an existing course row by UUID or name before inserting.
         existing_course = session.execute(text("""
             SELECT id FROM courses WHERE id = :cid
         """), {"cid": course_id}).fetchone()
 
-        if existing_course is None:
-            session.execute(text("""
-                INSERT INTO courses (id, name, created_at)
-                VALUES (:cid, :name, NOW())
-                ON CONFLICT DO NOTHING
-            """), {"cid": course_id, "name": course_name})
-            print(f"[concept-db] Created course '{course_name}' (id={course_id}).")
-        else:
+        if existing_course is not None:
             print(f"[concept-db] Reusing course '{course_name}' (id={course_id}).")
+        else:
+            existing_course_by_name = session.execute(text("""
+                SELECT id FROM courses WHERE name = :name
+            """), {"name": course_name}).fetchone()
+
+            if existing_course_by_name is not None:
+                resolved_course_id = existing_course_by_name[0]
+                print(f"[concept-db] Reusing existing course '{course_name}' "
+                      f"(id={resolved_course_id}) for incoming id={course_id}.")
+            else:
+                session.execute(text("""
+                    INSERT INTO courses (id, name, created_at)
+                    VALUES (:cid, :name, NOW())
+                """), {"cid": course_id, "name": course_name})
+                session.flush()   # ensure the insert is sent to the DB
+                # Commit here to avoid FK visibility issues across adapters/clients.
+                # This makes the course row durable before inserting concepts.
+                session.commit()
+                # Re-open a transaction for the remainder of the work
+                session.begin()
+                print(f"[concept-db] Created course '{course_name}' (id={course_id}).")
+
+        course_id = resolved_course_id
 
         # Existing concept names for this course
         existing_names = {
@@ -510,9 +490,7 @@ def save_concepts(
     return course_id, inserted
 
 
-# ---------------------------------------------------------------------------
-# Public API — called by backend.py
-# ---------------------------------------------------------------------------
+# han check if el concepts elly et extract
 
 def already_extracted(file_id: str) -> bool:
     """
@@ -578,30 +556,8 @@ def extract_and_store(
     dry_run:     bool = False,
     force:       bool = False,      # re-extract even if already done
 ) -> dict:
-    """
-    Full pipeline — works for both course mode and files mode:
-
-      1. Filter out files that already have concepts extracted
-         (checked per file via concept_files) — unless force=True
-      2. Fetch chunks from chunk DB for the remaining files only
-      3. Extract concepts via Groq (adaptive batching)
-      4. Save to concept DB — concepts linked to course AND files
-
-    For course mode:
-        backend passes all file IDs belonging to the course.
-        Already-processed files are skipped — only new uploads are extracted.
-
-    For files mode:
-        backend passes the selected file UUIDs.
-        Already-processed files are skipped — no duplicate Groq calls.
-
-    If ALL files are already extracted:
-        skips Groq entirely, just ensures enrollment is up to date.
-
-    Returns {"course_id": str, "n_inserted": int, "n_concepts": int,
-             "skipped_files": int}
-    """
-    # Stable UUID for uncategorized files
+ 
+    # Stable uuid for uncategorized files
     if not course_id:
         course_id   = str(uuid.uuid5(uuid.NAMESPACE_DNS,
                                      "uncategorized:" + ",".join(sorted(file_ids))))
@@ -620,7 +576,7 @@ def extract_and_store(
                   f"extracted — skipping. "
                   f"{len(files_to_extract)} new file(s) to process.")
 
-    # All files already extracted — just ensure enrollment
+    # All files already extracted  just ensure enrollment
     if not files_to_extract:
         print("[extractor] All files already extracted. "
               "Ensuring user enrollment...")

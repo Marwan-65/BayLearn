@@ -1,37 +1,48 @@
 import os, json, logging, asyncio, numpy as np
 from typing import List, Dict, Any
-
 logger = logging.getLogger(__name__)
+from datasets import Dataset
+from ragas import evaluate as ragas_evaluate
+from ragas.run_config import RunConfig
+from ragas.metrics import (
+    Faithfulness, AnswerRelevancy,
+    ContextPrecision, ContextRecall,)
+from helpers.config import get_settings
+from RAG_module_models.ragas_judges import (
+    build_embeddings,
+    build_openai_compat_judge,
+    build_gemini_judge,
+    build_groq_judge,
+)
 
 
 class RAGASEvaluator:
-    """
-    Evaluates RAG quality with RAGAS metrics.
-    Supports Gemini (default, free/unlimited) or Groq as evaluator LLM.
-
-    Priority: if GEMINI_API_KEY is set in env → use Gemini.
-    Fallback:  use Groq (may hit rate limits on free tier).
-    """
-
-    def __init__(self, groq_api_key: str = None, gemini_api_key: str = None, timeout: int = 600):
+    def __init__(self, groq_api_key: str = None, gemini_api_key: str = None,
+                openai_compat_api_key: str = None, openai_compat_base_url: str = None,
+                openai_compat_model: str = None, timeout: int = 600):
         self.groq_api_key = groq_api_key
-        # Priority: explicit arg → os.environ → pydantic Settings (.env file)
         self.gemini_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY")
-        if not self.gemini_api_key:
-            try:
-                from helpers.config import get_settings
-                self.gemini_api_key = get_settings().GEMINI_API_KEY
-            except Exception:
-                pass
+        self.oc_api_key = openai_compat_api_key
+        self.oc_base_url = openai_compat_base_url
+        self.oc_model = openai_compat_model
+        try:
+            s = get_settings()
+            if not self.gemini_api_key:
+                self.gemini_api_key = s.GEMINI_API_KEY
+            if not self.oc_api_key:
+                self.oc_api_key = getattr(s, "OPENAI_COMPAT_API_KEY", None)
+            self.oc_base_url = self.oc_base_url or getattr(s, "OPENAI_COMPAT_BASE_URL", None)
+            self.oc_model = self.oc_model or getattr(s, "OPENAI_COMPAT_MODEL", None)
+        except Exception:
+            pass
         self.timeout = timeout
-        self._use_gemini = bool(self.gemini_api_key)
-
-    # ── Public ─────────────────────────────────────────────────────────────
+        self.last_per_question = []  
+        self._use_openai_compat = bool(self.oc_api_key)
+        self._use_gemini = (not self._use_openai_compat) and bool(self.gemini_api_key)
 
     async def evaluate(self, test_cases: List[Dict[str, Any]]) -> Dict[str, float]:
         if not test_cases:
             raise ValueError("test_cases cannot be empty")
-
         for i, case in enumerate(test_cases):
             if isinstance(case.get("contexts"), str):
                 test_cases[i]["contexts"] = [case["contexts"]]
@@ -43,7 +54,12 @@ class RAGASEvaluator:
             if not case.get("answer", "").strip():
                 logger.warning(f"Test case {i} has empty answer!")
 
-        runner = self._run_ragas_gemini if self._use_gemini else self._run_ragas_groq
+        if self._use_openai_compat:
+            runner = self._run_ragas_openai_compat
+        elif self._use_gemini:
+            runner = self._run_ragas_gemini
+        else:
+            runner = self._run_ragas_groq
 
         try:
             loop = asyncio.get_running_loop()
@@ -59,103 +75,54 @@ class RAGASEvaluator:
             logger.error(f"RAGAS evaluation failed: {e}")
             return self._zero_scores(str(e))
 
-    # ── Gemini runner ──────────────────────────────────────────────────────
+    def _metrics(self):
+        return [Faithfulness(), AnswerRelevancy(strictness=1),
+                ContextPrecision(), ContextRecall()]
+
+    def _run_ragas_openai_compat(self, test_cases):
+        logger.info(f"RAGAS judge: OpenAI-compatible {self.oc_model or 'default'}")
+        ragas_llm = build_openai_compat_judge(self.oc_api_key, self.oc_base_url, self.oc_model)
+        ragas_embeddings = build_embeddings()
+        dataset = Dataset.from_list(test_cases)
+        cfg = RunConfig(timeout=180, max_retries=12, max_workers=1)
+        return ragas_evaluate(
+            dataset=dataset,
+            metrics=self._metrics(),
+            llm=ragas_llm,
+            embeddings=ragas_embeddings,
+            run_config=cfg,
+            raise_exceptions=False,
+        )
 
     def _run_ragas_gemini(self, test_cases):
-        from datasets import Dataset
-        from ragas import evaluate as ragas_evaluate
-        from ragas.run_config import RunConfig
-        from ragas.metrics import (
-            Faithfulness, AnswerRelevancy,
-            ContextPrecision, ContextRecall,
-        )
-        from ragas.llms import LangchainLLMWrapper
-        from ragas.embeddings import LangchainEmbeddingsWrapper
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        try:
-            from langchain_huggingface import HuggingFaceEmbeddings
-        except ImportError:
-            from langchain_community.embeddings import HuggingFaceEmbeddings
-
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            google_api_key=self.gemini_api_key,
-            temperature=0,
-            max_output_tokens=2048,
-        )
-        ragas_llm = LangchainLLMWrapper(llm)
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
-        ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
-
+        judge_model = os.getenv("RAGAS_JUDGE_MODEL") or os.getenv("GEMINI_MODEL_ID") \
+            or "gemini-2.5-flash-lite"
+        ragas_llm = build_gemini_judge(self.gemini_api_key, judge_model)
+        ragas_embeddings = build_embeddings()
         dataset = Dataset.from_list(test_cases)
-        # max_workers=1 → sequential API calls (avoids rate-limit bursts on free tier).
-        # timeout=120   → per-API-call timeout in seconds.
-        cfg = RunConfig(timeout=120, max_retries=3, max_workers=1)
-
+        cfg = RunConfig(timeout=180, max_retries=12, max_workers=1)
         return ragas_evaluate(
             dataset=dataset,
-            metrics=[Faithfulness(), AnswerRelevancy(),
-                     ContextPrecision(), ContextRecall()],
+            metrics=self._metrics(),
             llm=ragas_llm,
             embeddings=ragas_embeddings,
             run_config=cfg,
             raise_exceptions=False,
         )
-
-    # ── Groq runner (fallback) ─────────────────────────────────────────────
 
     def _run_ragas_groq(self, test_cases):
-        from datasets import Dataset
-        from ragas import evaluate as ragas_evaluate
-        from ragas.run_config import RunConfig
-        from ragas.metrics import (
-            Faithfulness, AnswerRelevancy,
-            ContextPrecision, ContextRecall,
-        )
-        from ragas.llms import LangchainLLMWrapper
-        from ragas.embeddings import LangchainEmbeddingsWrapper
-        try:
-            from langchain_huggingface import HuggingFaceEmbeddings
-        except ImportError:
-            from langchain_community.embeddings import HuggingFaceEmbeddings
-        from .chatgroqfixed import GroqChatFixed
-
-        llm = GroqChatFixed(
-            model="llama-3.1-8b-instant",
-            groq_api_key=self.groq_api_key,
-            temperature=0,
-            max_tokens=2048,
-            timeout=120.0,
-        )
-        ragas_llm = LangchainLLMWrapper(llm)
-
-        embeddings = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-small-en-v1.5",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
-        ragas_embeddings = LangchainEmbeddingsWrapper(embeddings)
-
+        ragas_llm = build_groq_judge(self.groq_api_key)
+        ragas_embeddings = build_embeddings()
         dataset = Dataset.from_list(test_cases)
-        cfg = RunConfig(timeout=120, max_retries=3, max_workers=1)
-
+        cfg = RunConfig(timeout=240, max_retries=4, max_workers=1)
         return ragas_evaluate(
             dataset=dataset,
-            metrics=[Faithfulness(), AnswerRelevancy(),
-                     ContextPrecision(), ContextRecall()],
+            metrics=self._metrics(),
             llm=ragas_llm,
             embeddings=ragas_embeddings,
             run_config=cfg,
             raise_exceptions=False,
         )
-
-    # ── Score extraction ───────────────────────────────────────────────────
-
     def _extract_scores(self, results) -> Dict[str, float]:
         df = results.to_pandas()
         logger.info(f"\n=== Per-row RAGAS scores ===\n{df.to_string()}")
@@ -167,18 +134,62 @@ class RAGASEvaluator:
             "ContextRecall":   ["ContextRecall",    "context_recall"],
         }
         scores = {}
+        none_counts = {}
+        n_rows = len(df)
         for name, aliases in metric_aliases.items():
             for alias in aliases:
                 if alias in df.columns:
-                    valid = df[alias].dropna()
+                    col_data = df[alias]
+                    valid = col_data.dropna()
+                    n_none = n_rows - len(valid)
+                    none_counts[name] = n_none
+                    # dropna mean (reported score, consistent with prior runs)
                     scores[name] = round(float(valid.mean()), 3) if len(valid) else 0.0
+                    if n_none > 0:
+                        # honest mean treating None as 0, stored alongside for audit
+                        full_mean = round(float(col_data.fillna(0).mean()), 3)
+                        logger.warning(
+                            f"Metric '{name}': {n_none}/{n_rows} questions returned None "
+                            f"(RAGAS judge failure). dropna avg={scores[name]:.3f}, "
+                            f"honest avg (None=0)={full_mean:.3f}. "
+                            f"Reported score uses dropna — may be inflated."
+                        )
                     break
             else:
                 logger.warning(f"Metric '{name}' not in columns: {list(df.columns)}")
                 scores[name] = 0.0
+                none_counts[name] = n_rows
 
-        scores["overall"] = round(float(np.mean(list(scores.values()))), 3)
+        metric_vals = [scores[m] for m in metric_aliases if m in scores]
+        scores["overall"] = round(float(np.mean(metric_vals)), 3)
+        scores["none_counts"] = none_counts  
+        total_cells = n_rows * len(metric_aliases)
+        scored_cells = total_cells - sum(none_counts.values())
+        scores["eval_success_rate"] = (
+            round(scored_cells / total_cells, 3) if total_cells else 0.0
+        )
+        scores["n_questions"] = n_rows
         logger.info(f"Final scores: {scores}")
+        try:
+            col = {}
+            for name, aliases in metric_aliases.items():
+                for a in aliases:
+                    if a in df.columns:
+                        col[name] = a; break
+            qcol = "user_input" if "user_input" in df.columns else (
+                "question" if "question" in df.columns else None)
+            per_q = []
+            for _, row in df.iterrows():
+                rec = {"question": (str(row[qcol])[:200] if qcol else None)}
+                for name, a in col.items():
+                    v = row.get(a)
+                    rec[name] = (None if v is None or (isinstance(v, float) and v != v)
+                        else round(float(v), 3))
+                per_q.append(rec)
+            self.last_per_question = per_q
+        except Exception as e:
+            logger.warning(f"Could not build per-question records: {e}")
+            self.last_per_question = []
         return scores
 
     def _zero_scores(self, error: str) -> Dict[str, float]:
@@ -189,7 +200,7 @@ class RAGASEvaluator:
         }
 
     def save_results(self, scores, test_details=None, label=None,
-                     output_path="evaluation_results.json"):
+                    output_path="evaluation_results.json"):
         import datetime
 
         evaluator_label = (

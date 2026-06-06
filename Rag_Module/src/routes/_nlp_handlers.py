@@ -1,52 +1,23 @@
-"""
-NLP route handlers and batch helpers
-=====================================
-
-Extracted from routes/nlp.py to keep the router file focused on
-endpoint definitions. This module owns:
-
-  - _build_controller      : wire an NLPController with all clients
-  - _run_rag               : retrieve + generate with ablation overrides
-  - _sources_payload       : response-shape helper for sources block
-  - _retrieval_metadata    : response-shape helper for retrieval metadata
-  - _handle_rag_only       : intent handler for rag_only
-  - _handle_equation_from_context : intent handler + equation module call
-  - _run_batch             : evaluate a batch of test cases under a config
-  - _avg_latency           : average timings across a batch
-"""
-
+import concurrent.futures
 import logging
 import os
 import time
 from typing import Optional
-
 import httpx
 from fastapi import Request
-
 from controllers import NLPController
 from helpers.config import get_settings
-
 logger = logging.getLogger("uvicorn.error")
 
-
-# ---------------------------------------------------------
-# Build an NLPController with all wired clients
-# ---------------------------------------------------------
 def _build_controller(request: Request) -> NLPController:
     return NLPController(
         vectordb_client=request.app.vectordb_client,
         generation_client=request.app.generation_client,
         embedding_client=request.app.embedding_client,
-        chunk_repository=request.app.chunk_repository,
         reranker_client=getattr(request.app, "reranker_client", None),
         bm25_client=getattr(request.app, "bm25_client", None),
         contextual_cache=getattr(request.app, "contextual_cache", None),
     )
-
-
-# =====================================================================
-# Shared: run retrieve + generate with ablation flags
-# =====================================================================
 
 def _run_rag(
     controller: NLPController,
@@ -59,6 +30,7 @@ def _run_rag(
     enable_hybrid: Optional[bool] = None,
     enable_reranker: Optional[bool] = None,
     enable_compression: Optional[bool] = None,
+    enable_hyde: Optional[bool] = None,
     chat_history: list = None,
 ) -> dict:
     retrieval = controller.retrieve_sources(
@@ -70,17 +42,22 @@ def _run_rag(
         enable_hybrid=enable_hybrid,
         enable_reranker=enable_reranker,
         enable_compression=enable_compression,
+        enable_hyde=enable_hyde,
     )
-
     if "error" in retrieval:
+        from helpers.config import get_settings as _gs
+        if getattr(_gs(), "STRICT_GROUNDING", False):
+            return {"query": question,
+                "answer": "The provided materials do not contain this information.",
+                "sources": [], "scores": [], "rerank_scores": [], "num_sources": 0,
+                **_retrieval_metadata(retrieval),}
         try:
             system_prompt = (
                 "You are BayLearn, a friendly engineering tutor. The student's "
                 "uploaded materials do not cover this question (or they haven't "
                 "uploaded anything yet). Answer their question naturally and briefly "
                 "from your own knowledge. Do NOT mention that their materials don't "
-                "cover it — just answer the question directly. Keep answers concise."
-            )
+                "cover it — just answer the question directly. Keep answers concise.")
             prior = []
             if chat_history:
                 for msg in chat_history[-6:]:
@@ -90,13 +67,11 @@ def _run_rag(
                         prior.append({"role": role, "content": content})
             answer = controller.generation_client.generate_text(
                 prompt=question,
-                chat_history=[{"role": "system", "content": system_prompt}] + prior,
-            )
+                chat_history=[{"role": "system", "content": system_prompt}] + prior,)
         except Exception:
             answer = (
                 "I couldn't find this in your uploaded materials. "
-                "Try uploading a relevant PDF or ask me something else."
-            )
+                "Try uploading a relevant PDF or ask me something else.")
         return {
             "query": question,
             "answer": answer,
@@ -104,33 +79,24 @@ def _run_rag(
             "scores": [],
             "rerank_scores": [],
             "num_sources": 0,
-            **_retrieval_metadata(retrieval),
-        }
+            **_retrieval_metadata(retrieval),}
 
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
-
     answer = controller.generate_answer_from_sources(
         question=question,
         filtered_results=filtered_results,
         timings=timings,
-        chat_history=chat_history,
-    )
+        chat_history=chat_history,)
     timings["total_ms"] = sum(
-        v for v in timings.values() if isinstance(v, (int, float))
-    )
-
+        v for v in timings.values() if isinstance(v, (int, float)))
     return {
         "query": question,
         "answer": answer,
         **_sources_payload(filtered_results, controller),
-        **_retrieval_metadata(retrieval),
-    }
-
+        **_retrieval_metadata(retrieval),}
 
 def _image_url(raw_path: Optional[str]) -> Optional[str]:
-    """Convert a local image_path (e.g. 'extracted_images/page1_1.png')
-    to a full URL served by the Input Parsing Module's /images/ endpoint."""
     if not raw_path:
         return None
     if raw_path.startswith("http"):
@@ -142,7 +108,6 @@ def _image_url(raw_path: Optional[str]) -> Optional[str]:
     filename = os.path.basename(raw_path)
     return f"{base.rstrip('/')}/images/{filename}"
 
-
 def _sources_payload(filtered_results: list, controller: NLPController) -> dict:
     source_meta = [
         {
@@ -150,6 +115,7 @@ def _sources_payload(filtered_results: list, controller: NLPController) -> dict:
             "image_url": _image_url(r["payload"].get("image_path")),
             "page": r["payload"].get("page"),
             "source": r["payload"].get("source"),
+            "doc_label": r["payload"].get("doc_label"),
             "section_heading": r["payload"].get("section_heading"),
         }
         for r in filtered_results
@@ -165,10 +131,10 @@ def _sources_payload(filtered_results: list, controller: NLPController) -> dict:
         "num_sources": len(filtered_results),
     }
 
-
 def _retrieval_metadata(retrieval: dict) -> dict:
     return {
         "multi_query_used": retrieval.get("multi_query_used", False),
+        "hyde_used": retrieval.get("hyde_used", False),
         "query_variants": retrieval.get("query_variants", []),
         "reranker_used": retrieval.get("reranker_used", False),
         "hybrid_used": retrieval.get("hybrid_used", False),
@@ -178,11 +144,6 @@ def _retrieval_metadata(retrieval: dict) -> dict:
         "compression_ratios": retrieval.get("compression_ratios", []),
         "timings": retrieval.get("timings", {}),
     }
-
-
-# =====================================================================
-# Intent-first handlers
-# =====================================================================
 
 async def _handle_rag_only(controller, project_id, question, limit, chat_history=None):
     return _run_rag(
@@ -194,23 +155,15 @@ async def _handle_rag_only(controller, project_id, question, limit, chat_history
         chat_history=chat_history,
     )
 
-
 async def _handle_equation_from_context(
-    controller, project_id, question, limit, extracted_params, confidence
-):
+    controller, project_id, question, limit, extracted_params, confidence):
     from helpers.config import get_settings
     settings = get_settings()
-
     retrieval = controller.retrieve_sources(
         project_id=project_id,
         question=question,
         limit=limit,
-        intent="equation_from_context",
-    )
-    # If retrieval returned ANY error (no sources, empty collection,
-    # mid-upload, etc.), still solve the equation from the raw question
-    # using the equation module. The user's intent was clearly to solve
-    # an equation — don't block on retrieval.
+        intent="equation_from_context",)
     if "error" in retrieval:
         equation_result = None
         eq_error = None
@@ -220,16 +173,14 @@ async def _handle_equation_from_context(
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(
                         f"{base_url.rstrip('/')}/run",
-                        json={"query": question},
-                    )
+                        json={"query": question},)
                     if resp.status_code == 200:
                         equation_result = resp.json()
                     else:
                         eq_error = f"status {resp.status_code}"
                         logger.warning(
                             f"Equation module returned {resp.status_code}: "
-                            f"{resp.text[:200]}"
-                        )
+                            f"{resp.text[:200]}")
             except httpx.ConnectError:
                 eq_error = "not running"
                 logger.warning(f"Equation module not reachable at {base_url}")
@@ -241,19 +192,16 @@ async def _handle_equation_from_context(
         if equation_result:
             answer = (
                 "Here's the solution from the equation module. See the "
-                "extracted equation and solver output below."
-            )
+                "extracted equation and solver output below.")
         elif eq_error == "not running":
             answer = (
                 "The equation module is not running on port 9001. "
-                "Start it in tab 2 and try again."
-            )
+                "Start it in tab 2 and try again.")
         else:
             answer = (
                 "The equation module couldn't process this query "
                 f"({eq_error}). Try rephrasing — e.g. "
-                '"Find the derivative of sin(x)*x^2" (no trailing period).'
-            )
+                '"Find the derivative of sin(x)*x^2" (no trailing period).')
         return {
             "intent": "equation_from_context",
             "intent_confidence": confidence,
@@ -269,12 +217,6 @@ async def _handle_equation_from_context(
 
     filtered_results = retrieval["filtered_results"]
     timings = retrieval["timings"]
-
-    # If the user's question already contains the equation / directive
-    # (e.g. "Solve 2x+y=10", "Find the derivative of sin(x)*x^2",
-    # "graph sin(x)"), send the question itself — extracting from PDF
-    # chunks only makes sense for prompts like "solve the equation from
-    # page 3" that reference the material.
     q_lower = question.lower()
     self_contained = any(
         kw in q_lower for kw in (
@@ -293,7 +235,6 @@ async def _handle_equation_from_context(
             question=question,
         )
     timings["equation_extraction_ms"] = round((time.time() - t0) * 1000)
-
     equation_result = None
     base_url = getattr(settings, "EQUATION_MODULE_URL", None)
     if base_url:
@@ -318,11 +259,6 @@ async def _handle_equation_from_context(
         timings["equation_module_ms"] = round((time.time() - t0) * 1000)
     else:
         logger.warning("EQUATION_MODULE_URL not configured")
-
-    # If the equation module already returned a solution, prefer a
-    # concise summary over the strict source-grounded answer (which
-    # would say "not covered" because the chunks are about theory,
-    # not numeric solutions).
     if equation_result:
         answer = (
             "Here's the solution from the equation module. See the "
@@ -349,60 +285,72 @@ async def _handle_equation_from_context(
         **_retrieval_metadata(retrieval),
     }
 
-
-
-# =====================================================================
-# Batch evaluation helpers (used by /evaluate and /evaluate/ablation)
-# =====================================================================
-
-def _run_batch(
-    controller: NLPController,
-    project_id: str,
-    cases: list,
+def _run_batch(controller: NLPController,project_id: str,cases: list,
     *,
     enable_multi_query: Optional[bool],
     enable_hybrid: Optional[bool],
     enable_reranker: Optional[bool],
     enable_compression: Optional[bool],
-):
+    enable_hyde: Optional[bool] = None,
+    limit: int = 5,
+    per_q_timeout: int = int(os.getenv("AB_Q_TIMEOUT", "90")),):
+
     test_cases = []
     test_details = []
+    _log = logging.getLogger(__name__)
 
     for case in cases:
-        rag_response = _run_rag(
-            controller=controller,
-            project_id=project_id,
-            question=case["question"],
-            limit=5,
-            intent="rag_only",
-            enable_multi_query=enable_multi_query,
-            enable_hybrid=enable_hybrid,
-            enable_reranker=enable_reranker,
-            enable_compression=enable_compression,
-        )
+        def _call(q=case["question"]): 
+            return _run_rag(
+                controller=controller,
+                project_id=project_id,
+                question=q,
+                limit=limit,
+                intent="rag_only",
+                enable_multi_query=enable_multi_query,
+                enable_hybrid=enable_hybrid,
+                enable_reranker=enable_reranker,
+                enable_compression=enable_compression,
+                enable_hyde=enable_hyde,)
 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            fut = ex.submit(_call)
+            try:
+                rag_response = fut.result(timeout=per_q_timeout)
+            except concurrent.futures.TimeoutError:
+                _log.warning(f"Question timed out after {per_q_timeout}s: {case['question'][:60]}")
+                rag_response = {
+                    "answer": "GENERATION_TIMEOUT",
+                    "sources": [], "scores": [], "rerank_scores": [],
+                    "num_sources": 0, "timings": {},
+                    "multi_query_used": False, "hyde_used": False,
+                    "hybrid_used": False, "reranker_used": False,
+                    "compression_used": False, "compression_ratios": [],}
         sources = rag_response.get("sources", [])
         if isinstance(sources, str):
             sources = [sources]
         elif not isinstance(sources, list):
             sources = []
-
         test_cases.append({
             "question": case["question"],
             "answer": rag_response.get("answer", ""),
             "contexts": sources,
-            "ground_truth": case["ground_truth"],
-        })
+            "ground_truth": case["ground_truth"],})
         test_details.append({
             "question": case["question"],
             "level": case.get("level"),
             "answer": rag_response.get("answer", "")[:200],
             "num_contexts": len(sources),
+            "hyde_used": rag_response.get("hyde_used", False),
+            "multi_query_used": rag_response.get("multi_query_used", False),
+            "hybrid_used": rag_response.get("hybrid_used", False),
+            "reranker_used": rag_response.get("reranker_used", False),
             "timings": rag_response.get("timings", {}),
             "rerank_scores": rag_response.get("rerank_scores", []),
             "compression_ratios": rag_response.get("compression_ratios", []),
-        })
-
+            "context_scores": rag_response.get("scores", []),
+            "context_meta": rag_response.get("source_meta", []),
+            "query_variants": rag_response.get("query_variants", []),})
     return test_cases, test_details
 
 
@@ -414,8 +362,7 @@ def _avg_latency(test_details: list) -> dict:
     for key in all_timings[0]:
         values = [
             t.get(key, 0) for t in all_timings
-            if isinstance(t.get(key), (int, float))
-        ]
+            if isinstance(t.get(key), (int, float))]
         if values:
             avg[key] = round(sum(values) / len(values))
     return avg

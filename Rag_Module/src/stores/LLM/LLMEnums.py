@@ -1,15 +1,14 @@
 from enum import Enum
 
-
 class LLMEnum(str, Enum):
     LLAMA_2 = "llama2"
     MISTRAL = "mistral"
-
 
 class LLMBackendEnum(str, Enum):
     LOCAL = "LOCAL"
     GROQ = "GROQ"
     GEMINI = "GEMINI"
+    OPENAI_COMPAT = "OPENAI_COMPAT"
 
 
 class ChatRoleEnum(str, Enum):

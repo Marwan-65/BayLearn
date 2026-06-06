@@ -1,4 +1,8 @@
 *changes/
+*__pycache__/
+dist/
+cache/
+Frontend/.vite/
 *node_modules/
 *.log
 *.sqlite3
@@ -16,11 +20,13 @@ build/
 *UNKNOWN.egg-info/
 *.pyc
 *.pyo
-*__pycache__/
-node_modules/
-dist/
-cache/
-Frontend/.vite/
-.env
+
+# BayLearn run artifacts (Makefile)
+.run-logs/
+.run-pids
+.run-stamps/
 venv/
 .venv/
+*.pytest_cache/
+*/node_modules/
+*.env

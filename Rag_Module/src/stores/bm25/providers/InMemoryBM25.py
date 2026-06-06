@@ -3,38 +3,20 @@ import pickle
 import string
 import logging
 from typing import List, Dict
-
 import numpy as np
 from rank_bm25 import BM25Okapi
 from stores.bm25.BM25Interface import BM25Interface
 
-
-# Module-level punctuation translator — built once, O(1) per apply.
 _PUNCT_TABLE = str.maketrans(string.punctuation, " " * len(string.punctuation))
 
-
 def _tokenize(text: str) -> List[str]:
-    """
-    Minimal tokenizer optimized for CPU latency.
-    lowercase → replace punctuation with spaces → whitespace split → drop short tokens.
-    No stemming, no stopwords — keeps per-query tokenization < 0.3ms.
-    """
     if not text:
         return []
     lowered = text.lower().translate(_PUNCT_TABLE)
     return [t for t in lowered.split() if len(t) > 1 or t.isalpha()]
 
-
 class InMemoryBM25(BM25Interface):
-    """
-    rank_bm25-backed provider with per-project pickled indexes.
-
-    On-disk format (one .pkl per project):
-        {"bm25": BM25Okapi, "ids": [...], "payloads": [...], "version": 1}
-    """
-
     PICKLE_VERSION = 1
-
     def __init__(self, index_dir: str, k1: float = 1.5, b: float = 0.75):
         self.index_dir = index_dir
         self.k1 = k1
@@ -51,7 +33,7 @@ class InMemoryBM25(BM25Interface):
     def build_index(self, project_id: str, texts: List[str],
                     ids: List, payloads: List[Dict]) -> bool:
         if not texts:
-            self.logger.warning(f"BM25 build_index: empty corpus for {project_id}")
+            self.logger.warning(f"bm25 build_index: empty corpus for {project_id}")
             return False
         try:
             tokenized_corpus = [_tokenize(t) for t in texts]
@@ -62,7 +44,6 @@ class InMemoryBM25(BM25Interface):
                 "payloads": list(payloads),
                 "version": self.PICKLE_VERSION,
             }
-            # Atomic write: tmp then rename
             tmp = self._path(project_id) + ".tmp"
             with open(tmp, "wb") as f:
                 pickle.dump(bundle, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -119,14 +100,11 @@ class InMemoryBM25(BM25Interface):
         part = np.argpartition(-scores, k - 1)[:k]
         part_sorted = part[np.argsort(-scores[part])]
 
-        return [
-            {
+        return [{
                 "id": ids[i],
                 "score": float(scores[i]),
-                "payload": payloads[i],
-            }
-            for i in part_sorted if scores[i] > 0.0
-        ]
+                "payload": payloads[i],}
+            for i in part_sorted if scores[i] > 0.0]
 
     def delete_index(self, project_id: str) -> bool:
         self._cache.pop(project_id, None)

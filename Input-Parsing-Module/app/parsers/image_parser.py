@@ -9,40 +9,33 @@ from app.models.unified_content_schema import ParsedContent, Section, Chunk
 
 class ImageParser(BaseParser):
 
-    # Reuse PDFParser's OCR routing — no code duplication
+    # reuse PDFParser's OCR 
     _pdf_parser = PDFParser()
 
-    # ------------------------------------------------------------------ #
-    # BaseParser interface                                                 #
-    # ------------------------------------------------------------------ #
-
     def preprocess(self, file_path: str) -> Image.Image:
-        """Validate the file, stash a clean title and path, and return a PIL Image."""
-        if not os.path.isfile(file_path):
-            raise FileNotFoundError(f"Image file not found: {file_path}")
+        """Validate the file make a clean title and path and return a PIL Image."""
+        if not  os.path.isfile(file_path):
+            raise  FileNotFoundError(f"Image file not found: {file_path}")
 
-        raw_name = os.path.splitext(os.path.basename(file_path))[0]
-        self._title = raw_name.replace("_", " ").replace("-", " ").title()
-        self._image_path = file_path  # stash for metadata in structure()
+        rawname= os.path.splitext(os.path.basename(file_path))[0]
+        self._title =   rawname.replace("_", " ").replace("-", " ").title()
+        self._image_path  = file_path
 
         try:
-            image = Image.open(file_path).convert("RGB")
-        except Exception as e:
+            prep_img =Image.open(file_path).convert("RGB")
+        except   Exception as e:
             raise ValueError(f"Could not open image file: {file_path}. Error: {e}")
 
-        return image
+        return  prep_img
 
     def extract(self, image: Image.Image) -> str:
 
-        text = self._pdf_parser.ocr_embedded_content(
-            image=image,
-            page_is_scanned=True,   # use the full API-first pipeline
-        )
-        return text.strip() if text else ""
-
+        textt = self._pdf_parser.ocr_embedded_content( image=image,   page_is_scanned=True)
+        return textt.strip() if textt else ""
+    
     def structure(self, text: str) -> ParsedContent:
-        """Wrap the extracted text in a single Section and Chunk."""
-        title = getattr(self, "_title", "Image")
+        """Put the extracted text in a single Section and Chunk."""
+        title =  getattr(self, "_title", "Image")
 
         chunks = []
         if text:

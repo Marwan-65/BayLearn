@@ -2,20 +2,13 @@
   "initialList": [
     10,
     20,
-    30,
-    40,
-    50
+    30
   ],
   "operations": [
     {
-      "op": "deleteAtHead",
-      "value": null,
-      "index": null
-    },
-    {
-      "op": "deleteAtTail",
-      "value": null,
-      "index": null
+      "op": "insertAtIndex",
+      "value": 15,
+      "index": 1
     },
     {
       "op": "deleteByValue",

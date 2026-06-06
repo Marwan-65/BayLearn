@@ -1,50 +1,20 @@
-"""
-Context Enrichment Layer
-========================
-Replaces the single-query + random.sample approach with:
-
-  1. Difficulty-aware multi-query expansion
-     Fire multiple targeted queries to the RAG module based on difficulty
-     level so the retrieved chunks actually match what the LLM needs to
-     produce that kind of question.
-
-  2. Maximal Marginal Relevance (MMR) selection
-     Instead of random sampling, greedily pick chunks that are
-     (a) highly relevant to the query and (b) dissimilar to chunks
-     already selected.  This guarantees concept coverage without
-     redundancy.
-
-     MMR formula (Carbonell & Goldstein, 1998):
-       score(c) = λ · relevance(c, query)
-                − (1−λ) · max_{s ∈ selected} sim(c, s)
-
-     relevance(c, query) comes from the RAG module's own retrieval score.
-     sim(c, s)            is cosine similarity on TF-IDF vectors of the
-                          chunk texts — no embeddings model required.
-
-Dependencies added: scikit-learn (TF-IDF + cosine_similarity)
-"""
 
 import logging
-import re
 from typing import List, Dict, Tuple
-
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 logger = logging.getLogger(__name__)
 
-# ── MMR balance: 0 = pure diversity, 1 = pure relevance ──────────────────────
+# MMR balance: 0 = pure diversity, 1 = pure relevance 
 MMR_LAMBDA = 0.65
-
-# ── How many chunks to request per individual query ──────────────────────────
 CHUNKS_PER_QUERY = 15
 
-# ── Difficulty-aware query templates ─────────────────────────────────────────
+#Difficulty aware query templates
 # Each difficulty has a primary intent + a set of query variants.
 # The RAG module is called once per variant; results are merged and
-# deduplicated, then MMR-selected.
+# deduplicated, then selected for relevance with mmr
 
 DIFFICULTY_QUERIES: Dict[str, List[str]] = {
     "easy": [
@@ -66,11 +36,6 @@ DIFFICULTY_QUERIES: Dict[str, List[str]] = {
 
 
 def _build_queries(difficulty: str, topic: str | None) -> List[str]:
-    """
-    Return a list of search strings to fire at the RAG module.
-    If the caller supplied a topic, prepend it to every template so the
-    retrieval is anchored to the right section of the document.
-    """
     base = DIFFICULTY_QUERIES.get(difficulty.lower(), DIFFICULTY_QUERIES["medium"])
     if topic:
         return [f"{topic} {q}" for q in base]
@@ -78,10 +43,6 @@ def _build_queries(difficulty: str, topic: str | None) -> List[str]:
 
 
 def _deduplicate(chunks: List[dict]) -> List[dict]:
-    """
-    Merge lists of chunks coming from multiple queries.
-    Keep the first occurrence (highest relevance score) for each chunk id.
-    """
     seen: set = set()
     unique: List[dict] = []
     for chunk in chunks:
@@ -92,44 +53,23 @@ def _deduplicate(chunks: List[dict]) -> List[dict]:
     return unique
 
 
-def _mmr_select(
-    chunks: List[dict],
-    n: int,
-    mmr_lambda: float = MMR_LAMBDA,
-) -> List[dict]:
-    """
-    Greedy MMR selection.
-
-    Parameters
-    ----------
-    chunks      : deduplicated list of chunks from the RAG module.
-                  Each chunk must have a float "score" key (relevance).
-    n           : how many chunks to select.
-    mmr_lambda  : balance between relevance and diversity.
-
-    Returns
-    -------
-    Up to n chunks ordered by the sequence in which MMR selected them.
-    """
+def _mmr_select(chunks: List[dict],n: int,mmr_lambda: float = MMR_LAMBDA,) -> List[dict]:
     if not chunks:
         return []
-
     n = min(n, len(chunks))
-
-    # Extract texts for TF-IDF
+    # here we extract texts for TF-IDF
     texts = [chunk.get("payload", {}).get("text", "") or "" for chunk in chunks]
-
-    # Build TF-IDF matrix  (rows = chunks)
+    # then build TF-IDF matrix  
     try:
         vectorizer = TfidfVectorizer(stop_words="english", min_df=1)
         tfidf_matrix = vectorizer.fit_transform(texts)
         sim_matrix = cosine_similarity(tfidf_matrix)   # shape: (C, C)
     except ValueError:
-        # All texts empty or too short — fall back to top-N by score
+        # all texts empty or too short
         logger.warning("MMR: TF-IDF failed (empty texts?), falling back to top-N.")
         return sorted(chunks, key=lambda c: c.get("score", 0), reverse=True)[:n]
 
-    # Relevance array: use the RAG module's own retrieval score
+    # relevance array use the RAG module's own retrieval score
     relevance = np.array([float(c.get("score", 0.0)) for c in chunks])
 
     selected_indices: List[int] = []
@@ -140,7 +80,7 @@ def _mmr_select(
             break
 
         if not selected_indices:
-            # First pick: purely by relevance
+            # first pick only by relevance
             best = max(remaining, key=lambda i: relevance[i])
         else:
             # MMR score for each remaining candidate
@@ -148,7 +88,7 @@ def _mmr_select(
             best = remaining[0]
             for i in remaining:
                 rel = relevance[i]
-                # Max similarity to any already-selected chunk
+                # max similarity to any already selected chunk
                 max_sim = max(sim_matrix[i, j] for j in selected_indices)
                 mmr_score = mmr_lambda * rel - (1 - mmr_lambda) * max_sim
                 if mmr_score > best_score:
@@ -162,51 +102,27 @@ def _mmr_select(
 
 
 class ContextEnrichmentLayer:
-    """
-    Wraps the ChunkFetcher and adds multi-query retrieval + MMR selection.
-
-    Usage (in QuestionGenerationService):
-        enricher = ContextEnrichmentLayer(chunk_fetcher)
-        selected = await enricher.get_chunks(project_id, difficulty, topic, n=10)
-    """
-
     def __init__(self, chunk_fetcher):
         self.chunk_fetcher = chunk_fetcher
 
-    async def get_chunks(
-        self,
-        project_id: str,
-        difficulty: str,
-        topic: str | None,
-        n: int = 10,
-    ) -> Tuple[List[dict], dict]:
-        """
-        Retrieve and select the best n chunks for the given difficulty.
+    async def get_chunks(self,project_id: str,difficulty: str,topic: str | None,n: int = 10,) -> Tuple[List[dict], dict]:
 
-        Returns
-        -------
-        (selected_chunks, diagnostics)
-          selected_chunks : list of chunk dicts ready for _prepare_context
-          diagnostics     : dict with retrieval stats for logging/debugging
-        """
         queries = _build_queries(difficulty, topic)
-        logger.debug("Context enrichment queries for '%s': %s", difficulty, queries)
-
-        # ── Fire all queries concurrently (gather pattern) ────────────────
+        logger.debug("context enrichment queries for '%s': %s", difficulty, queries)
+        # Fire all queries at the same time 
         import asyncio
         results = await asyncio.gather(
             *[
                 self.chunk_fetcher.fetch_relevant_chunks(
                     project_id=project_id,
-                    query=q,
+                    topic=q,
                     limit=CHUNKS_PER_QUERY,
                 )
                 for q in queries
             ],
-            return_exceptions=True,
-        )
+            return_exceptions=True,)
 
-        # Flatten, skip failed queries
+        # flatten returns and skip failed queries
         all_chunks: List[dict] = []
         query_hits: List[int] = []
         for i, res in enumerate(results):
@@ -216,11 +132,8 @@ class ContextEnrichmentLayer:
             else:
                 query_hits.append(len(res))
                 all_chunks.extend(res)
-
-        # ── Deduplicate ───────────────────────────────────────────────────
+        #removes duplicate chunks
         unique_chunks = _deduplicate(all_chunks)
-
-        # ── MMR selection ─────────────────────────────────────────────────
         selected = _mmr_select(unique_chunks, n=n)
 
         diagnostics = {
