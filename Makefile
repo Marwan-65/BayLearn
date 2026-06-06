@@ -67,7 +67,7 @@ $(STAMP)/parser: Input-Parsing-Module/requirements.txt | $(STAMP)
 	$(CONDA_RUN) $(PARSER_ENV) pip install -r $<
 	@touch $@
 
-$(STAMP)/equation: equation-module/requirements.txt | $(STAMP)
+$(STAMP)/equation: $(EQUATION_DIR)/requirements.txt | $(STAMP)
 	$(call ensure_env,$(EQUATION_ENV),$(EQUATION_PY))
 	$(CONDA_RUN) $(EQUATION_ENV) pip install -r $<
 	@touch $@
@@ -93,7 +93,7 @@ $(STAMP)/frontend: Frontend/package.json | $(STAMP)
 .PHONY: setup setup-minimal
 setup-minimal: $(STAMP)/parser $(STAMP)/rag $(STAMP)/frontend ## Install the 3 RAG-demo modules
 	@echo "RAG-demo environments ready."
-setup: $(STAMP)/rag $(STAMP)/parser $(STAMP)/equation-frontend $(STAMP)/adaptive $(STAMP)/questions $(STAMP)/frontend 
+setup: $(STAMP)/rag $(STAMP)/parser $(STAMP)/equation $(STAMP)/equation-frontend $(STAMP)/adaptive $(STAMP)/questions $(STAMP)/frontend 
 	@echo "All environments ready." 
 
 
@@ -108,7 +108,7 @@ parser: # Input-Parsing backend :8100
 
 .PHONY: equation-api
 equation-api: # Equation backend :9001
-	cd $(EQUATION_DIR) && $(CONDA_RUN) $(EQUATION_ENV) uvicorn src.api:app --reload --port $(EQUATION_PORT)
+	cd $(EQUATION_DIR) && $(CONDA_RUN) $(EQUATION_ENV) uvicorn src.api:app --reload --env-file .env --port $(EQUATION_PORT)
 
 .PHONY: equation-frontend
 equation-frontend: # Equation UI (Vite dev)
@@ -177,7 +177,7 @@ all: check-node setup $(LOGS)
 	@rm -f $(PIDS)
 	$(call bg,parser,Input-Parsing-Module,$(CONDA_RUN) $(PARSER_ENV) uvicorn app.main:app --port $(PARSER_PORT))
 	$(call bg,rag,Rag_Module/src,$(CONDA_RUN) $(RAG_ENV) uvicorn main:app --port $(RAG_PORT))
-	$(call bg,equation-api,$(EQUATION_DIR),$(CONDA_RUN) $(EQUATION_ENV) uvicorn src.api:app --reload --port $(EQUATION_PORT))
+	$(call bg,equation-api,$(EQUATION_DIR),$(CONDA_RUN) $(EQUATION_ENV) uvicorn src.api:app --reload --env-file .env --port $(EQUATION_PORT))
 	$(call bg,equation-frontend,$(EQUATION_UI),npm run dev)
 	$(call bg,adaptive,Adaptive-Learning-Module,$(CONDA_RUN) $(ADAPTIVE_ENV) flask --app app.backend run --port $(ADAPTIVE_PORT))
 	$(call bg,questions,question-generation-module,$(CONDA_RUN) $(QUESTION_ENV) uvicorn app.main:app --port $(QUESTION_PORT))
@@ -209,6 +209,18 @@ stop:
 	done
 
 	@echo "Done"
+
+.PHONY: stop-adaptive
+stop-adaptive:
+	@lsof -ti :$(ADAPTIVE_PORT) | xargs kill -9 2>/dev/null || echo "Adaptive backend is not running."
+
+.PHONY: stop-questions
+stop-questions:
+	@lsof -ti :$(QUESTION_PORT) | xargs kill -9 2>/dev/null || echo "Question backend is not running."
+
+.PHONY: stop-equation
+stop-equation:
+	@lsof -ti :$(EQUATION_PORT) | xargs kill -9 2>/dev/null || echo "Equation backend is not running."
 
 .PHONY: logs
 logs: # Tail all background logs

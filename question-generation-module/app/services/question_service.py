@@ -15,7 +15,10 @@ from app.models.schemas import GeneratedQuestion, QuestionOption
 from app.classifier.bloom_classifier import BloomClassifier, bloom6_to_level
 from app.services.example_bank import ExampleBank
 
+# Force Python to display INFO-level logs in the terminal
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 # Max characters of chunk text to include in a single prompt.
 MAX_CONTEXT_CHARS = 6000
@@ -201,7 +204,7 @@ class QuestionGenerationService:
 
     def _build_prompt(self, question_type, chunks_text, num_questions,
                       difficulty, few_shot, include_guidance=True):
-        qt = (question_type or "").lower().strip()   # accept MCQ/Mcq/true_false/etc.
+        qt = (question_type or "mcq").lower().strip()   # accept MCQ/Mcq/true_false/etc., default to mcq
         if qt == "mcq":
             return build_mcq_prompt(chunks_text, num_questions, difficulty, few_shot, include_guidance)
         if qt == "short_answer":
@@ -231,6 +234,9 @@ class QuestionGenerationService:
                 temperature=0.85 if attempts == 1 else 0.6,
                 max_tokens=2048,
             )
+            
+            logger.info(f"\n--- RAW LLM RESPONSE (Attempt {attempts}) ---\n{raw_response}\n-----------------------------\n")
+            
             questions = self._parse_llm_response(raw_response, question_type)
             last_questions = self._classify_predicted_levels(questions)
 
@@ -290,12 +296,13 @@ class QuestionGenerationService:
         Tbecause he LLM sometimes wraps Json in markdown code fences 
         This method handles that
         """
-        # Strip markdown code fences if present
         text = raw_response.strip()
-        if text.startswith("```"):
-            # Remove first line (```json or ```) and last line (```)
-            lines = text.split("\n")
-            text = "\n".join(lines[1:-1])
+
+        # Safely extract the JSON array ignoring any conversational text or markdown
+        start_idx = text.find('[')
+        end_idx = text.rfind(']')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            text = text[start_idx:end_idx+1]
 
         try:
             data = json.loads(text)
@@ -303,11 +310,12 @@ class QuestionGenerationService:
             logger.error(f"LLM returned invalid JSON: {e}\nRaw response: {raw_response[:500]}")
             raise ValueError("The LLM returned malformed JSON. Try again.")
 
-        qtype = (question_type or "").lower().strip()
+        qtype = (question_type or "mcq").lower().strip()
         questions = []
         for item in data:
             # Build options list only for mcq
-            options = None
+            # Default to an empty array instead of None to prevent React map() crashes
+            options = [] if qtype == "mcq" else None
             if qtype == "mcq" and "options" in item:
                 options = [
                     QuestionOption(
@@ -319,13 +327,13 @@ class QuestionGenerationService:
                 ]
 
             questions.append(GeneratedQuestion(
-                question_text=item.get("question_text", ""),
-                question_type=question_type,
+                question_text=item.get("question_text") or "",
+                question_type=qtype,
                 options=options,
-                correct_answer=item.get("correct_answer", ""),
+                correct_answer=item.get("correct_answer") or "",
                 keywords_to_match=self._extract_keywords(item.get("keywords_to_match")),
-                explanation=item.get("explanation", ""),
-                difficulty=item.get("difficulty", "medium"),
+                explanation=item.get("explanation") or "",
+                difficulty=item.get("difficulty") or "medium",
             ))
 
         return questions

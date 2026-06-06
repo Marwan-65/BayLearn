@@ -95,7 +95,7 @@ class Chunk(Base):
     id   =  Column(UUID(as_uuid=False), primary_key=True, default=gen_uuid)
     section_id     =Column(UUID(as_uuid=False), ForeignKey("sections.id", ondelete="CASCADE"), nullable=False)
     file_id     = Column(UUID(as_uuid=False), ForeignKey("uploaded_files.id", ondelete="CASCADE"), nullable=False)
-    conten  =Column(Text, nullable=False)
+    content  =Column(Text, nullable=False)
     chunk_index    = Column(Integer, nullable=False)
     chunk_type    =Column(String, nullable=True)
     chunk_metadata  =Column(JSON, nullable=True)

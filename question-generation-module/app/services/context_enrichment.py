@@ -196,7 +196,7 @@ class ContextEnrichmentLayer:
             *[
                 self.chunk_fetcher.fetch_relevant_chunks(
                     project_id=project_id,
-                    query=q,
+                    topic=q,
                     limit=CHUNKS_PER_QUERY,
                 )
                 for q in queries

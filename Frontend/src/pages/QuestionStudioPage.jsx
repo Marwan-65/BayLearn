@@ -125,35 +125,38 @@ export default function QuestionStudioPage() {
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
+    let timerId;
 
-    async function tick() {
+    async function poll() {
+      if (cancelled) return;
       try {
         const data = await jsonFetch(
           `/questions/adaptive/${sessionId}/current`,
           {},
           QUESTION_API_BASE
         );
-        if (cancelled || !data?.question) return;
-        if (data.version > adaptiveVersionRef.current) {
+        if (!cancelled && data?.question && data.version > adaptiveVersionRef.current) {
           adaptiveVersionRef.current = data.version;
           const card = data.question;
           setAdaptiveItem({
             id:           data.version,
             question:     card.question,
-            questionType: card.questionType,
+            questionType: card.question_type || card.questionType || card.question?.question_type,
             topic:        card.topic,
             difficulty:   card.difficulty,
-            chunksUsed:   card.chunksUsed,
+            chunksUsed:   card.chunks_used || card.chunksUsed,
           });
         }
       } catch {
         /* QG unreachable — keep polling */
       }
+      if (!cancelled) {
+        timerId = setTimeout(poll, 1500);
+      }
     }
 
-    tick();
-    const id = setInterval(tick, 1500);
-    return () => { cancelled = true; clearInterval(id); };
+    poll();
+    return () => { cancelled = true; clearTimeout(timerId); };
   }, [sessionId]);
 
   // ── Derived ──────────────────────────────────────────────────────────────
@@ -287,6 +290,7 @@ export default function QuestionStudioPage() {
                       key={adaptiveItem.id}
                       item={adaptiveItem}
                       sessionId={sessionId}
+                      sessionFinished={sessionFinished}
                     />
                   </div>
                 </div>
@@ -466,7 +470,7 @@ function ResultsOverlay({ results, onClose, onHome }) {
 
 // ── Question Card ────────────────────────────────────────────────────────────
 
-function QuestionCard({ item, sessionId }) {
+function QuestionCard({ item, sessionId, sessionFinished }) {
   const q = item.question;
   const [selected,        setSelected]        = useState(null);
   const [shortAnswerText, setShortAnswerText] = useState("");
@@ -550,7 +554,7 @@ function QuestionCard({ item, sessionId }) {
       <div style={S.qCardLeft}>
         <div style={S.qMetaTop}>
           <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
-            <span style={S.qTag}>{item.questionType.replace("_", " ")}</span>
+            <span style={S.qTag}>{(item.questionType || "").replace("_", " ")}</span>
             <span style={S.qTagDifficulty}>{item.difficulty || q.difficulty || "understand"}</span>
           </div>
           <span style={S.qMetaSmall}>{item.topic}</span>
@@ -685,6 +689,20 @@ function QuestionCard({ item, sessionId }) {
                   <span key={`${kw}-${idx}`} style={S.qTagDifficulty}>{kw}</span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {result && !sessionFinished && (
+            <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 10, color: "#92400e", fontSize: 14, fontWeight: 600, padding: "14px 16px", background: "#fefce8", border: "1px solid #fde68a", borderRadius: 10 }}>
+              <span style={{ fontSize: 20 }}>⏳</span>
+              Getting your next question ready...
+            </div>
+          )}
+
+          {result && sessionFinished && (
+            <div style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 10, color: "#065f46", fontSize: 14, fontWeight: 600, padding: "14px 16px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+              <span style={{ fontSize: 20 }}>🎓</span>
+              Session complete! Check your results in the sidebar.
             </div>
           )}
         </div>
