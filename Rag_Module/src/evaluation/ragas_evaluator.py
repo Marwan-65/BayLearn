@@ -7,6 +7,7 @@ from ragas.run_config import RunConfig
 from ragas.metrics import (
     Faithfulness, AnswerRelevancy,
     ContextPrecision, ContextRecall,)
+from helpers.config import get_settings
 from RAG_module_models.ragas_judges import (
     build_embeddings,
     build_openai_compat_judge,
@@ -25,7 +26,6 @@ class RAGASEvaluator:
         self.oc_base_url = openai_compat_base_url
         self.oc_model = openai_compat_model
         try:
-            from helpers.config import get_settings
             s = get_settings()
             if not self.gemini_api_key:
                 self.gemini_api_key = s.GEMINI_API_KEY
