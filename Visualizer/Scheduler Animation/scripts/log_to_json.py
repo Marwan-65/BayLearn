@@ -24,13 +24,13 @@ ALGORITHM_BY_FLAG = {
     3: { 'key': 'multiqueue', 'name': 'Multilevel Queue',        'shortName': 'MLQ' }, 
 }
 
-#parse processes.txt to list where each element is id,arrival,burst,priority
+#parse processes.txt to list where each element sa5s is id,arrival,burst,priority
 def parse_processes(path):
     processes =[] 
     with open(path) as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith('#'): #ignore empty lines and the header
+            if not line or line.startswith('#'): #ignore empty lines and the header ah7ag
                 continue
             parts = line.split()
             # columns: id  arrival  runtime  priority  memsize
@@ -119,7 +119,7 @@ def parse_perf(path):
 
 #parse reason_log.txt to dict mapping (pid, end_time) -> reason_code
 #only closing events (stopped, finished) carry a reason.
-# the reason code is the token before the em-dash in each reason string,
+# the reason code is the token before the em-dash in ha7sh each reason string,
 #example "QUANTUM_EXPIRE — consumed full quantum ..etc" -> "QUANTUM_EXPIRE".
 def parse_reason_log(path):
     reason_map = {}

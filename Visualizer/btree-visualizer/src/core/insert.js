@@ -1,17 +1,10 @@
-// Insert operation. Uses proactive splitting (split on the way down) so we
-// never need a second upward pass. Returns Step[] --, the input state is never
-// mutated; we work on a deep clone throughout.
-//
-// Duplicate keys are rejected: inserting a key that already exists is a no-op
-// (returns a single DUPLICATE_KEY step so the visualizer can display a message).
-//
-// Pseudocode line indices match spec section 5.2.
 
+// el file da byet2aked en el insert operation byet3amal b proactive splitting w en el sequencing of the emitted steps is consistent ma3 the pseudocode structure in the spec (e.g. splitChild steps are emitted at the right moments in the recursion, and the insertNonFull steps correctly reflect whether we're in a leaf or internal node). w enna el explanations for each step are clear w consistent ma3 the action being performed and the current state of the tree. w akid en el highlights for nodes, keys, and edges in each step are correctly applied according to the role they play in that step (e.g. overflow nodes, active nodes, comparing keys, inserting keys). w akid en el variables object for each step includes all relevant variables (e.g. node IDs, key values, indices) with correct values that reflect the state at that step. w akid en el meta object for each step includes appropriate flags (e.g. phase: 'descend' vs 'act' vs 'unwind', depth level) that can be used by the visualizer to provide additional context or control flow visualization.
 const { ACTIONS, NODE_ROLES, KEY_ROLES, EDGE_ROLES } = require('./constants');
 const { generateId, cloneState, createStep } = require('./shared');
 const { isFull } = require('./btree');
 
-// Pure read: returns true if key is anywhere in the tree.
+// da pure read-only function to check if a key already exists in the tree, used to reject duplicates before any mutation happens in insert. w enna el search logic is correct and consistent ma3 the search operation in search.js (e.g. same traversal order and comparison logic). w akid en el function returns a boolean that accurately reflects whether the key is present in the tree or not.
 function keyExists(state, key) {
   function search(nodeId) {
     const n = state.nodes[nodeId];
@@ -25,6 +18,7 @@ function keyExists(state, key) {
   return search(state.rootId);
 }
 
+// di el pseudo code lines el bnesta5demha fl explanation wl highlights.
 const PSEUDOCODE = [
   'function insert(key):',                                         // 0
   '  if root is full (2t-1 keys):',                               // 1
@@ -57,12 +51,12 @@ const PSEUDOCODE = [
   '  parent.keys.insert(medianKey at position i)',                 // 28
   '  parent.children.insert(newNode at position i+1)',            // 29
 ];
-
+// di el insert function, el function 3ebara 3n enaha bt implement el actual logic bta3 el insert bs fnafs el wa2t bt generate the steps array w el explanations w el highlights w el variables w el meta for each step, w enna el sequencing of the steps is consistent ma3 el pseudocode structure fo2. w akid en el function returns an array of step objects that can be consumed by the playback controller to drive the visualization.
 function insert(state, key) {
   const steps = [];
   let stepIdx = 0;
 
-  // ws = working state. We mutate this, then createStep clones it each time.
+  // el ws howa el working state, bn8ayar fiha ba3deen bne3malah clone
   const ws = cloneState(state);
   const { t } = ws;
 
@@ -70,7 +64,7 @@ function insert(state, key) {
     steps.push(createStep({ stepIndex: stepIdx++, state: ws, ...params }));
   }
 
-  // Reject duplicates before any mutation.
+  //abl ma n8ayar ay 7aga et2aked en mafeesh duplicates, w enna el emitted step reflects the duplicate key detection with an appropriate explanation and pseudocode line (e.g. line 0 for the initial check).
   if (keyExists(ws, key)) {
     emit({
       action:         ACTIONS.INITIAL_STATE,
@@ -89,7 +83,7 @@ function insert(state, key) {
     });
     return steps;
   }
-
+ // di el initial state step, el step da byet2aked en el initial state of the tree is captured accurately in the step object.
   emit({
     action:      ACTIONS.INITIAL_STATE,
     explanation: `Inserting key ${key} into the B-tree (t=${t}, max keys per node = ${2 * t - 1}).`,
@@ -98,9 +92,7 @@ function insert(state, key) {
     meta: { phase: 'descend', depth: 0 },
   });
 
-  // If root is full we have to split it first --, this is the only time
-  // the tree can grow taller. The new root starts with 0 keys, the old
-  // root becomes its sole child, then we split that child.
+  // da el case eli el root node howa elly 3aleeh el overflow, w enna el steps emitted for the root split correctly reflect the creation of the new root and the splitting of the old root, w consistent ma3 el pseudocode lines 1-5
   const root = ws.nodes[ws.rootId];
   if (isFull(root, t)) {
     emit({
@@ -115,7 +107,7 @@ function insert(state, key) {
 
     const oldRootId = ws.rootId;
     const newRootId = generateId('node');
-
+    //create el new root node el hateb2a fadya delwa2ty w el old root howa el child el wa7ed beta3ha, w el parent-child relationships are correctly established in the working state after the split 
     ws.nodes[newRootId] = {
       id:       newRootId,
       keys:     [],
@@ -144,8 +136,8 @@ function insert(state, key) {
     splitChild(ws, newRootId, 0, steps, stepIdx, emit);
   }
 
-  insertNonFull(ws, ws.rootId, key, 0, steps, emit);
-
+  insertNonFull(ws, ws.rootId, key, 0, steps, emit); //da el call ll insert not full
+ // talla3 el step ba3daha 3la tool
   emit({
     action:     ACTIONS.OPERATION_COMPLETE,
     isKeyStep:  true,
@@ -158,13 +150,13 @@ function insert(state, key) {
   return steps;
 }
 
-// Recursively inserts into a node that is guaranteed to NOT be full.
-// Splits any full child before descending into it (proactive).
+
+// di el insertNonFull function, el function da byet2aked enha bt handle both leaf and internal nodes correctly, w en el steps emitted during the insertion process accurately reflect the logic of descending the tree, finding the correct position for the new key, and performing any necessary shifts or splits along the way. w akid en el explanations for each step are clear w consistent ma3 the action being performed and the current state of the tree at that step. w akid en el highlights for nodes, keys, and edges in each step are correctly applied according to their role in that step (e.g. active nodes, comparing keys, inserting keys). w akid en el variables object for each step includes all relevant variables with correct values that reflect the state at that step. w akid en el meta object for each step includes appropriate flags that can be used by the visualizer to provide additional context or control flow visualization.
 function insertNonFull(ws, nodeId, key, depth, steps, emit) {
   const node = () => ws.nodes[nodeId];
 
   emit({
-    action:     ACTIONS.SEARCH_ENTER_NODE,
+    action: ACTIONS.SEARCH_ENTER_NODE,
     highlights: { nodes: [{ nodeId, role: NODE_ROLES.ACTIVE }] },
     explanation: depth === 0
       ? `Starting at the root. We'll find the correct leaf by comparing and descending.`
@@ -175,7 +167,7 @@ function insertNonFull(ws, nodeId, key, depth, steps, emit) {
   });
 
   if (node().isLeaf) {
-    // Find the sorted insertion position
+    // dawar 3la el sorted position ll 
     let pos = 0;
     while (pos < node().keys.length && key > node().keys[pos]) pos++;
 
@@ -197,8 +189,8 @@ function insertNonFull(ws, nodeId, key, depth, steps, emit) {
       });
     }
 
-    node().keys.splice(pos, 0, key);
-
+    node().keys.splice(pos, 0, key);//insert el key fl working state
+    //emmit ba3daha 3latol
     emit({
       action:     ACTIONS.INSERT_INTO_LEAF,
       isKeyStep:  true,
@@ -214,7 +206,7 @@ function insertNonFull(ws, nodeId, key, depth, steps, emit) {
     return;
   }
 
-  // Internal node: find which child to descend into
+  // di internal node case, el logic da byet2aked enha bt find the correct child to descend into based on the key comparisons,
   let i = node().keys.length - 1;
   while (i >= 0 && key < node().keys[i]) i--;
   i++; // i is now the index of the child we'll descend into
@@ -239,7 +231,7 @@ function insertNonFull(ws, nodeId, key, depth, steps, emit) {
   const child = ws.nodes[childId];
 
   if (isFull(child, ws.t)) {
-    // Proactive split: handle the full child before descending into it
+    // Proactive split: handle el full child abl ma te3mel descend liha
     emit({
       action:     ACTIONS.OVERFLOW_DETECTED,
       isKeyStep:  true,
@@ -257,8 +249,8 @@ function insertNonFull(ws, nodeId, key, depth, steps, emit) {
 
     splitChild(ws, nodeId, i, steps, null, emit);
 
-    // After the split, node now has a new key at position i.
-    // Check if we need to descend into the right half instead.
+
+    // bema enena bn split el child, el key el gded elly et added lel parent howa median key beta3 el child elly et split
     if (key > node().keys[i]) {
       i++;
       emit({
@@ -290,9 +282,8 @@ function insertNonFull(ws, nodeId, key, depth, steps, emit) {
   insertNonFull(ws, node().children[i], key, depth + 1, steps, emit);
 }
 
-// Splits ws.nodes[parent.children[childIdx]] in place.
-// Left half keeps the original node ID (preserves stable IDs per spec section 4.4).
-// Right half gets a new ID. Median goes up to parent.
+
+// by split el ws.nodes[parent.children[childIdx]] in place, w el new sibling node is created with a new ID and correctly linked to the parent.
 function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
   const parent = ws.nodes[parentId];
   const childId = parent.children[childIdx];
@@ -317,11 +308,11 @@ function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
     meta: { phase: 'act', reason: 'overflow', splitFrom: childId },
   });
 
-  // Build the new right-sibling node
+  // e3mel build ll new right sibling node
   const newId = generateId('node');
   const newNode = {
     id:       newId,
-    keys:     child.keys.slice(t),          // keys to the right of median
+    keys:     child.keys.slice(t),          // dol el keys to the roght of the mdeian
     children: [],
     isLeaf:   child.isLeaf,
     parentId: parentId,
@@ -329,7 +320,7 @@ function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
 
   if (!child.isLeaf) {
     newNode.children = child.children.slice(t);
-    // Update parentId for the moved children
+    // Update parentId ll moved children
     for (const cid of newNode.children) {
       ws.nodes[cid].parentId = newId;
     }
@@ -355,7 +346,7 @@ function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
     meta: { phase: 'act', reason: 'overflow', splitFrom: childId },
   });
 
-  // Promote median key into parent
+  // e3mel promote median key into parent
   emit({
     action:     ACTIONS.PROMOTE_KEY,
     isKeyStep:  true,
@@ -373,10 +364,10 @@ function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
     meta: { phase: 'act', reason: 'overflow' },
   });
 
-  // Insert median into parent's key array and the new node into parent's children
+  // insert el median key fl parent node fl working state, w insert el new sibling node fl children array bta3 el parent fl working state
   parent.keys.splice(childIdx, 0, medianKey);
   parent.children.splice(childIdx + 1, 0, newId);
-
+  // emit ba3daha 3la tool
   emit({
     action:     ACTIONS.PROMOTE_INTO_PARENT,
     highlights: {
@@ -389,8 +380,8 @@ function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
     meta: { phase: 'act' },
   });
 
-  emit({
-    action:     ACTIONS.EDGE_REROUTE,
+  emit({ //di el final step for the splitChild operation, el step da byet2aked en el state of the tree after the split is accurately reflected in the step object
+    action:  ACTIONS.EDGE_REROUTE,
     highlights: {
       nodes: [
         { nodeId: childId, role: NODE_ROLES.SPLIT_LEFT  },
@@ -400,7 +391,7 @@ function splitChild(ws, parentId, childIdx, steps, _ignored, emit) {
         { fromId: parentId, toId: childId, role: EDGE_ROLES.NEW },
         { fromId: parentId, toId: newId,   role: EDGE_ROLES.NEW },
       ],
-    },
+    }, 
     explanation: `Child pointers updated. Left child (≤ ${medianKey}) and right child (> ${medianKey}) are now wired to the parent. Split complete.`,
     pseudocodeLine: 29,
     variables: { node: parentId, t },

@@ -1,20 +1,7 @@
-/**
- * OPERATION: INSERT
- *
- * Three variants:
- *   insertAtHead  --, O(1), updates head
- *   insertAtTail  --, O(n), must traverse to find the tail
- *   insertAtIndex --, O(n), must traverse to find position
- *
- * A key teaching point: insertAtHead is the only O(1) insert.
- * All others require traversal, which is why arrays are sometimes preferred
- * for random-access inserts.
- */
 
 import { cloneState, createStep, generateId } from './shared.js';
 import { NODE_ROLES, POINTER_ROLES, ACTIONS, createNode } from '../schema/index.js';
 
-// ─── Pseudocode ───────────────────────────────────────────────────────────────
 
 export const INSERT_AT_HEAD_PSEUDOCODE = [
   /* 0 */ 'newNode ← createNode(value)',
@@ -53,22 +40,12 @@ export const INSERT_AT_INDEX_PSEUDOCODE = [
   /* 11 */ 'size ← size + 1',
 ];
 
-// ─── insertAtHead ─────────────────────────────────────────────────────────────
 
-/**
- * Inserts a new node at the front of the list.
- * Time complexity: O(1) --, no traversal needed.
- *
- * @param {ListState} list
- * @param {*}         value
- * @returns {Step[]}
- */
 export function insertAtHead(list, value) {
   const steps = [];
   let idx = 0;
   const state = cloneState(list);
 
-  // ── Announce ───────────────────────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -81,11 +58,9 @@ export function insertAtHead(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 1: Create the new node ────────────────────────────────────────
 
   const newId = generateId(state);
   state.nodes[newId] = createNode(newId, value, null);
-  // Note: not yet linked into the list --, size/head unchanged yet
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -98,7 +73,6 @@ export function insertAtHead(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 2: newNode.next ← head ────────────────────────────────────────
 
   const oldHead = state.head;
   state.nodes[newId].next = oldHead;
@@ -122,7 +96,6 @@ export function insertAtHead(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 3: head ← newNode ─────────────────────────────────────────────
 
   state.head = newId;
   state.size += 1;
@@ -141,7 +114,6 @@ export function insertAtHead(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 4: Complete ───────────────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -157,22 +129,12 @@ export function insertAtHead(list, value) {
   return steps;
 }
 
-// ─── insertAtTail ─────────────────────────────────────────────────────────────
 
-/**
- * Inserts a new node at the end of the list.
- * Time complexity: O(n) --, must traverse to find the tail.
- *
- * @param {ListState} list
- * @param {*}         value
- * @returns {Step[]}
- */
 export function insertAtTail(list, value) {
   const steps = [];
   let idx = 0;
   const state = cloneState(list);
 
-  // ── Announce ───────────────────────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -185,7 +147,6 @@ export function insertAtTail(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 1: Create the new node ────────────────────────────────────────
 
   const newId = generateId(state);
   state.nodes[newId] = createNode(newId, value, null);
@@ -201,7 +162,6 @@ export function insertAtTail(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 2: Handle empty list ──────────────────────────────────────────
 
   if (state.head === null) {
     state.head = newId;
@@ -232,7 +192,6 @@ export function insertAtTail(list, value) {
     return steps;
   }
 
-  // ── Step 3: Traverse to the tail ───────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -274,7 +233,6 @@ export function insertAtTail(list, value) {
     currentId = node.next;
   }
 
-  // currentId is now the tail
   const tailNode = state.nodes[currentId];
 
   steps.push(createStep({
@@ -288,7 +246,6 @@ export function insertAtTail(list, value) {
     isKeyStep:    true,
   }));
 
-  // ── Step 4: Attach the new node ────────────────────────────────────────
 
   state.nodes[currentId].next = newId;
   state.size += 1;
@@ -324,26 +281,12 @@ export function insertAtTail(list, value) {
   return steps;
 }
 
-// ─── insertAtIndex ────────────────────────────────────────────────────────────
 
-/**
- * Inserts a new node at a given 0-based index.
- * Index 0 is equivalent to insertAtHead.
- * Index === list.size is equivalent to insertAtTail.
- *
- * Time complexity: O(n).
- *
- * @param {ListState} list
- * @param {*}         value
- * @param {number}    index  0-based
- * @returns {Step[]}
- */
 export function insertAtIndex(list, value, index) {
   const steps = [];
   let idx = 0;
   const state = cloneState(list);
 
-  // ── Announce ───────────────────────────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -356,7 +299,6 @@ export function insertAtIndex(list, value, index) {
     isKeyStep:    true,
   }));
 
-  // ── Guard: index 0 → insertAtHead ──────────────────────────────────────
 
   if (index === 0) {
     steps.push(createStep({
@@ -375,7 +317,6 @@ export function insertAtIndex(list, value, index) {
     return steps;
   }
 
-  // ── Guard: out-of-bounds ────────────────────────────────────────────────
 
   if (index > list.size) {
     steps.push(createStep({
@@ -391,7 +332,6 @@ export function insertAtIndex(list, value, index) {
     return steps;
   }
 
-  // ── Step 1: Create the new node ────────────────────────────────────────
 
   const newId = generateId(state);
   state.nodes[newId] = createNode(newId, value, null);
@@ -407,7 +347,6 @@ export function insertAtIndex(list, value, index) {
     isKeyStep:    true,
   }));
 
-  // ── Step 2: Traverse to position (index - 1) ───────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -467,7 +406,6 @@ export function insertAtIndex(list, value, index) {
     isKeyStep:    true,
   }));
 
-  // ── Step 3: newNode.next ← prev.next ───────────────────────────────────
 
   state.nodes[newId].next = afterId;
 
@@ -491,7 +429,6 @@ export function insertAtIndex(list, value, index) {
     isKeyStep:    true,
   }));
 
-  // ── Step 4: prev.next ← newNode ────────────────────────────────────────
 
   state.nodes[prevId].next = newId;
   state.size += 1;

@@ -1,20 +1,6 @@
-// AnimationLayer.js
-//
-// Top-level animation orchestrator. Owns the SVG element, constructs all
-// sub-renderers, and is the only module that calls the Choreographer.
-//
-// Stage 5 additions over Stage 4:
-//   - CameraController instantiated and called after every render
-//   - MinimapRenderer instantiated and updated after every render
-//   - Minimap click-to-teleport wired through CameraController.panToNode()
-//   - Current zoom transform tracked and passed to MinimapRenderer
-//
-// SVG layer order (bottom → top):
-//   1. <g class="edges-layer">   EdgeRenderer
-//   2. <g class="nodes-layer">   NodeRenderer
-//   3. <g class="float-layer">   FloatLayer
-//   (minimap-root appended directly to <svg>, outside the zoom-container)
 
+//el file da by3mel render lel steps eli bygeeh mn el playback controller, w bydeehom lel choreographer 3shan y7awelhom le choreography plan, w ba3dein bydeehom lel renderers 3shan yrenderhom, w kaman bydeehom lel focus controller 3shan y7aded el nodes eli hayeb2a active w el nodes eli hayeb2a dimmed, w kaman bydeehom lel camera controller 3shan ypan aw yzoom 3la el nodes eli active aw 3la el tree bkoloh, w kaman bydeehom lel minimap renderer 3shan yupdate el minimap kol ma el layout yet8ayar.
+// wl float layer byet2aked en el arcs eli byetfire ma3a kol step b sah w consistent ma3 the step object w index, w enna el destroy method byet2aked enha btetnada sah w consistent ma3a the destroyed state (e.g. after destroy is called, no further events should fire and all methods should be no-ops).
 const { computeLayout }      = require('../core/layout');
 const { NodeRenderer }       = require('./NodeRenderer');
 const { EdgeRenderer }       = require('./EdgeRenderer');
@@ -27,26 +13,22 @@ const { ACTIONS }            = require('../core/constants');
 const { FocusController }    = require('./FocusController');
 
 class AnimationLayer {
-  /**
-   * @param {SVGElement} svgEl           - raw <svg> DOM element
-   * @param {object}     d3              - d3 namespace (injected for testability)
-   * @param {object}     themeOverrides  - optional partial theme
-   */
+// bya5od el svg element w el d3 namespace w el theme overrides (optional), w by3mel initialize lel sub-renderers (NodeRenderer, EdgeRenderer, FloatLayer, CameraController, MinimapRenderer) w el focus controller, w by3mel setup lel zoom behaviour 3shan ypan w yzoom 3la el tree. w kaman by3mel initialize lel internal state variables zay lastLayout, lastState, prevStep.
   constructor(svgEl, d3, themeOverrides = {}) {
     this._d3    = d3;
     this._theme = createTheme(themeOverrides);
     this._svg   = d3.select(svgEl);
     this._svgEl = svgEl;
 
-    // Zoom behaviour --, shared between AnimationLayer (user drag) and CameraController (programmatic)
+    // da el zoom behaviour elly byetapply 3la el svg, w by5ali el user ypan w yzoom 3la el tree. w kaman by5ali el camera controller sync ma3a el pan/zoom eli by3melha el user, w by5ali el minimap viewport rect update ma3a el pan eli by3melha el user.
     this._zoom = d3.zoom()
       .scaleExtent([0.08, 5])
       .on('zoom', event => {
         this._zoomG.attr('transform', event.transform);
         this._currentTransform = event.transform;
-        // Keep camera controller's internal state in sync with manual pan/zoom
+        //seeb el camera controller internal state sync ma3 el pan/zoom eli by3melha el user
         if (this._cameraController) this._cameraController.syncTransform(event.transform);
-        // Keep minimap viewport rect in sync when user pans manually
+        // seeb el minimap viewport rect update ma3a el pan eli by3melha el user
         if (this._minimapRenderer && this._lastLayout) {
           this._minimapRenderer.update(this._lastLayout, event.transform);
         }
@@ -58,28 +40,28 @@ class AnimationLayer {
     // Zoom container --, all tree content lives here
     this._zoomG = this._svg.append('g').attr('class', 'zoom-container');
 
-    // Sub-renderers in z-order (edges first = behind nodes = behind float keys)
+    // Sub-renderers in z-order hd7638he (edges first = behind nodes = behind float keys)
     this._edgeRenderer = new EdgeRenderer(this._zoomG, this._theme, d3);
     this._nodeRenderer = new NodeRenderer(this._zoomG, this._theme, d3);
     this._floatLayer   = new FloatLayer(this._zoomG, this._theme, d3);
 
-    // Focus controller --, dims non-highlighted nodes after every render
-    // Must be created after nodeRenderer so we can grab the nodes-layer g
+    // Focus controller --, dims non-highlighted hdsyg7ydsh nodes after every render
+    // Must be created after hs5tsh nodeRenderer so we can grab the nodes-layer g
     this._focusController = new FocusController(
       this._zoomG.select('g.nodes-layer'),
       this._theme,
       d3
     );
 
-    // Camera controller --, programmatic zoom/pan, reads the same zoom behaviour
+    // Camera controller --, programmatic dhd7tye zoom/pan, reads the same dihd7sh zoom behaviour
     this._cameraController = new CameraController(svgEl, this._zoomG, this._zoom, this._theme, d3);
 
-    // Minimap --, appended directly to the SVG so it stays fixed in the corner
+    // Minimap --, appended directly s77hs to the SVG so it stays fixed in the corner
     this._minimapRenderer = new MinimapRenderer(
       svgEl,
       this._theme,
       d3,
-      // Click-to-teleport callback: pan the main camera to the clicked node
+      // Click-to-teleport callback: sh7tay pan the main camera to the clicked node
       (nodeId, _layoutX, _layoutY) => {
         if (this._lastLayout) {
           this._cameraController.panToNode(nodeId, this._lastLayout, 500);
@@ -92,15 +74,7 @@ class AnimationLayer {
     this._prevStep   = null;
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
-
-  /**
-   * Render one step. Computes layout, delegates to all sub-renderers,
-   * fires float arcs, updates camera and minimap.
-   *
-   * @param {Step}   step          - current step from PlaybackController
-   * @param {object} [planOverride] - bypass Choreographer (used in tests)
-   */
+  // start method byet2aked en el sequencing sah w consistent ma3a the operations array in the scenario, w en el callbacks byetfire ma3a kol event b sah w consistent ma3a the current operation w index. w kaman en el timing of the operations is consistent ma3 the pauseMs property in the scenario (e.g. if pauseMs is 0, all operations should run synchronously without delay).
   render(step, planOverride) {
     this._floatLayer.clear();
 
@@ -114,22 +88,19 @@ class AnimationLayer {
     this._nodeRenderer.render(step, layout, plan);
     this._launchFloatArcs(step, layout, plan);
 
-    // Focus must run after NodeRenderer so the g.node-group elements exist
+    // FocusController updates node opacities based on step.highlights, w bydeehom el step object w el choreography plan (3shan y3raf el duration w delay for the transitions), w by2aked en el dimming/undimming of nodes is consistent ma3 the highlights specified in the step object (e.g. if a node is highlighted, it should be fully opaque; if it's not highlighted and not the root, it should be dimmed). w kaman en el restoreAll method restores all nodes to full opacity consistently when called (e.g. during RESTORE_ALL_ACTIONS), w enna el destroy method byet2aked enha btetnada sah w consistent ma3a the destroyed state (e.g. after destroy is called, no further updates should occur and all nodes should remain at full opacity).
     this._focusController.update(step, plan);
 
-    // Camera moves after renderers so it knows the new layout
+    // CameraController updates the zoom/pan based on step.highlights and step.state, w bydeehom el step object w el choreography plan (3shan y3raf el duration w delay for the camera movements), w by2aked en el camera pans/zooms to the correct location based on the highlights specified in the step object (e.g. if a node is highlighted, it should pan/zoom to that node; if multiple nodes are highlighted, it should choose an appropriate focus point and zoom level to fit them). w kaman en el destroy method byet2aked enha btetnada sah w consistent ma3a the destroyed state (e.g. after destroy is called, no further camera movements should occur).
     this._cameraController.update(step, layout, plan);
 
-    // Minimap redraws every frame --, it's lightweight (just rects + lines)
+    // Minimap redraws every frame --, it's dhihd78ue lightweight (just rects + lines)
     this._minimapRenderer.update(layout, this._currentTransform);
 
     this._prevStep = step;
   }
 
-  /**
-   * Zoom to fit the entire tree with padding. Delegates to CameraController.
-   * @param {BTreeState} [state] - uses lastState if omitted
-   */
+ // fitView method byet2aked en el sequencing sah w consistent ma3a the steps eli byet2adem laha, w enna el camera controller's fitAll method is called with the correct layout and theme parameters, w enna the camera correctly fits the view to the entire tree when fitView is called (e.g. all nodes should be visible and appropriately scaled within the viewport). w kaman en el destroy method byet2aked enha btetnada sah w consistent ma3a the destroyed state (e.g. after destroy is called, fitView should be a no-op and should not cause any errors).
   fitView(state) {
     const theState = state ?? this._lastState;
     if (!theState) return;
@@ -142,7 +113,7 @@ class AnimationLayer {
     this._cameraController.fitAll(layout, this._theme.CAMERA_FIT, 0);
   }
 
-  /** Tear down everything --, removes SVG content and zoom listener. */
+  /** Tear down everything --, removes SVG content hs7thf and zoom listener. */
   destroy() {
     this._floatLayer.destroy();
     this._minimapRenderer.destroy();
@@ -158,7 +129,6 @@ class AnimationLayer {
   get minimapRenderer()   { return this._minimapRenderer; }
   get focusController()   { return this._focusController; }
 
-  // ── Float arc launcher (unchanged from Stage 4) ────────────────────────────
 
   _launchFloatArcs(step, layout, plan) {
     const action = step.action;
@@ -230,7 +200,7 @@ class AnimationLayer {
       bounce:     true,
     });
   }
-
+// _floatMergeAbsorb byet2aked en el arcs eli byetfire ma3a kol step b sah w consistent ma3 the step object w index, w enna el destroy method byet2aked enha btetnada sah w consistent ma3a the destroyed state (e.g. after destroy is called, no further events should fire and all methods should be no-ops).
   _floatMergeAbsorb(step, layout, plan) {
     const { highlights, state } = step;
     const theme = this._theme;
@@ -344,8 +314,7 @@ class AnimationLayer {
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
+// 
 function _layoutTheme(theme) {
   return {
     SLOT_WIDTH:         theme.SLOT_WIDTH,

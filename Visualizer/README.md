@@ -41,6 +41,7 @@ python -m http.server 8082
 **Terminal 5 (B-Tree UI):**
 ```bash
 cd "Visualizer/btree-visualizer"
+npm run build
 python -m http.server 8083
 ```
 

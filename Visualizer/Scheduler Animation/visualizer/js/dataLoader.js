@@ -1,9 +1,10 @@
+//el file el byload el data
 export class DataLoader {
     constructor() {
         this.supportedFormats = ['json'];
     }
-    
-    loadFromFile(file, callback) {
+    //by load ashkal mo5talefa hena el file
+    loadFromFile(file, callback) { 
         const reader = new FileReader();
         
         reader.onload = (e) => {
@@ -18,7 +19,7 @@ export class DataLoader {
         
         reader.readAsText(file);
     }
-    
+    //hena from url
     loadFromUrl(url, callback) {
         fetch(url)
             .then(response => response.json())
@@ -30,7 +31,7 @@ export class DataLoader {
                 alert('Error loading from URL: ' + error.message);
             });
     }
-    
+    //ba3deen byvalidate enaha sa7
     validateData(data) {
         // Check required fields
         if (!data.processes || !Array.isArray(data.processes)) {

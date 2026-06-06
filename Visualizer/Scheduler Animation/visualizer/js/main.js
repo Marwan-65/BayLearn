@@ -2,11 +2,7 @@ import { Visualizer } from './visualizer.js';
 import { UIUpdater } from './uiUpdater.js';
 import { DataLoader } from './dataLoader.js';
 
-// ── Algorithm metadata (verified against C source) ──────────────────────────
-// SJF  (sch=0): non-preemptive — only switches when running==NULL or rem_time==0
-// HPF  (sch=1): preemptive     — SIGSTOP issued when higher-priority process arrives
-// RR   (sch=2): preemptive     — quantum-based time-slicing
-// MLQ  (sch=3): preemptive     — quantum-based with priority demotion
+//di el algorithm metadata el hanesta5demha fl ui
 const ALGO_INFO = {
     sjf:        { preemptive: false, note: 'Non-preemptive — once selected, a process runs to completion' },
     hpf:        { preemptive: true,  note: 'Preemptive — a higher-priority arrival immediately takes the CPU' },
@@ -14,9 +10,10 @@ const ALGO_INFO = {
     multiqueue: { preemptive: true,  note: 'Preemptive — multi-level feedback queues with quantum-based demotion' },
 };
 
-// Whether to show the priority column per algorithm
+// bn show el priority lw hpr aw mutiqueue bas
 const SHOWS_PRIORITY = { sjf: false, hpf: true, rr: false, multiqueue: true };
 
+//main class el bthandel kol 7aga
 class SchedulerApp {
     constructor() {
         this.sequence     = null;
@@ -58,7 +55,7 @@ class SchedulerApp {
             totalTime,
         };
 
-        // Show/hide priority column
+        // Show/hide priority column el 3amalna set fo2
         const showPri = SHOWS_PRIORITY[this.algoKey] ?? false;
         document.getElementById('thPriority').style.display = showPri ? '' : 'none';
 
@@ -118,14 +115,12 @@ class SchedulerApp {
             if (!this.sequence || this.sequence.length === 0) return;
             const rect  = e.currentTarget.getBoundingClientRect();
             const ratio = (e.clientX - rect.left) / rect.width;
-            // +1 because valid steps are 0..sequence.length (final frame)
             const target = Math.round(ratio * this.sequence.length);
             this.jumpTo(target);
         });
     }
 
-    // ── Navigation ────────────────────────────────────────────────────────────
-
+    // animate l7ad step mo3ayana
     animateToStep(step) {
         if (!this.visualizer) return;
 
@@ -211,7 +206,6 @@ class SchedulerApp {
         }
     }
 
-    // ── UI helpers ────────────────────────────────────────────────────────────
 
     _updateProgress(step) {
         const total = this.sequence ? this.sequence.length : 0;

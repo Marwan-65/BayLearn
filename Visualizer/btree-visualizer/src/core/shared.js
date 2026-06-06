@@ -1,41 +1,41 @@
-// Shared utilities used by the algorithm modules.
-// None of these touch the DOM or any animation layer --, pure data helpers.
+// these are the shared utitilities used by the allgorithm modules
+//they have no relationn to UI, only data
 
 let _counter = 0;
 
-// Resets the ID counter. Useful between test runs so IDs are predictable.
+//reset the id counter, useful for testing and in between runs
 function resetIdCounter() {
   _counter = 0;
 }
 
-// Generates a stable, unique node ID. The prefix helps with readability
-// when you're staring at a step object during debugging.
+// generate a stable and unique id,
+// prefix is optional abut helps with dbugging like node_1, root_2
 function generateId(prefix = 'node') {
   _counter += 1;
   return `${prefix}_${_counter}`;
 }
 
-// Deep clone of a BTreeState. We only deal with plain objects/arrays/numbers
-// so JSON round-trip is fine and keeps things simple. Don't reach for
-// structuredClone unless you're targeting an older Node without it.
+//this is how we clone a json object
+//json parse first turns the object to a string, and then stringify turns it back into an object, but with a new reference in memory
+//we do this so when we create a step it is frozen and will not be affected by any changes we make to the state
 function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-// Creates one Step object. The state is always deep-cloned so the caller
-// can keep mutating the working state without corrupting the recorded step.
-//
-// Every field maps directly to the Step schema in section 3.2 of the spec.
+
+//this function is how we create the step json object,
+//we deep clone the state always so that we can mutate the working state as we like without caring about the recorded step
+
 function createStep({
-  stepIndex,
-  action,
-  state,
-  isKeyStep    = false,
-  highlights   = {},
-  explanation  = '',
-  pseudocodeLine = null,
-  variables    = {},
-  meta         = {},
+  stepIndex, //the index if the step in sequence starting from 0
+  action, //the action describing what happened in this step
+  state, // the current state which we will clone
+  isKeyStep    = false, //used for UI
+  highlights   = {}, //optional and also helps in UI
+  explanation  = '', // 
+  pseudocodeLine = null,// the line number of the pseudocode to highlight, if we will highlight
+  variables    = {},// what variables to include. used in UI
+  meta         = {},//any other metadata
 }) {
   return {
     stepIndex,
@@ -43,7 +43,7 @@ function createStep({
     isKeyStep,
     state: cloneState(state),
     highlights: {
-      nodes: highlights.nodes || [],
+      nodes: highlights.nodes || [], 
       keys:  highlights.keys  || [],
       edges: highlights.edges || [],
     },
@@ -53,5 +53,6 @@ function createStep({
     meta: { ...meta },
   };
 }
+
 
 module.exports = { generateId, resetIdCounter, cloneState, createStep };

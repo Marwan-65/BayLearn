@@ -6,14 +6,14 @@
 // instead of an opaque identifier.
 //
 // Variable colour roles (spec section 8.5):
-//   node, parent         → blue
-//   key, medianIndex     → rose/pink
+//   node, parent         -> blue
+//   key, medianIndex     -> rose/pink
 //   leftSibling,
-//   rightSibling         → purple
-//   predecessor          → teal
-//   t                    → muted (rarely changes, low visual priority)
+//   rightSibling         -> purple
+//   predecessor          -> teal
+//   t                    -> muted (rarely changes, low visual priority)
 //   depth, keyIndex,
-//   childIndex           → amber
+//   childIndex           -> amber
 
 const VAR_COLOURS = {
   node:         { label: '#60a5fa', bg: '#0d1a2a' }, // blue

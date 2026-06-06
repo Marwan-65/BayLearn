@@ -1,17 +1,7 @@
-/**
- * OPERATION: TRAVERSE
- *
- * Walks the list from head to null, visiting each node.
- * This is the most fundamental operation --, students must understand traversal
- * before they can understand insert/delete.
- */
+
 
 import { cloneState, createStep } from './shared.js';
 import { NODE_ROLES, POINTER_ROLES, ACTIONS } from '../schema/index.js';
-
-// ─── Pseudocode ───────────────────────────────────────────────────────────────
-// Each line is a string; steps reference a 0-based index into this array.
-// The narrative layer will highlight the active line.
 
 export const PSEUDOCODE = [
   /* 0 */ 'current ← head',
@@ -21,22 +11,13 @@ export const PSEUDOCODE = [
   /* 4 */ 'END WHILE',
 ];
 
-// ─── Operation ───────────────────────────────────────────────────────────────
 
-/**
- * Produces the full sequence of animation steps for traversing a linked list.
- *
- * @param {ListState} list
- * @returns {Step[]}
- */
 export function traverse(list) {
   const steps = [];
   let idx = 0;
 
-  // We never mutate the original; we work on a clone.
   const state = cloneState(list);
 
-  // ── Step 0: Announce the operation ──────────────────────────────────────
 
   steps.push(createStep({
     stepIndex: idx++,
@@ -49,7 +30,6 @@ export function traverse(list) {
     isKeyStep:    true,
   }));
 
-  // ── Step 1: current ← head ───────────────────────────────────────────────
 
   if (list.head === null) {
     steps.push(createStep({
@@ -89,7 +69,6 @@ export function traverse(list) {
     isKeyStep:    true,
   }));
 
-  // ── Loop ─────────────────────────────────────────────────────────────────
 
   let currentId = list.head;
   const visited = new Set();   // cycle guard
@@ -100,7 +79,6 @@ export function traverse(list) {
 
     const node = state.nodes[currentId];
 
-    // WHILE condition check (passes --, current ≠ null)
     steps.push(createStep({
       stepIndex: idx++,
       state,
@@ -124,7 +102,6 @@ export function traverse(list) {
       isKeyStep:    true,
     }));
 
-    // Advance current
     if (node.next !== null) {
       const nextNode = state.nodes[node.next];
       steps.push(createStep({
@@ -159,7 +136,6 @@ export function traverse(list) {
     currentId = node.next;
   }
 
-  // WHILE condition check (fails --, current is null, loop exits)
   steps.push(createStep({
     stepIndex: idx++,
     state,

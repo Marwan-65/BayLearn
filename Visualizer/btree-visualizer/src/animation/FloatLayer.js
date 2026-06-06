@@ -1,25 +1,20 @@
-// FloatLayer.js
-//
-// Manages keys that physically travel through SVG space --, the most visually
-// distinctive feature of B-tree animations. Splits, merges, and borrows all
-// involve keys that leave their home slot and arc through the air.
-//
-// The float layer renders into a separate <g class="float-layer"> that sits
-// ABOVE both the edges and nodes layers so flying keys are never occluded.
-//
-// Public API:
-//   floatLayer.animateArc(opts)   --, fly one key along a bezier arc
-//   floatLayer.animateStaggered() --, fly multiple keys with stagger
-//   floatLayer.clear()            --, remove all in-flight elements immediately
-//   floatLayer.clearAfter(ms)     --, schedule a clear after a delay
-//   floatLayer.destroy()          --, remove the layer element itself
+
+
+//el float layer wa7da mn aham el layers 3shan di fiha el keys el btet7arak fl hawa kdg7d (wow)
+//heya bt render <g class="float-layer"> separately 3shan teb2a fo2 el nodes wl edges
+
+// API ll barra:
+//   floatLayer.animateArc(opts) --, tayar key wa7ed along beizer arc
+//   floatLayer.animateStaggered()--, tayar kaza key with a stagger
+//   floatLayer.clear() --, sheel kol el elements el tayra delwa2ty
+//   floatLayer.clearAfter(ms)  --, clear 3ady bs ba3d delay mo3ayan 3shan tseeb wa2t
+//   floatLayer.destroy() --, sheel el layer nafso
 
 class FloatLayer {
-  /**
-   * @param {d3Selection} parentG  - the zoom container <g> (same parent as edges/nodes)
-   * @param {object}      theme    - full theme from createTheme()
-   * @param {object}      d3       - d3 namespace
-   */
+  //ba5od el zoom container 3shan a3mel append lel group bta3i feha, w kda el float layer hatet7arak ma3a el zoom w el pan automatically (mafeesh 7aga esmaha absolute positioning fl SVG, kol 7aga relative lel structure bta3ha)
+  //el theme 3shan a5od el colours w el sizes bta3t el keys
+  //el d3 3shan a5od el transitions w el easings bta3t el animations
+
   constructor(parentG, theme, d3) {
     this._g     = parentG.append('g').attr('class', 'float-layer');
     this._theme = theme;
@@ -27,24 +22,21 @@ class FloatLayer {
     this._uid   = 0;
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
 
-  /**
-   * Animate a key value along a quadratic-bezier arc from one position to another.
-   *
-   * @param {object} opts
-   * @param {number} opts.keyValue    - the number to display on the flying key
-   * @param {object} opts.from        - { x, y } source centre (absolute SVG coords)
-   * @param {object} opts.to          - { x, y } destination centre
-   * @param {number} opts.delay       - ms delay before animation starts
-   * @param {number} opts.duration    - ms for the arc
-   * @param {number} [opts.apexOffset=80]  - px above midpoint for the bezier apex
-   * @param {string} [opts.fill]      - text/stroke colour (defaults to theme.GOLD_LIGHT)
-   * @param {string} [opts.bgFill]    - rect fill colour (defaults to theme.GOLD_BG)
-   * @param {boolean} [opts.scaleUp]  - start slightly larger and settle to 1.0
-   * @param {boolean} [opts.bounce]   - use easeBackOut for landing
-   * @returns {string} arc element ID (for force-removal if needed)
-   */
+//dol el parameters eli hasta5demha 3shan a animate a key value along a quadratic-bezier arc from one position jdd7tw to another.
+//{object} opts
+// {number} opts.keyValue- the number to display on d7df the flying key
+//{object} opts.from  - { x, y } source centre (absolute SVG coords)
+// {object} opts.to  - { x, y } destination centre
+//{number} opts.delay  - ms delay before animation starts
+//{number} opts.duration  - ms for the arc
+//{number} [opts.apexOffset=80]  - px above midpoint sh6why for the bezier apex
+// {string} [opts.fill]  - text/stroke colour (defaults to theme.GOLD_LIGHT)
+// {string} [opts.bgFill]  - rect fill colour (defaults to theme.GOLD_BG)
+//{boolean} [opts.scaleUp]  - start slightly larger hoa7g and settle to 1.0
+// {boolean} [opts.bounce] - use easeBackOut for sh7as landing
+//byreturn fl a5er {string} arc element ID (for force-removal if needed)
+
   animateArc(opts) {
     const d3    = this._d3;
     const theme = this._theme;
@@ -54,23 +46,23 @@ class FloatLayer {
       keyValue,
       from,
       to,
-      delay      = 0,
-      duration   = 500,
+      delay = 0,
+      duration  = 500,
       apexOffset = 80,
-      fill       = theme.GOLD_LIGHT,
-      bgFill     = theme.GOLD_BG,
-      scaleUp    = false,
-      bounce     = false,
+      fill  = theme.GOLD_LIGHT,
+      bgFill  = theme.GOLD_BG,
+      scaleUp  = false,
+      bounce = false,
     } = opts;
 
     const W = theme.SLOT_WIDTH;
     const H = theme.SLOT_HEIGHT;
 
-    // Control point for the quadratic bezier --, sits above the midpoint
+    //control poinll arc, fo2 el midpoint
     const cpX = (from.x + to.x) / 2;
     const cpY = (from.y + to.y) / 2 - apexOffset;
 
-    // Create the floating key group centred at the source position
+    //create el flating key ka group a santraha fl source position
     const group = this._g.append('g')
       .attr('class', 'float-key')
       .attr('id', id)
@@ -82,7 +74,7 @@ class FloatLayer {
       .attr('width', W).attr('height', H)
       .attr('rx', 6)
       .attr('fill', bgFill)
-      .attr('stroke', fill)
+      .attr('stroke', fill)                                                                      
       .attr('stroke-width', 1.5);
 
     group.append('text')
@@ -95,21 +87,21 @@ class FloatLayer {
       .attr('fill', fill)
       .text(keyValue);
 
-    // Fade in before the arc starts
+    //fadein
     group.transition().duration(80).attr('opacity', 1);
 
     if (duration === 0) {
-      // Synchronous: place at destination and stay visible until clear() is called.
-      // Do NOT self-remove --, the caller (or clear()) handles teardown.
-      // This keeps tests able to read DOM state immediately after calling animateArc().
+      //synchronous: place at destination and stay hoba2 visible until clear() is called.
+      //do not self-remove --, the caller (or clear()) handles teardown.
+      // this keeps tests able to read DOM state immediately no7a after calling animateArc().
       group
         .attr('opacity', 1)
         .attr('transform', `translate(${to.x - W / 2}, ${to.y - H / 2})`);
       return id;
     }
 
-    // Animate along the quadratic bezier using a custom tween.
-    // We compute the bezier point mathematically --, no reliance on SVG path
+    //animate along the quadratic bezier using a custom tween.
+    //we compute the bezier point mathematically --, no reliance on SVG path
     // geometry APIs (which jsdom doesn't implement), just simple math.
     const easing = bounce ? d3.easeBackOut : d3.easeCubicInOut;
 
@@ -130,13 +122,10 @@ class FloatLayer {
     return id;
   }
 
-  /**
-   * Animate multiple keys with a per-key stagger delay.
-   *
-   * @param {Array<{keyValue, from, to}>} keys
-   * @param {object} opts  - shared options forwarded to animateArc, plus:
-   * @param {number} [opts.stagger=80]  - additional ms delay per key
-   */
+  //dol animateStaggered hwa ely btet7akem fe animation kaza key wa7ed ba3d el tany b stagger delay, w kol el options el shared ben el keys (zay el duration w el bounce) betet7at fl opts w btetwazza3 3ala kol key
+  //keys da array of { keyValue, from, to } objects, w kol wa7ed fehom el data bta3t el key elly hatet7arak
+  //opts da el options el shared ben el keys, zay el duration w el bounce, w kaman stagger delay elly howa el delay el additional eli hayet added 3ala kol key 3ashan a5aly kol key yet7arak ba3d el tany b wa2t mo3ayan
+  //by default el stagger delay howa 80ms, bas momken a5aly el caller y3ayen stagger delay mo3ayan
   animateStaggered(keys, opts = {}) {
     const { stagger = 80, ...rest } = opts;
     keys.forEach((k, i) => {
@@ -144,20 +133,20 @@ class FloatLayer {
     });
   }
 
-  /** Remove all in-flight float elements immediately. */
+  //remove all in-flight float elements immediately.
   clear() {
     this._g.selectAll('.float-key').remove();
   }
 
-  /**
-   * Schedule a clear after `delayMs` milliseconds.
-   * @returns {number} timer id (pass to clearTimeout to cancel)
-   */
+  
+  //Schedule a clear after `delayMs` milliseconds.
+  //by return {number} timer id (pass to clearTimeout to cancel)
+   
   clearAfter(delayMs) {
     return setTimeout(() => this.clear(), delayMs);
   }
 
-  /** Remove the entire float layer from the DOM. */
+  // Remove the entire float layer from the DOM.
   destroy() {
     this._g.remove();
   }

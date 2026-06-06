@@ -1,19 +1,8 @@
-// Delete operation. Returns Step[] --, never mutates the input state.
-//
-// Strategy: reactive. We delete the key first (potentially causing a temporary
-// underflow) then fix on the way back up. This makes the narrative cleaner --,
-// the student sees WHY the fix is needed before it happens.
-//
-// Three cases per spec section 5.3:
-//   1. Key in leaf: delete directly, fix underflow if needed.
-//   2. Key in internal node: replace with in-order predecessor, then delete predecessor from leaf.
-//   3. Key not in node: descend, fix any underflow in child on the way back up.
-//
-// ROOT_SHRINK fires whenever a merge leaves the root with 0 keys.
 
+ //el file da byet3amel delete operation 3la el btree, w byerga3 array of steps, w kol step byet2aked en el state of the tree after the delete operation is accurately reflected in the step object. w el narrative da reactive, ya3ni ben delete awel 7aga w ba3dein ben fix el underflow if needed, 3la tool ma ben delete, 3la tool ma ben fix, w ba3dein ben emit ROOT_SHRINK law el merge khalas el root empty.
 const { ACTIONS, NODE_ROLES, KEY_ROLES, EDGE_ROLES } = require('./constants');
 const { generateId, cloneState, createStep } = require('./shared');
-
+// dol el pseudo codes bta3et el delete 3shan el shar7 wl highlights
 const PSEUDOCODE = [
   'function delete(key):',                                     // 0
   '  _delete(root, key)',                                      // 1
@@ -32,7 +21,7 @@ const PSEUDOCODE = [
   '    _delete(node.children[i], key)',                       // 14
   '  fixUnderflow(node)',                                     // 15
 ];
-
+//el main function ll delete, by clone el state w by call el recursive delete function w by handle root shrink law lazem, w by emit final step el operation complete
 function deleteKey(state, key) {
   const steps = [];
   let stepIdx = 0;
@@ -54,7 +43,7 @@ function deleteKey(state, key) {
 
   _delete(ws, ws.rootId, key, 0, emit, t);
 
-  // If root ended up empty and has a child, shrink the tree height
+  // lw el root ba2et empty w liha child, e3mel promote ll child da root el gdida, w delete el root el fadya di mn el working state, w emit step yeb2a root shrink
   const root = ws.nodes[ws.rootId];
   if (root.keys.length === 0 && root.children.length === 1) {
     const newRootId = root.children[0];
@@ -91,13 +80,11 @@ function deleteKey(state, key) {
   return steps;
 }
 
-// Core recursive delete. Returns true if the node might now underflow
-// (so the caller can fix it), but the actual fixing is done in this function
-// for its own children --, the caller just needs to know about itself.
+// el function da byet3amel delete 3la el node elly 3ando el key, w law el key mawgood fe leaf node, by remove el key w by shift el keys left, w law el key mawgood fe internal node, by find el in-order predecessor w by replace el key bta3 internal node da bta3 el predecessor, w ba3dein by call recursive delete 3la el child node da 3shan y remove el predecessor mn el leaf, w ba3dein by check law el recursive delete da5al 7ala underflow fe child node da w law da5al 7ala underflow, by fix el underflow using borrow-left aw borrow-right aw merge.
 function _delete(ws, nodeId, key, depth, emit, t) {
   const node = () => ws.nodes[nodeId];
 
-  // Find where the key is (or where we'd need to descend)
+  //dawar 3la el key aw n descend feen
   let i = 0;
   while (i < node().keys.length && key > node().keys[i]) i++;
 
@@ -119,7 +106,7 @@ function _delete(ws, nodeId, key, depth, emit, t) {
 
   if (found) {
     if (node().isLeaf) {
-      // ── Case 1: key is in a leaf ──────────────────────────────────────────
+      // awel case enaha teb2a leaf node
       emit({
         action:     ACTIONS.DELETE_FIND_KEY,
         isKeyStep:  true,
@@ -158,8 +145,7 @@ function _delete(ws, nodeId, key, depth, emit, t) {
       }
 
     } else {
-      // ── Case 2: key is in an internal node ───────────────────────────────
-      // We replace with the in-order predecessor (rightmost key in left subtree).
+      // tany case enaha tev2a internal node, fa lazm n find el in-order predecessor w n replace el key bta3 el internal node da bta3 el predecessor, w ba3dein n call recursive delete 3la el child node da 3shan y remove el predecessor mn el leaf, w ba3dein n check law el recursive delete da5al 7ala underflow fe child node da w law da5al 7ala underflow, n fix el underflow using borrow-left aw borrow-right aw merge.
       emit({
         action:     ACTIONS.DELETE_FIND_KEY,
         isKeyStep:  true,
@@ -205,7 +191,7 @@ function _delete(ws, nodeId, key, depth, emit, t) {
       // Recursively delete the predecessor from the left subtree
       _delete(ws, node().children[i], pred, depth + 1, emit, t);
 
-      // Fix any underflow that bubbled up to our left child
+      // sala7 ay underflow wesel ll left child
       const leftChildId = node().children[i];
       if (isUnderflowing(ws, leftChildId)) {
         fixUnderflow(ws, nodeId, i, emit, t);
@@ -213,7 +199,7 @@ function _delete(ws, nodeId, key, depth, emit, t) {
     }
 
   } else {
-    // ── Case 3: key not in this node, need to descend ─────────────────────
+    // talet case en el key msh fl node di, me7tageen n descend
     if (node().isLeaf) {
       // Key is simply not in the tree --, nothing to do
       emit({
@@ -244,14 +230,14 @@ function _delete(ws, nodeId, key, depth, emit, t) {
 
     _delete(ws, childId, key, depth + 1, emit, t);
 
-    // Fix underflow if the recursive delete left our child short
+    // sala7 el underflow lw el recursive delete left our child short
     if (isUnderflowing(ws, node().children[i])) {
       fixUnderflow(ws, nodeId, i, emit, t);
     }
   }
 }
 
-// Returns the largest key in the subtree rooted at nodeId (rightmost leaf).
+//byragga3 el laregst key fl subtree rooted at nodeId (rightmost leaf).
 function getPredecessorKey(ws, nodeId) {
   let n = ws.nodes[nodeId];
   while (!n.isLeaf) {
@@ -267,8 +253,8 @@ function isUnderflowing(ws, nodeId) {
   return n.keys.length < ws.t - 1;
 }
 
-// Fixes an underflowing child at index childIdx inside parent at nodeId.
-// Tries borrow-left, then borrow-right, then merges.
+
+//by fix el underflowing child node da, by check law fe sibling yeb2a y2dar yeb2a source fe borrow, w law fe sibling yeb2a y2dar yeb2a source fe borrow, w law mafesh siblings y2dar yeb2a source fe borrow, by merge ma3 wa7ed mn el siblings, w ba3dein by emit steps accordingly.
 function fixUnderflow(ws, parentId, childIdx, emit, t) {
   const parent   = () => ws.nodes[parentId];
   const childId  = parent().children[childIdx];
@@ -300,7 +286,7 @@ function fixUnderflow(ws, parentId, childIdx, emit, t) {
 
   if (canBorrowLeft) {
     const leftSib = () => ws.nodes[leftSibId];
-    const sepIdx = childIdx - 1; // separator key index in parent
+    const sepIdx = childIdx - 1; // separator key index fl parent
 
     emit({
       action:     ACTIONS.FIX_CHOOSE_STRATEGY,
@@ -337,7 +323,7 @@ function fixUnderflow(ws, parentId, childIdx, emit, t) {
       meta: { phase: 'unwind', reason: 'rotate' },
     });
 
-    // Do the borrow-left rotation
+    // e3mel el borrow left rotation yeee
     const promotedKey  = leftSib().keys.pop();
     const separatorKey = parent().keys[sepIdx];
     parent().keys[sepIdx] = promotedKey;
@@ -381,7 +367,7 @@ function fixUnderflow(ws, parentId, childIdx, emit, t) {
 
   } else if (canBorrowRight) {
     const rightSib = () => ws.nodes[rightSibId];
-    const sepIdx = childIdx; // separator between child and right sibling
+    const sepIdx = childIdx; // separator mabeen el child wl right sibling
 
     emit({
       action:     ACTIONS.FIX_CHOOSE_STRATEGY,
@@ -460,8 +446,8 @@ function fixUnderflow(ws, parentId, childIdx, emit, t) {
     }
 
   } else {
-    // Neither sibling can spare a key --, merge with one of them.
-    // Prefer merging with left sibling when available.
+
+    // mafeesh ay sibling ye2dar yeb2a source fe borrow, lazm n merge. law fe left sibling, n merge ma3ah, law mafesh left sibling bas fe right sibling, n merge ma3ah. el merge da by merge el child da ma3 wa7ed mn el siblings, w by pull separator down w by absorb keys w by rehome children law internal, w ba3dein by delete el separator wl sibling el merged from mn el parent, w ba3dein by emit steps accordingly.
     if (leftSibId) {
       mergeNodes(ws, parentId, childIdx - 1, emit, t); // merge left sib with child
     } else {
@@ -470,9 +456,8 @@ function fixUnderflow(ws, parentId, childIdx, emit, t) {
   }
 }
 
-// Merges parent.children[leftIdx] and parent.children[leftIdx+1] around
-// parent.keys[leftIdx]. The right node is absorbed into the left node,
-// then removed. Parent loses one key and one child pointer.
+
+// merge el parent key w el right sibling ma3 el left sibling, w ba3dein delete el right sibling w el separator mn el parent, w ba3dein emit steps accordingly.
 function mergeNodes(ws, parentId, leftIdx, emit, t) {
   const parent   = () => ws.nodes[parentId];
   const leftId   = parent().children[leftIdx];
@@ -586,7 +571,7 @@ function mergeNodes(ws, parentId, leftIdx, emit, t) {
     meta: { phase: 'unwind', mergeLeft: leftId, mergeRight: rightId },
   });
 
-  // Update parent: remove separator key and right child pointer
+  // update el parent, sheel el separator key wl right child pointer
   parent().keys.splice(leftIdx, 1);
   parent().children.splice(leftIdx + 1, 1);
 

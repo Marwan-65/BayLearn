@@ -1,41 +1,9 @@
-/**
- * SCHEMA / DATA LAYER
- *
- * Defines the shape of every data structure used by the visualizer.
- * Nothing in this file knows about rendering, animation, or operations.
- * It only defines what things ARE, not what they do.
- *
- * Key structures:
- *   Node       --, a single linked list node
- *   ListState  --, a full snapshot of the list at a moment in time
- *   Step       --, one animation frame: a state + rich metadata for the narrative layer
- *   Highlight  --, visual annotation for a node or pointer
- */
 
-// ─── Node ────────────────────────────────────────────────────────────────────
-
-/**
- * Creates a single linked list node.
- *
- * @param {string}      id    - Stable unique identifier (e.g. "n1", "n2")
- * @param {*}           value - The data payload (number, string, etc.)
- * @param {string|null} next  - ID of the next node, or null
- * @returns {Node}
- */
 export function createNode(id, value, next = null) {
   return { id, value, next };
 }
 
-// ─── List State ──────────────────────────────────────────────────────────────
 
-/**
- * Creates a new, empty list state.
- *
- * The state is a plain serialisable object --, no classes, no methods.
- * _nextId is an internal counter; the animation layer should never display it.
- *
- * @returns {ListState}
- */
 export function createList() {
   return {
     nodes: {},   // { [id: string]: Node }  --, all nodes keyed by ID
@@ -45,14 +13,7 @@ export function createList() {
   };
 }
 
-/**
- * Builds a list state directly from an array of values.
- * Useful for test setup or seeding the visualizer from a data source.
- * This does NOT produce animation steps --, it is a one-shot constructor.
- *
- * @param {*[]} values
- * @returns {ListState}
- */
+
 export function fromArray(values) {
   if (!Array.isArray(values) || values.length === 0) return createList();
 
@@ -70,16 +31,7 @@ export function fromArray(values) {
   return list;
 }
 
-// ─── List State Accessors ────────────────────────────────────────────────────
-// Pure read-only helpers. None of these mutate the list.
 
-/**
- * Returns node IDs in traversal order (head → tail).
- * Includes a cycle guard so it is safe to call on malformed states.
- *
- * @param {ListState} list
- * @returns {string[]}
- */
 export function getOrderedIds(list) {
   if (list._orderedIds) {
     return list._orderedIds;
@@ -99,34 +51,18 @@ export function getOrderedIds(list) {
   return ids;
 }
 
-/**
- * Returns the values of all nodes in traversal order.
- *
- * @param {ListState} list
- * @returns {*[]}
- */
+
 export function toArray(list) {
   return getOrderedIds(list).map(id => list.nodes[id].value);
 }
 
-/**
- * Returns the ID of the tail node, or null if the list is empty.
- *
- * @param {ListState} list
- * @returns {string|null}
- */
+
 export function getTailId(list) {
   const ids = getOrderedIds(list);
   return ids.length > 0 ? ids[ids.length - 1] : null;
 }
 
-/**
- * Returns the node at a given 0-based index, or null if out of bounds.
- *
- * @param {ListState} list
- * @param {number}    index
- * @returns {Node|null}
- */
+
 export function getNodeAtIndex(list, index) {
   if (index < 0) return null;
   const ids = getOrderedIds(list);
@@ -134,27 +70,13 @@ export function getNodeAtIndex(list, index) {
   return id ? list.nodes[id] : null;
 }
 
-/**
- * Returns the index (0-based) of the first node with the given value,
- * or -1 if not found.
- *
- * @param {ListState} list
- * @param {*}         value
- * @returns {number}
- */
+
 export function indexOfValue(list, value) {
   const ids = getOrderedIds(list);
   return ids.findIndex(id => list.nodes[id].value === value);
 }
 
-// ─── Validation ──────────────────────────────────────────────────────────────
 
-/**
- * Validates a list state. Useful for debugging the operation layer.
- *
- * @param {ListState} list
- * @returns {{ valid: boolean, errors: string[] }}
- */
 export function validateList(list) {
   const errors = [];
 
@@ -183,16 +105,6 @@ export function validateList(list) {
   return { valid: errors.length === 0, errors };
 }
 
-// ─── Highlight Role Constants ─────────────────────────────────────────────────
-//
-// These string constants are the shared vocabulary between the operation layer
-// and the animation/theme layers. The operation layer EMITS them; the animation
-// layer READS them to decide colours, glows, etc.
-//
-// The theme module will map each role to a specific colour, but that mapping
-// lives in the animation layer, not here.
-
-/** Visual roles for nodes */
 export const NODE_ROLES = Object.freeze({
   DEFAULT:   'default',   // neutral, no special meaning
   HEAD:      'head',      // the head node
@@ -207,7 +119,6 @@ export const NODE_ROLES = Object.freeze({
   NEW:       'new',       // freshly created, not yet linked
 });
 
-/** Visual roles for pointer arrows between nodes */
 export const POINTER_ROLES = Object.freeze({
   DEFAULT:    'default',    // normal next-pointer
   TRAVERSING: 'traversing', // pointer being actively followed
@@ -216,11 +127,6 @@ export const POINTER_ROLES = Object.freeze({
   BREAKING:   'breaking',   // pointer being severed/nulled
 });
 
-// ─── Step Action Constants ────────────────────────────────────────────────────
-//
-// Machine-readable identifiers for what just happened in a step.
-// The narrative layer can use these to decide UI behaviour beyond the
-// explanation string (e.g. trigger a special animation, play a sound, etc.)
 
 export const ACTIONS = Object.freeze({
   // General

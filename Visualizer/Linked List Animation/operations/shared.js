@@ -1,63 +1,21 @@
-/**
- * OPERATIONS / SHARED UTILITIES
- *
- * Helpers used by every operation module.
- * Nothing here is exported from the public API --, it is internal plumbing.
- */
+// da shared internal file mafeesh 7aga bt get exported lbarra el module
 
-// ─── State Cloning ────────────────────────────────────────────────────────────
-
-/**
- * Deep-clones a list state.
- *
- * Each Step stores a snapshot of the list at that moment. We clone via
- * JSON round-trip because list states only contain plain serialisable values
- * (strings, numbers, nulls, plain objects). This keeps the implementation
- * simple and avoids accidental shared references between steps.
- *
- * @param {ListState} state
- * @returns {ListState}
- */
+//this is how we clone a json object
+//json parse first turns the object to a string, and then stringify turns it back into an object, but with a new reference in memory
+//we do this so when we create a step it is frozen and will not be affected by any changes we make to the state
 export function cloneState(state) {
   return JSON.parse(JSON.stringify(state));
 }
 
-// ─── ID Generation ────────────────────────────────────────────────────────────
-
-/**
- * Generates the next available node ID and increments the counter.
- * Mutates list._nextId --, call this on your working copy, not the original.
- *
- * @param {ListState} list  (working copy)
- * @returns {string}        e.g. "n3"
- */
+//generate le next available node id w zawed el counter, by mutate el list._nextId, fa et2aked enak btest5dem el working copy m4 el original
 export function generateId(list) {
   const id = `n${list._nextId}`;
   list._nextId += 1;
   return id;
 }
 
-// ─── Step Builder ─────────────────────────────────────────────────────────────
 
-/**
- * Builds a single animation step.
- *
- * The state is deep-cloned internally so the caller can keep mutating their
- * working copy between steps without corrupting earlier snapshots.
- *
- * @param {object} params
- * @param {number}          params.stepIndex        - Ordinal position in the steps array
- * @param {ListState}       params.state            - Working list state (will be cloned)
- * @param {string}          params.action           - Machine-readable action type (from ACTIONS)
- * @param {string}          params.explanation      - Human-readable explanation for the student
- * @param {NodeHighlight[]} [params.nodeHighlights]     - Which nodes to highlight and how
- * @param {PointerHighlight[]} [params.pointerHighlights] - Which pointers to highlight and how
- * @param {object}          [params.variables]      - Named pointer snapshot { name: nodeId|null }
- * @param {number|null}     [params.pseudocodeLine] - 0-based index into the operation's PSEUDOCODE array
- * @param {boolean}         [params.isKeyStep]      - true = conceptually important (shown in fast-forward mode)
- *
- * @returns {Step}
- */
+//by return step object, which includes a deep-cloned snapshot of the state, za2ed el metadata about what to highlight and how to explain the step.
 export function createStep({
   stepIndex,
   state,

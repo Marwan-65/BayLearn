@@ -1,28 +1,3 @@
-/**
- * APP.JS --, WIRING LOGIC
- *
- * This file is the only place in the entire codebase where all three layers
- * (Animation, Narrative, Playback) are imported and connected together.
- *
- * Its job is narrow: parse the user's input, build the step sequence,
- * instantiate the controller, and wire the two layers to it.
- *
- * It contains NO rendering logic, NO animation logic, NO narrative logic.
- * If any of those things change, this file does not need to change.
- *
- * ─── File location ────────────────────────────────────────────────────────
- * This file lives at the PROJECT ROOT, alongside index.html.
- *
- *   linked-list-core/
- *     index.html          ← HTML shell
- *     app.js              ← YOU ARE HERE
- *     index.js            ← public core barrel
- *     schema/
- *     operations/
- *     playback/
- *     animation/
- *     narrative/
- */
 
 import {
   fromArray,
@@ -38,9 +13,6 @@ import { PlaybackController } from './playback/PlaybackController.js';
 import { AnimationLayer }     from './animation/Animationlayer.js';
 import { NarrativeLayer }     from './narrative/NarrativeLayer.js';
 
-// ─── Module-level singletons ──────────────────────────────────────────────────
-// AnimationLayer and NarrativeLayer are created ONCE at startup and reused
-// across all operations. Only the PlaybackController is recreated per operation.
 
 let animLayer  = null;
 let narrLayer  = null;
@@ -53,7 +25,6 @@ let scenarioWorkingListText = null;
 
 const SCENARIO_FILE = './linked-list-sequence.json';
 
-// ─── Operation dispatcher ─────────────────────────────────────────────────────
 
 const OPS_NEEDING_VALUE = new Set([
   'insertAtHead', 'insertAtTail', 'insertAtIndex',
@@ -61,16 +32,7 @@ const OPS_NEEDING_VALUE = new Set([
 ]);
 const OPS_NEEDING_INDEX = new Set(['insertAtIndex', 'deleteAtIndex']);
 
-/**
- * Map an operation key + parameters to the correct operation function call.
- * Returns a Step[] array. Pure --, no side effects.
- *
- * @param {string}    op
- * @param {ListState} list
- * @param {*}         value   numeric or string value param
- * @param {number}    index   numeric index param
- * @returns {Step[]}
- */
+
 function buildSteps(op, list, value, index) {
   const dispatch = {
     traverse:      () => traverse(list),
@@ -87,13 +49,17 @@ function buildSteps(op, list, value, index) {
   return dispatch[op]?.() ?? [];
 }
 
-// ─── Core run function ────────────────────────────────────────────────────────
 
-/**
- * Called every time the user clicks "Run".
- * Reads the current UI state, builds a step sequence, and starts playback.
- */
 function runOperation() {
+  if (scenario && scenarioIndex < scenario.operations.length) {
+    applyScenarioStep(scenario.operations[scenarioIndex]);
+  }
+  if (scenario && scenarioWorkingList) {
+    const listText = toArray(scenarioWorkingList).join(', ');
+    document.getElementById('input-list').value = listText;
+    scenarioWorkingListText = listText;
+  }
+
   // 1. Parse inputs
   const rawList = document.getElementById('input-list').value;
   const values  = rawList
@@ -115,22 +81,17 @@ function runOperation() {
   })();
   const index = Number(document.getElementById('param-index').value);
 
-  // 2. Build the step sequence (pure data, no rendering)
   const steps = buildSteps(op, list, value, index);
   if (!steps.length) return;
 
-  // In scenario mode, treat the resulting list as the next input seed.
   syncScenarioAfterRun(steps);
 
-  // 3. Pre-flight: load the correct pseudocode + complexity into the narrative
-  //    layer BEFORE the controller fires its first event.
+
   narrLayer.loadOperation(op);
 
-  // 4. Destroy the old controller to stop any running timers and clear
-  //    old event listeners. Skipping this would double-fire events.
+
   if (controller) controller.destroy();
 
-  // Reset animation history so the next operation is rendered as a fresh run.
   if (animLayer) animLayer._prev = null;
 
   controller = new PlaybackController(steps, {
@@ -138,8 +99,7 @@ function runOperation() {
     pauseOnKeySteps:  true,
   });
 
-  // 5. Wire the two layers to the controller.
-  //    Each layer receives the same Step object; they read different fields.
+
   controller.on('frame',     step => animLayer.render(step));
   controller.on('narrative', step => narrLayer.update(step));
   controller.on('statusChange', updatePlaybackUI);
@@ -150,13 +110,11 @@ function runOperation() {
     progress:     1,
   }));
 
-  // 6. Render the first frame immediately --, before the user presses play.
-  //    Without this the canvas is blank on load.
+
   animLayer.render(steps[0]);
   narrLayer.update(steps[0]);
   resetView(steps[0].state);
 
-  // 7. Sync the playback UI chrome (progress bar, step counter, play button)
   updatePlaybackUI({
     status:       'idle',
     currentIndex: 0,
@@ -198,15 +156,9 @@ function syncScenarioAfterRun(steps) {
 
   const lastStep = steps[steps.length - 1];
   scenarioWorkingList = lastStep.state;
-  const nextList = toArray(lastStep.state);
-  const nextListText = nextList.join(', ');
-  document.getElementById('input-list').value = nextListText;
-  scenarioWorkingListText = nextListText;
+  scenarioWorkingListText = toArray(lastStep.state).join(', ');
 
   scenarioIndex += 1;
-  if (scenarioIndex < scenario.operations.length) {
-    applyScenarioStep(scenario.operations[scenarioIndex]);
-  }
 }
 
 function normalizeListText(text) {
@@ -237,10 +189,6 @@ async function loadScenario() {
   }
 }
 
-// ─── Playback UI chrome ───────────────────────────────────────────────────────
-// These functions update the HTML controls (progress bar, buttons, etc.)
-// They are driven by statusChange events from the controller.
-
 function updatePlaybackUI({ status, currentIndex, totalSteps, progress }) {
   document.getElementById('status-dot').className  = status;
   document.getElementById('status-text').textContent = status;
@@ -248,7 +196,6 @@ function updatePlaybackUI({ status, currentIndex, totalSteps, progress }) {
   document.getElementById('step-counter').textContent  = `${currentIndex + 1} / ${totalSteps}`;
   document.getElementById('btn-play').textContent = status === 'playing' ? '⏸' : '▶';
 
-  // Flash the key-step banner when playback auto-pauses on a key step
   const step   = controller?.currentStep;
   const banner = document.getElementById('keystep-banner');
   if (step?.isKeyStep && status === 'paused') {
@@ -275,16 +222,12 @@ function onSpeedChange(val) {
   if (controller) controller.setSpeed(speed);
 }
 
-// ─── SVG viewport reset ───────────────────────────────────────────────────────
-// Called once after loading new steps to frame all nodes in view.
 
 function resetView(state) {
-  // AnimationLayer exposes a resetView method that computes the
-  // bounding box of all nodes and sets the D3 zoom transform accordingly.
+
   if (animLayer?.resetView) animLayer.resetView(state);
 }
 
-// ─── Op-select: show/hide params ─────────────────────────────────────────────
 
 function syncParamVisibility() {
   const op = document.getElementById('op-select').value;
@@ -294,10 +237,8 @@ function syncParamVisibility() {
     OPS_NEEDING_INDEX.has(op) ? '' : 'none';
 }
 
-// ─── Bootstrap ───────────────────────────────────────────────────────────────
 
 window.addEventListener('load', async () => {
-  // Instantiate long-lived singletons
   animLayer = new AnimationLayer(
     document.getElementById('viz-svg'),
     window.d3   // D3 loaded via <script> tag in index.html, available as window.d3
@@ -310,15 +251,11 @@ window.addEventListener('load', async () => {
     varListEl:     document.getElementById('var-list'),
   });
 
-  // Attach event listeners to the HTML controls
   document.getElementById('op-select')
     .addEventListener('change', syncParamVisibility);
 
   syncParamVisibility();
 
-  // If a run_id is present in the URL, fetch the run payload from the
-  // Transform API and convert it into a local scenario object. Otherwise
-  // fall back to loading the local scenario file.
   const params = new URLSearchParams(window.location.search);
   const runId = params.get('run_id');
 
@@ -331,15 +268,13 @@ window.addEventListener('load', async () => {
         const extraction = payload.extraction;
         // Convert extraction to the visualizer scenario format if needed.
         if (extraction) {
-          // If the orchestrator already wrote the simplified visualizer
-          // schema (initialList / operations), prefer it.
+
           if (extraction.initialList || extraction.operations) {
             scenario = {
               initialList: extraction.initialList || extraction.initial_list || [],
               operations: extraction.operations || extraction.operations || [],
             };
           } else {
-            // Map from orchestrator's extraction schema to visualizer schema.
             scenario = {
               initialList: extraction.initial_list || [],
               operations: (extraction.operations || []).map(op => ({
@@ -352,31 +287,24 @@ window.addEventListener('load', async () => {
         }
       }
     } catch (e) {
-      // Ignore and fallback to local scenario
       console.warn('Failed to load run payload:', e);
     }
   }
 
   await loadScenario();
 
-  // Keep the original behavior for manual mode only.
   if (!scenario) runOperation();
   else {
-    // If scenario was loaded (from run payload or file), prefill and run once
     prefillFromScenarioStart();
     runOperation();
   }
 });
 
-// ─── Expose to HTML onclick attributes ───────────────────────────────────────
-// index.html buttons use onclick="..." which needs these on window.
-
 window.runOperation  = runOperation;
 window.scrubTo       = scrubTo;
 window.onSpeedChange = onSpeedChange;
 
-// Playback button handlers --, proxy to controller so HTML doesn't need to
-// know controller exists
+
 window.ctrlPlay        = () => controller?.togglePlay();
 window.ctrlStepFwd     = () => controller?.stepForward();
 window.ctrlStepBack    = () => controller?.stepBack();
