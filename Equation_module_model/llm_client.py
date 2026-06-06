@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import Dict, Any
 
 from groq import Groq
@@ -8,6 +9,7 @@ from dotenv import load_dotenv
 from .config import SYSTEM_PROMPT, MODEL_NAME, MODEL_TEMPERATURE
 
 # loading the environment variables
+load_dotenv(Path(__file__).resolve().parent / ".env")
 load_dotenv()
 
 

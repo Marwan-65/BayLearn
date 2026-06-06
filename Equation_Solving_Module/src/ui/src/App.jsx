@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import axios from "axios";
 import { evaluate } from "mathjs";
 import PlotlyPlot from "react-plotly.js";
@@ -87,13 +87,13 @@ export default function EquationLab() {
   const [samplePoints, setSamplePoints] = useState(150);
   const [tracePoints, setTracePoints] = useState(9);
 
-  const handleSolve = async (e) => {
-    if (e) e.preventDefault();
-    if (!input.trim()) return;
+  const runSolve = async (query) => {
+    const q = (query ?? input).trim();
+    if (!q) return;
     setIsSolving(true);
     setError(null);
     try {
-      const response = await axios.post('http://localhost:9001/run', { query: input });
+      const response = await axios.post('http://localhost:9001/run', { query: q });
       const { data } = response;
       if (data.success) {
         setSteps(data.steps || []);
@@ -110,6 +110,20 @@ export default function EquationLab() {
       setIsSolving(false);
     }
   };
+
+  const handleSolve = (e) => {
+    if (e) e.preventDefault();
+    runSolve(input);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q") || params.get("query");
+    if (q) {
+      setInput(q);
+      runSolve(q);
+    }
+  }, []);
 
   const plotData = useMemo(() => {
     if (!graphableFunctions?.length) return [];

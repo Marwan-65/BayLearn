@@ -1,0 +1,20 @@
+{
+  "initialList": [],
+  "operations": [
+    {
+      "op": "traverse",
+      "value": null,
+      "index": null
+    },
+    {
+      "op": "traverse",
+      "value": null,
+      "index": null
+    },
+    {
+      "op": "insertAtHead",
+      "value": null,
+      "index": null
+    }
+  ]
+}

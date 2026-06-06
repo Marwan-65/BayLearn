@@ -216,7 +216,7 @@ def create_session_row(user_id: str, scope_ids: str) -> str:
 
 def run_concept_extractor(file_ids: list[str], course_id: str,
                            course_name: str, user_id: str) -> None:
-    from .concept_extractor import extract_and_store
+    from app.concept_extractor import extract_and_store
     result = extract_and_store(
         file_ids=file_ids,
         course_id=course_id,

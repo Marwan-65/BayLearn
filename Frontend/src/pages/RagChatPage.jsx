@@ -5,11 +5,19 @@
 // and talks to the RAG orchestrator backend's /nlp/ask/{file_ids} endpoint.
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "highlight.js/styles/github.css";
+import "katex/dist/katex.min.css";
 
 // RAG orchestrator backend (serves /api/v1/nlp/ask/...). Adjust the port here
 // or via VITE_RAG_API_BASE to match how you run the orchestrator (see Makefile).
 const RAG_API_BASE =
   import.meta.env.VITE_RAG_API_BASE || "http://127.0.0.1:8000/api/v1";
+
+const EQUATION_UI_BASE =
+  import.meta.env.VITE_EQUATION_UI_BASE || "http://localhost:3000";
 
 async function jsonFetch(path, opts = {}) {
   const controller = new AbortController();
@@ -39,15 +47,15 @@ async function jsonFetch(path, opts = {}) {
   return data;
 }
 
-// Very small Markdown-ish renderer (bold + line breaks) so we don't add a dep.
-function renderText(text) {
-  const html = (text || "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\[Source\s+([\d,\s]+)\]/gi, '<sup style="color:#6c63ff">[$1]</sup>')
-    .replace(/\n/g, "<br/>");
-  return { __html: html };
-}
+// // Very small Markdown-ish renderer (bold + line breaks) so we don't add a dep.
+// function renderText(text) {
+//   const html = (text || "")
+//     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+//     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+//     .replace(/\[Source\s+([\d,\s]+)\]/gi, '<sup style="color:#6c63ff">[$1]</sup>')
+//     .replace(/\n/g, "<br/>");
+//   return { __html: html };
+// }
 
 export default function RagChatPage() {
   const navigate = useNavigate();
@@ -91,6 +99,8 @@ export default function RagChatPage() {
         content: d.answer || "(empty response)",
         sources: d.sources || [],
         intent: d.intent || null,
+        equationText: d.equation_text_sent || d.query || q,
+        equationResult: d.equation_result || null,
       }]);
     } catch (err) {
       setMessages((m) => [...m, {
@@ -137,7 +147,26 @@ export default function RagChatPage() {
               {m.role === "assistant" && m.intent && (
                 <span style={S.badge}>{m.intent === "equation_from_context" ? "Equation mode" : "Answering from sources"}</span>
               )}
-              <div dangerouslySetInnerHTML={renderText(m.content)} />
+              <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {m.content}
+              </ReactMarkdown>
+              {m.intent === "equation_from_context" && m.equationText && (
+                <button
+                  style={S.eqBtn}
+                  onClick={() =>
+                    window.open(
+                      `${EQUATION_UI_BASE}/?q=${encodeURIComponent(m.equationText)}`,
+                      "_blank",
+                      "noopener"
+                    )
+                  }
+                >
+                  Open in Equation Lab ↗
+                </button>
+              )}
               {m.sources && m.sources.length > 0 && (
                 <details style={S.sources}>
                   <summary style={S.sourcesSum}>{m.sources.length} source(s)</summary>
@@ -187,6 +216,7 @@ const S = {
   botBubble: { background: "#fff", color: "#1f2937", borderBottomLeftRadius: 4 },
   errBubble: { background: "#fee2e2", color: "#991b1b" },
   badge: { display: "inline-block", fontSize: 11, fontWeight: 700, color: "#6c63ff", background: "#eef", padding: "2px 8px", borderRadius: 999, marginBottom: 6 },
+  eqBtn: { display: "inline-block", marginTop: 10, padding: "8px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#0ea5e9,#38bdf8)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" },
   sources: { marginTop: 8, fontSize: 13 },
   sourcesSum: { cursor: "pointer", color: "#6c63ff", fontWeight: 600 },
   sourceItem: { marginTop: 6, padding: 8, background: "#f3f4f6", borderRadius: 8, color: "#374151", fontSize: 12 },
