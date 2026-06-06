@@ -2,14 +2,8 @@
 we need these files in the data/processed directory:
     data/processed/example_bank.jsonl              
     data/processed/example_bank_embeddings.npy     
-
-flow for retrieval:
-  - first filter by target_level only (easy/medium/hard).
-  - then rank candidates by cosine similarity to the query.
-  - then return top-K (default 3).
 """
 from __future__ import annotations
-
 import json
 import logging
 import re
@@ -17,7 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 from collections import Counter
-
+from sentence_transformers import SentenceTransformer
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -35,7 +29,6 @@ _WS_RE = re.compile(r"\s+")
 
 
 def clean_question_text(text: str) -> str:
-    """Strip exam-paper artifacts and collapse whitespace."""
     t = text or ""
     t = _MARK_RE.sub(" ", t)
     t = _ROMAN_RE.sub(" ", t)
@@ -46,11 +39,6 @@ def clean_question_text(text: str) -> str:
 
 
 def _looks_like_clean_question(q: str) -> bool:
-    """
-    Reject obvious fragments scraped mid-sentence. Real exam questions start
-    with a capital (What/Define/Describe/…); fragments like 'distributed systems.
-    Discuss…' or 'any one of the four conditions…' start lowercase.
-    """
     q = (q or "").strip()
     if len(q) < 15:
         return False
@@ -72,7 +60,6 @@ class ExampleBank:
     def __init__(self, embedding_model_name: str = EMBEDDING_MODEL_DEFAULT):
         self.entries: list[ExampleEntry] = []
         self._model_name = embedding_model_name
-        # model is loaded on first use to avoid unnecessary overhead
         self._model = None                             
         self._embeddings: Optional[np.ndarray] = None  
         self._level_idx: dict[str, np.ndarray] = {}
@@ -102,7 +89,6 @@ class ExampleBank:
             ))
         bank.entries = entries
 
-        # Load pre-computed embeddings if present, otherwise compute.
         npy_path = jsonl_path.with_name(jsonl_path.stem + "_embeddings.npy")
         if npy_path.exists():
             embs = np.load(npy_path)
@@ -123,7 +109,6 @@ class ExampleBank:
         
         bank._embeddings = embs.astype(np.float32)
 
-        # Pre-bucket indices by level for O(1) candidate selection
         levels = np.array([e.level for e in entries], dtype=object)
         for lvl in ("easy", "medium", "hard"):
             bank._level_idx[lvl] = np.where(levels == lvl)[0]
@@ -133,7 +118,6 @@ class ExampleBank:
 
     def _lazy_model(self):
         if self._model is None:
-            from sentence_transformers import SentenceTransformer
             self._model = SentenceTransformer(self._model_name)
         return self._model
 
@@ -147,22 +131,8 @@ class ExampleBank:
     def embed_query(self, text: str) -> np.ndarray:
         return self._embed_all([text])[0]
 
-    def retrieve(
-        self,
-        query_text: str,
-        target_level: str,
-        k: int = 3,
-        min_sim: float = 0.30,
-    ) -> list[ExampleEntry]:
-        """
-        Return up to `k` example questions at `target_level`, ranked by cosine
-        similarity to `query_text`. Quality gates (to avoid degrading the prompt):
-          - drop candidates below `min_sim` (don't pad with weak/off-topic ones —
-            returning fewer, or none, is better than forcing 3 bad demos);
-          - drop scraped fragments (see _looks_like_clean_question);
-          - on equal relevance, prefer cleaner on-domain `os_bank` examples.
-        May return fewer than `k` (including 0).
-        """
+    def retrieve(self,query_text: str,target_level: str,
+        k: int = 3,min_sim: float = 0.30,) -> list[ExampleEntry]:
         if not self.entries or self._embeddings is None:
             return []
         target_level = target_level.lower()
@@ -178,7 +148,7 @@ class ExampleBank:
         for i in order:
             score = float(sims[i])
             if score < min_sim:
-                break  # sorted descending — nothing better remains
+                break  # sorted descending 
             entry = self.entries[idx[i]]
             if not _looks_like_clean_question(entry.question):
                 continue

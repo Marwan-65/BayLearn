@@ -1,11 +1,11 @@
 from __future__ import annotations
-
+import torch
 import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Optional
-
+from transformers import (DistilBertForSequenceClassification,DistilBertTokenizerFast,)
 logger = logging.getLogger(__name__)
 
 BLOOM6_TO_LEVEL = {
@@ -16,7 +16,7 @@ BLOOM6_TO_LEVEL = {
     "evaluate":   "hard",
     "create":     "hard",
 }
-
+LEVELS = ("easy", "medium", "hard")
 
 @dataclass(frozen=True)
 class BloomPrediction:
@@ -26,9 +26,6 @@ class BloomPrediction:
 
 
 class BloomClassifier:
-
-    LEVELS = ("easy", "medium", "hard")
-
     def __init__(self, model, tokenizer, device, label_map: dict[str, int]):
         self.model = model
         self.tokenizer = tokenizer
@@ -41,17 +38,10 @@ class BloomClassifier:
     def load(cls, model_dir: str | Path) -> "BloomClassifier":
         model_dir = Path(model_dir)
         if not model_dir.exists():
-            logger.warning(
-                "BloomBERT weights not found at %s — running in stub mode "
-                "(no level validation will be performed).", model_dir,
-            )
+            logger.warning("BloomBERT weights not found at %s — running in stub mode "
+                "(no level validation will be performed).", model_dir,)
             return _StubBloomClassifier()
         try:
-            import torch
-            from transformers import (
-                DistilBertForSequenceClassification,
-                DistilBertTokenizerFast,
-            )
             tokenizer = DistilBertTokenizerFast.from_pretrained(str(model_dir))
             model = DistilBertForSequenceClassification.from_pretrained(str(model_dir))
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,7 +61,6 @@ class BloomClassifier:
         return self.predict_batch([text])[0]
 
     def predict_batch(self, texts: Iterable[str]) -> list[BloomPrediction]:
-        import torch
         texts = list(texts)
         if not texts:
             return []
@@ -89,8 +78,7 @@ class BloomClassifier:
             results.append(BloomPrediction(
                 level=level,
                 confidence=float(pr[p]),
-                probs={self.id_to_label[i]: float(pr[i]) for i in range(len(pr))},
-            ))
+                probs={self.id_to_label[i]: float(pr[i]) for i in range(len(pr))},))
         return results
 
 
@@ -113,6 +101,6 @@ class _StubBloomClassifier(BloomClassifier):
 
 def bloom6_to_level(bloom6: str) -> str:
     s = bloom6.lower().strip()
-    if s in ("easy", "medium", "hard"):
+    if s in LEVELS:
         return s
     return BLOOM6_TO_LEVEL.get(s, "medium")

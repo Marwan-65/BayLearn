@@ -1,6 +1,4 @@
-# Pinned versions — known-good combination. Edit only if you know why.
-# Create env:  conda create -n baylearn-qg python=3.12 && conda activate baylearn-qg
-# Install:     pip install -r requirements.txt
+
 
 # Web framework
 fastapi==0.115.5

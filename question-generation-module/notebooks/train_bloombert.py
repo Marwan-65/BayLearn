@@ -4,6 +4,8 @@ import json
 import random
 import argparse
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root, to import question_generation_model
 
 import numpy as np
 import pandas as pd
@@ -17,7 +19,7 @@ from transformers import (
 )
 from sklearn.metrics import classification_report, confusion_matrix, f1_score
 
-from _bloom_model import (
+from question_generation_model.bloom_model import (
     LABEL_TO_ID,
     ID_TO_LABEL,
     BloomDataset,

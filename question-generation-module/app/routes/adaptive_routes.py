@@ -1,33 +1,16 @@
-"""
-Adaptive agent driven quiz loop routes
-
-The RL agent drives the quiz and the student answers in the frontend
-These endpoints coordinate the two via the in memory session store
-
-POST /api/v1/questions/adaptive/{session_id}/config    frontend sets source files
-POST /api/v1/questions/adaptive/{session_id}/generate  agent requests a question
-GET  /api/v1/questions/adaptive/{session_id}/current   frontend polls for question
-GET  /api/v1/questions/adaptive/{session_id}/answer    agent long polls for result
-
-The student answer is recorded by POST /api/v1/questions/check when it carries a session_id
-"""
-
 import asyncio
 import logging
 import time
-
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse
-
 from app.models.schemas import AdaptiveConfigRequest, AdaptiveGenerateRequest
-
 logger = logging.getLogger(__name__)
 
 adaptive_router = APIRouter(prefix="/api/v1/questions/adaptive", tags=["Adaptive Loop"])
 
 @adaptive_router.post("/{session_id}/config")
 async def register_session_files(session_id: str, body: AdaptiveConfigRequest, request: Request):
-    # Frontend registers which files the agent questions come from so the agent knows the source
+    # fe registers which files the agent questions come from so the agent knows the source
     request.app.adaptive_sessions.config(
         session_id, body.file_ids, body.question_type
     )
@@ -36,7 +19,7 @@ async def register_session_files(session_id: str, body: AdaptiveConfigRequest, r
 
 @adaptive_router.post("/{session_id}/generate")
 async def adaptive_generate_question(session_id: str, body: AdaptiveGenerateRequest, request: Request):
-    # Agent asks for a question at a chosen topic and difficulty so the quiz adapts to the student
+    # agent asks for a question at a chosen topic and difficulty so the quiz adapts to the student
     store = request.app.adaptive_sessions
     cfg = store.get_config(session_id)
     if not cfg["file_ids"]:
@@ -49,8 +32,7 @@ async def adaptive_generate_question(session_id: str, body: AdaptiveGenerateRequ
     difficulty = (body.difficulty).lower()
     qtype = body.question_type 
 
-    # Multiple candidates are requested because validation may reject low quality questions
-    # 
+    # many candidates are requested because validation may reject low quality questions
     questions = []
     chunks_used = 0
     last_error = None

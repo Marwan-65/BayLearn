@@ -1,10 +1,4 @@
-"""
-LLM-as-judge: blinded pairwise comparison of baseline vs ICL question sets.
-
-Judge uses a fixed Bloom-taxonomy rubric with 6 quality dimensions + overall.
-Counterbalanced ordering cancels position bias.
-
-writes:
+"""writes:
     data/processed/llm_judge_per_cell.csv      one row per cell with the judge's verdict
     data/processed/llm_judge_summary.txt       aggregate win rates + interpretation
 
@@ -17,7 +11,6 @@ import argparse
 import csv
 import json
 import os
-import random
 import re
 import sys
 import time
@@ -41,10 +34,8 @@ GENERATIONS_CSV = ROOT / "data" / "processed" / "baseline_vs_icl_generations.csv
 OUT_PER_CELL    = ROOT / "data" / "processed" / "llm_judge_per_cell.csv"
 OUT_SUMMARY     = ROOT / "data" / "processed" / "llm_judge_summary.txt"
 
-# Import the exact chunks used during generation so the judge sees the same
-# source text behind each (chunk_id, level) cell.
 try:
-    from generate_baseline_vs_icl import TEST_CHUNKS as _GEN_CHUNKS
+    from question_generation_model.test_chunks import TEST_CHUNKS as _GEN_CHUNKS
     TEST_CHUNKS = {c["id"]: (c["topic"], c["text"]) for c in _GEN_CHUNKS}
 except Exception as _e:
     print(f"(using built-in chunk fallback: {_e})")
@@ -57,8 +48,7 @@ CRITERIA = [
     "educational_value",
     "discriminative_power",
     "bias_leakage",
-    "overall",
-]
+    "overall",]
 
 
 def parse_judge_response(text: str) -> dict | None:
@@ -82,7 +72,6 @@ def _load_fieldnames() -> list[str]:
 
 
 def _write_summary(provider: str, model_name: str) -> None:
-    """Recompute and write summary from whatever rows are already in OUT_PER_CELL."""
     if not OUT_PER_CELL.exists():
         return
     wins = {c: {"icl": 0, "baseline": 0, "tie": 0} for c in CRITERIA}
@@ -135,8 +124,7 @@ def main() -> int:
                          "Replaces those rows in the existing CSV, keeps all others.")
     args = ap.parse_args()
 
-    # Prefer JUDGE_PROVIDER over LLM_PROVIDER so generation and judging use
-    # different models by default (key design requirement of the ablation).
+
     provider = (
         args.judge_provider
         or os.environ.get("JUDGE_PROVIDER")
@@ -180,7 +168,6 @@ def main() -> int:
     end   = args.end if args.end is not None else total_cells
     cells = all_cells[start:end]
 
-    # Level filter: only judge the specified bloom levels
     filter_levels = (
         {l.strip() for l in args.filter_levels.split(",")}
         if args.filter_levels else None
@@ -195,8 +182,6 @@ def main() -> int:
         print("Nothing to judge in this range.", file=sys.stderr)
         return 1
 
-    # Append mode when resuming a previous batch; write mode (with header) for
-    # the first batch or a fresh run.
     append_mode = start > 0 and OUT_PER_CELL.exists()
     fieldnames  = _load_fieldnames()
 
@@ -241,7 +226,7 @@ def main() -> int:
             row[f"{c}_reason"] = ((v1.get(c) or {}).get("reason") or "")[:300]
         per_cell_rows.append(row)
         print(f"  [cell {global_idx}/{total_cells}] {cid}/{bloom_level}: "
-              + " ".join(f"{c}={row[f'{c}_winner']}" for c in CRITERIA))
+            + " ".join(f"{c}={row[f'{c}_winner']}" for c in CRITERIA))
         if sleep_secs > 0:
             time.sleep(sleep_secs)
 
@@ -250,7 +235,7 @@ def main() -> int:
         # Replace rows for the filtered levels, keep everything else
         with OUT_PER_CELL.open(encoding="utf-8") as f:
             kept_rows = [r for r in csv.DictReader(f)
-                         if r["bloom_level"] not in filter_levels]
+               if r["bloom_level"] not in filter_levels]
         all_out_rows = kept_rows + per_cell_rows
         with OUT_PER_CELL.open("w", newline="", encoding="utf-8") as f:
             w = csv.DictWriter(f, fieldnames=fieldnames)
@@ -270,7 +255,6 @@ def main() -> int:
         action = "Appended" if append_mode else "Wrote"
         print(f"\n{action} {len(per_cell_rows)} rows → {OUT_PER_CELL}")
 
-    # Summary always reflects the full CSV so partial runs show cumulative totals
     _write_summary(provider, model_name)
     return 0
 

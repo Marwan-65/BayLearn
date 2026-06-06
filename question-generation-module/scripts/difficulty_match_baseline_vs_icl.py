@@ -1,18 +1,4 @@
 """
-Objective difficulty-match evaluation: baseline vs ICL.
-
-ICL here is a *difficulty-control* mechanism (it shows expert exemplars at the
-requested level). The fair, judge-free way to measure its benefit is: does ICL
-produce questions whose BloomBERT-predicted level matches the requested level
-more often than baseline?
-
-This avoids the LLM-judge's position bias and its disagreement with BloomBERT's
-level definitions.
-
-Reads a generations CSV (columns: chunk_id, bloom_level, condition, question),
-runs BloomBERT on every question, and reports level-match accuracy + mean
-confidence for baseline vs icl (overall and per requested level).
-
     python scripts/difficulty_match_baseline_vs_icl.py
     python scripts/difficulty_match_baseline_vs_icl.py --csv data/processed/baseline_vs_icl_generations.csv
 """
@@ -41,7 +27,6 @@ def main():
         print("BloomBERT not available (stub). Cannot measure difficulty match.")
         return
 
-    # tallies[condition] = [matches, total, confidence_sum]
     overall = defaultdict(lambda: [0, 0, 0.0])
     per_level = defaultdict(lambda: [0, 0])  # (condition, expected_level) -> [match, total]
 
@@ -55,7 +40,6 @@ def main():
         per_level[(cond, expected)][0] += match
         per_level[(cond, expected)][1] += 1
 
-    # Discover whatever conditions are present (baseline, icl, examples_only, …)
     conditions = sorted({r["condition"] for r in rows})
 
     print(f"\nDifficulty-match (BloomBERT predicted level == requested level)")
